@@ -155,3 +155,5 @@ After first deploy:
 3. Run with WAFG members on a small (4-8 person) calendar event before bigger ones
 
 Bug? Edit the file in github, vercel auto-deploys.
+trigger redeploy with correct author
+
