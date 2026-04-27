@@ -17,13 +17,13 @@ export default function JoinForm({ session }) {
       const res = await fetch(`/api/sessions/${session.id}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ name: name.trim() }),
       });
       if (!res.ok) throw new Error(await res.text());
-      const { participantId } = await res.json();
-      // store in sessionStorage so the room page knows who we are
+      // identity is now in an HttpOnly cookie set by the server.
+      // we keep the display name in sessionStorage for UI use only.
       try {
-        window.sessionStorage.setItem(`pid:${session.id}`, participantId);
         window.sessionStorage.setItem(`pname:${session.id}`, name.trim());
       } catch {}
       router.push(`/r/${session.code}/room`);

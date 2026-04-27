@@ -1,7 +1,7 @@
 -- ============================================================================
 -- spread good chats · supabase schema
 -- run this entire file in Supabase > SQL Editor > New query > Run
--- safe to run multiple times (uses IF NOT EXISTS / CREATE OR REPLACE)
+-- safe to run multiple times (uses IF NOT EXISTS / CREATE OR REPLACE / DROP IF EXISTS)
 -- ============================================================================
 
 -- enable extensions
@@ -122,7 +122,35 @@ create index if not exists idx_captures_session on captures(session_id);
 create index if not exists idx_captures_capturer on captures(capturer_id);
 
 -- ============================================================================
--- ROW LEVEL SECURITY · keep things locked down
+-- RATE_LIMITS · sliding-window request tracking per IP/key
+-- ============================================================================
+create table if not exists rate_limits (
+  id uuid primary key default uuid_generate_v4(),
+  bucket text not null,                       -- e.g. "join:abc-123:1.2.3.4"
+  ts timestamptz default now()
+);
+create index if not exists idx_rate_limits_bucket_ts on rate_limits(bucket, ts);
+
+-- helper: count rows in bucket within last N seconds
+create or replace function public.count_rate_limit(p_bucket text, p_window_seconds int)
+returns int as $$
+  select count(*)::int
+  from rate_limits
+  where bucket = p_bucket
+    and ts > now() - (p_window_seconds || ' seconds')::interval;
+$$ language sql security definer;
+
+-- cleanup helper: deletes rate_limit rows older than 1 hour. call from cron or manually.
+create or replace function public.cleanup_rate_limits()
+returns void as $$
+  delete from rate_limits where ts < now() - interval '1 hour';
+$$ language sql security definer;
+
+-- ============================================================================
+-- ROW LEVEL SECURITY · deny-by-default
+-- service role bypasses RLS, so server-side API routes (which use service_role)
+-- still have full access. anon clients have no direct access to any table —
+-- everything goes through API routes.
 -- ============================================================================
 alter table hosts enable row level security;
 alter table sessions enable row level security;
@@ -130,43 +158,29 @@ alter table participants enable row level security;
 alter table rounds enable row level security;
 alter table pairings enable row level security;
 alter table captures enable row level security;
+alter table rate_limits enable row level security;
 
--- hosts: read self, no public read
+-- hosts: authenticated host reads self only.
 drop policy if exists "hosts read self" on hosts;
 create policy "hosts read self" on hosts
   for select using (auth.uid() = id);
 
--- sessions: hosts read+write own, anyone reads by code (anon participant flow)
+-- sessions: authenticated host can read+write own sessions only.
 drop policy if exists "sessions host all" on sessions;
 create policy "sessions host all" on sessions
   for all using (auth.uid() = host_id);
 
+-- explicitly drop the old loose policies if they exist (cleanup from earlier schema)
 drop policy if exists "sessions public read" on sessions;
-create policy "sessions public read" on sessions
-  for select using (true);  -- needed so anon participants can find session by code.
-
--- participants: anon can insert (joining a session) and read own session participants
 drop policy if exists "participants public read" on participants;
-create policy "participants public read" on participants
-  for select using (true);
-
 drop policy if exists "participants public insert" on participants;
-create policy "participants public insert" on participants
-  for insert with check (true);
-
--- rounds + pairings: public read (participants need to see who they're paired with)
 drop policy if exists "rounds public read" on rounds;
-create policy "rounds public read" on rounds for select using (true);
-
 drop policy if exists "pairings public read" on pairings;
-create policy "pairings public read" on pairings for select using (true);
-
--- captures: public insert + read (we'll filter at app level by participant id)
 drop policy if exists "captures public" on captures;
-create policy "captures public" on captures for all using (true) with check (true);
 
--- service role bypasses RLS for all our server-side mutations.
--- this is correct: server code is what creates rounds, pairings, ends sessions.
+-- intentionally no anon policies on participants / rounds / pairings / captures / rate_limits.
+-- anon clients can't read or write. server uses service_role and bypasses RLS.
+-- if you ever expose the supabase client to the browser for any of these, REVISIT THIS.
 
 -- ============================================================================
 -- HELPER VIEWS

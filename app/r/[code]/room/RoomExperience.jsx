@@ -21,40 +21,53 @@ export default function RoomExperience({ session: initialSession }) {
   const [callObject, setCallObject] = useState(null);
   const [currentRoom, setCurrentRoom] = useState(null); // { name, url, token }
 
-  // load participant identity from sessionStorage
+  // load participant name (for UI display only) from sessionStorage.
+  // the *authoritative* identity comes from the HttpOnly cookie set by /join.
+  // server reads cookie on every state poll; we get our id back from data.me.
   useEffect(() => {
     try {
-      const pid = window.sessionStorage.getItem(`pid:${initialSession.id}`);
       const pname = window.sessionStorage.getItem(`pname:${initialSession.id}`);
-      if (!pid) {
-        // bounce back to join page
+      if (!pname) {
+        // no name in storage means we never joined this session in this browser
         window.location.href = `/r/${initialSession.code}`;
         return;
       }
-      setParticipantId(pid);
-      setParticipantName(pname || 'guest');
+      setParticipantName(pname);
     } catch {}
   }, [initialSession]);
 
-  // poll session state every 2 seconds
+  // poll session state every 2 seconds. server identifies us via HttpOnly cookie.
   useEffect(() => {
-    if (!participantId) return;
     let cancelled = false;
+    let consecutiveUnauthed = 0;
     async function poll() {
       try {
-        const res = await fetch(`/api/sessions/${initialSession.id}/state?participantId=${participantId}`);
+        const res = await fetch(`/api/sessions/${initialSession.id}/state`, {
+          credentials: 'same-origin',
+        });
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
         setSession((s) => ({ ...s, ...data.session }));
         setMyAssignment(data.assignment || null);
         setParticipants(data.participants || []);
+        if (data.me?.participantId) {
+          setParticipantId(data.me.participantId);
+          consecutiveUnauthed = 0;
+        } else {
+          // server doesn't recognize us → cookie is missing or expired.
+          // bounce back to join after a couple consecutive failures.
+          consecutiveUnauthed++;
+          if (consecutiveUnauthed > 2) {
+            window.location.href = `/r/${initialSession.code}`;
+          }
+        }
       } catch {}
     }
     poll();
     const id = setInterval(poll, 2000);
     return () => { cancelled = true; clearInterval(id); };
-  }, [participantId, initialSession.id]);
+  }, [initialSession.id, initialSession.code]);
 
   // when assignment changes (new room to join), tear down old call and join new
   useEffect(() => {
@@ -266,8 +279,8 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
       await fetch(`/api/sessions/${session.id}/capture`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({
-          capturerId: window.sessionStorage.getItem(`pid:${session.id}`),
           partnerName: assignment.partnerName,
           pairingId: assignment.pairingId,
         }),

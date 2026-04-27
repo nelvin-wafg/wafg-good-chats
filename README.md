@@ -48,6 +48,7 @@ WAFG-branded video pairs, auto-rotating rounds, prompts, capture-the-connection,
    - `DAILY_API_KEY` — from daily step 3.1
    - `DAILY_DOMAIN` — from daily step 3.2
    - `NEXT_PUBLIC_APP_URL` — your vercel URL once deployed (e.g. `https://wafg-good-chats.vercel.app`), update after first deploy
+   - `SESSION_SECRET` — long random string (32+ chars) used to sign participant cookies. Generate via 1password, bitwarden, or `https://generate-secret.vercel.app/64`. Never commit the real value.
 4. Deploy. Vercel runs `npm install` and `npm run build` automatically.
 
 ### 5. supabase auth callback

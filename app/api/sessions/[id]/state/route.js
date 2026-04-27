@@ -1,21 +1,41 @@
 import { NextResponse } from 'next/server';
-import { adminClient } from '@/lib/supabase-server';
+import { cookies } from 'next/headers';
+import { adminClient, createClient } from '@/lib/supabase-server';
+import { getParticipantFromCookies } from '@/lib/participant-token';
+import { validateUuid, ValidationError } from '@/lib/validate';
 
-// GET /api/sessions/:id/state?participantId=...  — returns current session + this participant's assignment
-// also supports ?host=1  — returns all pairings for host control room
+// GET /api/sessions/:id/state
+// returns the current session state.
+// participant identity (if any) comes from the HttpOnly cookie · we never trust query params for identity.
+// query param ?host=1 enables host view (requires authenticated approved host).
 export async function GET(request, { params }) {
+  let sessionId;
+  try {
+    sessionId = validateUuid(params.id, 'session id');
+  } catch (err) {
+    if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
+    return new NextResponse('bad request', { status: 400 });
+  }
+
   const url = new URL(request.url);
-  const participantId = url.searchParams.get('participantId');
   const isHostView = url.searchParams.get('host') === '1';
 
   const admin = adminClient();
   const { data: session } = await admin
     .from('sessions')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', sessionId)
     .single();
 
   if (!session) return new NextResponse('not found', { status: 404 });
+
+  // host view requires authenticated host (and not just any host — the session's host).
+  if (isHostView) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return new NextResponse('not authenticated', { status: 401 });
+    if (session.host_id !== user.id) return new NextResponse('forbidden', { status: 403 });
+  }
 
   const { data: participants = [] } = await admin
     .from('participants')
@@ -23,9 +43,13 @@ export async function GET(request, { params }) {
     .eq('session_id', session.id)
     .order('joined_at', { ascending: true });
 
+  // identify the calling participant (if any) from the cookie.
+  const cookieStore = cookies();
+  const me = getParticipantFromCookies(cookieStore, sessionId);
+  const participantId = me?.participantId || null;
+
   let assignment = null;
   if (participantId && session.status === 'running_round') {
-    // find current pairing for this participant
     const { data: pairings = [] } = await admin
       .from('pairings')
       .select('id, participant_a_id, participant_b_id, room_name, room_label, round_id, rounds!inner(round_number, prompt_text, started_at)')
@@ -86,5 +110,6 @@ export async function GET(request, { params }) {
     participants,
     assignment,
     pairings,
+    me: participantId ? { participantId } : null,
   });
 }
