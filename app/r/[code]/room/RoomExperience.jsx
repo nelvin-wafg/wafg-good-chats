@@ -4,31 +4,29 @@ import { DailyProvider, useDaily, useParticipantIds, useLocalSessionId } from '@
 import DailyIframe from '@daily-co/daily-js';
 import { colorForName, initials } from '@/lib/brand';
 
-// the heart of the participant experience.
-// state machine: lobby -> main_room -> splitting -> pair_room -> returning -> main_room -> ... -> ended
+// participant experience.
+// state machine: lobby → main_room → splitting → pair_room → returning → main_room → ... → ended
+// participant is in the main daily.co room whenever they're in the "with everyone" state,
+// and switches to a pair daily.co room during rounds.
 //
 // session state from the server drives this; we poll every 2s.
-// when state says "running_round", we join our pair room. when it changes to "between_rounds" or "live", we go back to main.
 
 export default function RoomExperience({ session: initialSession }) {
   const [participantId, setParticipantId] = useState(null);
   const [participantName, setParticipantName] = useState(null);
   const [session, setSession] = useState(initialSession);
-  const [myAssignment, setMyAssignment] = useState(null); // { roomName, partnerName, prompt, secondsRemaining }
+  const [myAssignment, setMyAssignment] = useState(null);
   const [participants, setParticipants] = useState([]);
-  const [transition, setTransition] = useState(null); // null | "splitting" | "returning"
+  const [transition, setTransition] = useState(null); // null | "splitting"
   const [transitionCountdown, setTransitionCountdown] = useState(0);
   const [callObject, setCallObject] = useState(null);
-  const [currentRoom, setCurrentRoom] = useState(null); // { name, url, token }
+  const [currentRoom, setCurrentRoom] = useState(null); // { name, isPair }
 
-  // load participant name (for UI display only) from sessionStorage.
-  // the *authoritative* identity comes from the HttpOnly cookie set by /join.
-  // server reads cookie on every state poll; we get our id back from data.me.
+  // load participant name (UI only). authoritative identity is HttpOnly cookie.
   useEffect(() => {
     try {
       const pname = window.sessionStorage.getItem(`pname:${initialSession.id}`);
       if (!pname) {
-        // no name in storage means we never joined this session in this browser
         window.location.href = `/r/${initialSession.code}`;
         return;
       }
@@ -36,15 +34,13 @@ export default function RoomExperience({ session: initialSession }) {
     } catch {}
   }, [initialSession]);
 
-  // poll session state every 2 seconds. server identifies us via HttpOnly cookie.
+  // poll session state every 2 seconds. server identifies us via cookie.
   useEffect(() => {
     let cancelled = false;
     let consecutiveUnauthed = 0;
     async function poll() {
       try {
-        const res = await fetch(`/api/sessions/${initialSession.id}/state`, {
-          credentials: 'same-origin',
-        });
+        const res = await fetch(`/api/sessions/${initialSession.id}/state`, { credentials: 'same-origin' });
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
@@ -55,8 +51,6 @@ export default function RoomExperience({ session: initialSession }) {
           setParticipantId(data.me.participantId);
           consecutiveUnauthed = 0;
         } else {
-          // server doesn't recognize us → cookie is missing or expired.
-          // bounce back to join after a couple consecutive failures.
           consecutiveUnauthed++;
           if (consecutiveUnauthed > 2) {
             window.location.href = `/r/${initialSession.code}`;
@@ -69,12 +63,28 @@ export default function RoomExperience({ session: initialSession }) {
     return () => { cancelled = true; clearInterval(id); };
   }, [initialSession.id, initialSession.code]);
 
-  // when assignment changes (new room to join), tear down old call and join new
+  // figure out which daily room the participant should be in right now.
+  // - in a pair room when we have an assignment with a roomName
+  // - in the main room any other time the session is active
+  // - no room when ended/draft
+  const targetRoom = (() => {
+    if (!participantName) return null;
+    if (session.status === 'ended' || session.status === 'draft') return null;
+    if (myAssignment?.roomName) {
+      return { name: myAssignment.roomName, isPair: true, label: myAssignment.roomLabel };
+    }
+    if (session.main_room_name) {
+      return { name: session.main_room_name, isPair: false, label: 'main room' };
+    }
+    return null;
+  })();
+  const targetName = targetRoom?.name || null;
+
+  // call lifecycle: join targetRoom, leave when it changes / unmounts.
   useEffect(() => {
     let mounted = true;
-    async function joinRoom() {
-      if (!myAssignment?.roomName || !participantName) {
-        // we're not assigned to anything → in main room or waiting
+    async function manageCall() {
+      if (!targetRoom) {
         if (callObject) {
           await callObject.leave().catch(() => {});
           callObject.destroy();
@@ -83,22 +93,21 @@ export default function RoomExperience({ session: initialSession }) {
         }
         return;
       }
-      // already in this room?
-      if (currentRoom?.name === myAssignment.roomName) return;
+      if (currentRoom?.name === targetRoom.name) return; // already there
 
       // get token
-      const tokenRes = await fetch(`/api/daily/token`, {
+      const tokenRes = await fetch('/api/daily/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({
-          roomName: myAssignment.roomName,
+          roomName: targetRoom.name,
           userName: participantName,
           isOwner: false,
         }),
       });
       if (!tokenRes.ok) return;
       const { token, url } = await tokenRes.json();
-
       if (!mounted) return;
 
       // tear down old call
@@ -107,18 +116,14 @@ export default function RoomExperience({ session: initialSession }) {
         callObject.destroy();
       }
 
-      // create new call object
-      const co = DailyIframe.createCallObject({
-        videoSource: true,
-        audioSource: true,
-      });
+      const co = DailyIframe.createCallObject({ videoSource: true, audioSource: true });
       await co.join({ url, token });
       if (!mounted) { co.destroy(); return; }
       setCallObject(co);
-      setCurrentRoom({ name: myAssignment.roomName, url, token });
+      setCurrentRoom({ name: targetRoom.name, isPair: targetRoom.isPair });
 
-      // brief "splitting" transition when entering a pair room
-      if (session.status === 'running_round') {
+      // brief "splitting" transition only when entering a pair room
+      if (targetRoom.isPair && session.status === 'running_round') {
         setTransition('splitting');
         let n = 3;
         setTransitionCountdown(n);
@@ -133,11 +138,11 @@ export default function RoomExperience({ session: initialSession }) {
         }, 1000);
       }
     }
-    joinRoom();
+    manageCall();
     return () => { mounted = false; };
-  }, [myAssignment, participantName, session.status]); // eslint-disable-line
+  }, [targetName, participantName]); // eslint-disable-line
 
-  // cleanup
+  // cleanup on unmount
   useEffect(() => {
     return () => {
       if (callObject) {
@@ -147,18 +152,14 @@ export default function RoomExperience({ session: initialSession }) {
     };
   }, [callObject]);
 
-  // ENDED state
+  // ── render branches ──
+
   if (session.status === 'ended') {
     return <EndedView session={session} />;
   }
 
-  // LATE JOINER state: session is running rounds but we have no assignment yet
-  if (session.status === 'running_round' && !myAssignment) {
-    return <LateJoinerView session={session} participants={participants} myName={participantName} />;
-  }
-
-  // we're in a pair room
-  if (myAssignment?.roomName && callObject) {
+  // pair room
+  if (callObject && currentRoom?.isPair && myAssignment) {
     return (
       <DailyProvider callObject={callObject}>
         <PairRoomView
@@ -172,14 +173,39 @@ export default function RoomExperience({ session: initialSession }) {
     );
   }
 
-  // default: main room (lobby pre-session, or between rounds)
-  return <MainRoomView session={session} participants={participants} myName={participantName} myId={participantId} />;
+  // main room (with live video)
+  if (callObject && !currentRoom?.isPair) {
+    return (
+      <DailyProvider callObject={callObject}>
+        <MainRoomView
+          session={session}
+          participants={participants}
+          myName={participantName}
+          myId={participantId}
+          isLateJoiner={session.status === 'running_round'}
+          withVideo
+        />
+      </DailyProvider>
+    );
+  }
+
+  // fallback: static main room (joining/loading or draft)
+  return (
+    <MainRoomView
+      session={session}
+      participants={participants}
+      myName={participantName}
+      myId={participantId}
+      isLateJoiner={session.status === 'running_round'}
+      withVideo={false}
+    />
+  );
 }
 
 // ============================================================================
-// MAIN ROOM VIEW
+// MAIN ROOM VIEW · works both with and without daily video
 // ============================================================================
-function MainRoomView({ session, participants, myName, myId }) {
+function MainRoomView({ session, participants, myName, myId, isLateJoiner, withVideo }) {
   const liveCount = participants.filter((p) => p.is_present).length;
   const isPreSession = session.status === 'live' || session.status === 'draft';
 
@@ -194,35 +220,49 @@ function MainRoomView({ session, participants, myName, myId }) {
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr,360px]">
+      {isLateJoiner && (
+        <div className="px-6 py-2 text-center text-[11px] uppercase tracking-widest font-bold" style={{ background: 'rgba(1,236,243,0.15)', color: '#01ecf3' }}>
+          * rounds in progress · you'll be folded in at the next reshuffle *
+        </div>
+      )}
 
-        {/* gallery */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr,360px] overflow-hidden">
+
+        {/* gallery (video or static) */}
         <div className="p-6 overflow-y-auto">
-          <div className="text-xs uppercase tracking-widest text-neutral-500 mb-2 font-semibold">main room · everyone together</div>
+          <div className="text-xs uppercase tracking-widest text-neutral-500 mb-2 font-semibold">
+            main room · everyone together
+          </div>
           <div className="display text-3xl mb-6">
-            {isPreSession ? <>welcome in.<br/>we'll start together.</> : <>between rounds.<br/>nice work.</>}
+            {isPreSession
+              ? <>welcome in.<br/>we'll start together.</>
+              : isLateJoiner
+                ? <>hang tight.<br/>next round picks you up.</>
+                : <>between rounds.<br/>nice work.</>}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {participants.map((p) => (
-              <ParticipantTile key={p.id} name={p.name} isHost={p.metadata?.isHost} isMe={p.id === myId} />
-            ))}
-            {participants.length === 0 && (
-              <div className="col-span-full text-neutral-500 italic text-sm">[just you so far · others on the way]</div>
-            )}
-          </div>
+
+          {withVideo
+            ? <MainRoomVideoGallery />
+            : <MainRoomStaticGallery participants={participants} myId={myId} />}
         </div>
 
         {/* right rail */}
         <aside className="bg-neutral-950 border-l border-neutral-800 p-6 flex flex-col gap-4">
           <div className="rounded-md p-5" style={{ background: '#01ecf3', color: '#000' }}>
             <div className="text-[10px] uppercase tracking-widest font-bold mb-2 opacity-60">
-              {isPreSession ? 'pre-session' : 'next up'}
+              {isPreSession ? 'pre-session' : isLateJoiner ? 'happening now' : 'next up'}
             </div>
             <div className="display text-2xl mb-2">
-              {isPreSession ? 'waiting for kickoff' : `round ${session.current_round + 1} of ${session.rounds_total}`}
+              {isPreSession
+                ? 'waiting for kickoff'
+                : isLateJoiner
+                  ? `round ${session.current_round} of ${session.rounds_total}`
+                  : `round ${session.current_round + 1} of ${session.rounds_total}`}
             </div>
             <p className="text-sm">
-              [the host will start things off · 5 min per round · you'll get auto-paired]
+              {isLateJoiner
+                ? '[others are paired up in breakouts · you\'ll join the next shuffle]'
+                : '[the host will kick things off · you\'ll get auto-paired]'}
             </p>
           </div>
 
@@ -238,21 +278,58 @@ function MainRoomView({ session, participants, myName, myId }) {
 
       </div>
 
-      <footer className="border-t border-neutral-800 px-6 py-3 flex items-center justify-between">
-        <div className="text-xs text-neutral-500">main room · everyone together</div>
-        <button
-          onClick={() => { if (confirm('leave this session?')) window.location.href = '/'; }}
-          className="text-sm border border-red-500 text-red-400 px-4 py-2 rounded font-semibold hover:bg-red-500 hover:text-white"
-        >
-          leave
-        </button>
-      </footer>
+      {withVideo && <ParticipantControlBar />}
+
+      {!withVideo && (
+        <footer className="border-t border-neutral-800 px-6 py-3 flex items-center justify-between">
+          <div className="text-xs text-neutral-500">main room · everyone together</div>
+          <button
+            onClick={() => { if (confirm('leave this session?')) window.location.href = '/'; }}
+            className="text-sm border border-red-500 text-red-400 px-4 py-2 rounded font-semibold hover:bg-red-500 hover:text-white"
+          >
+            leave
+          </button>
+        </footer>
+      )}
     </main>
   );
 }
 
+// daily-aware video gallery for main room
+function MainRoomVideoGallery() {
+  const localId = useLocalSessionId();
+  const remoteIds = useParticipantIds({ filter: 'remote' });
+  const ids = [localId, ...remoteIds].filter(Boolean);
+
+  if (ids.length === 0) {
+    return <div className="text-neutral-500 italic text-sm">[connecting to the main room...]</div>;
+  }
+
+  return (
+    <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+      {ids.map((id) => (
+        <DailyVideoTile key={id} sessionId={id} isLocal={id === localId} />
+      ))}
+    </div>
+  );
+}
+
+// fallback static avatar gallery
+function MainRoomStaticGallery({ participants, myId }) {
+  if (participants.length === 0) {
+    return <div className="text-neutral-500 italic text-sm">[just you so far · others on the way]</div>;
+  }
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      {participants.map((p) => (
+        <ParticipantTile key={p.id} name={p.name} isMe={p.id === myId} />
+      ))}
+    </div>
+  );
+}
+
 // ============================================================================
-// PAIR ROOM VIEW
+// PAIR ROOM VIEW (mostly unchanged from prior version)
 // ============================================================================
 function PairRoomView({ assignment, session, myName, transition, transitionCountdown }) {
   const daily = useDaily();
@@ -291,7 +368,6 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
 
   return (
     <main className="min-h-screen flex flex-col text-white" style={{ background: '#000' }}>
-      {/* top bar */}
       <header className="flex items-center justify-between px-6 py-3 border-b border-neutral-800">
         <div className="flex items-center gap-3">
           <div className="display text-sm">round <span style={{ color: '#01ecf3' }}>{session.current_round}</span>/{session.rounds_total}</div>
@@ -303,7 +379,6 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
         <div className="text-xs text-neutral-400">{assignment.roomLabel}</div>
       </header>
 
-      {/* prompt + capture */}
       <div className="px-6 py-4 border-b border-neutral-800 flex items-center justify-between gap-4" style={{ background: 'rgba(1,236,243,0.05)' }}>
         <div className="flex-1">
           <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>this round's prompt</div>
@@ -318,11 +393,10 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
         </button>
       </div>
 
-      {/* video tiles */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 p-4">
-        <VideoTile sessionId={localId} name={myName} isLocal />
+        <DailyVideoTile sessionId={localId} isLocal nameOverride={myName} />
         {remoteIds.length > 0 ? (
-          <VideoTile sessionId={remoteIds[0]} name={assignment.partnerName} cyan />
+          <DailyVideoTile sessionId={remoteIds[0]} cyan nameOverride={assignment.partnerName} />
         ) : (
           <div className="rounded-md bg-neutral-900 border-2 border-dashed border-neutral-700 flex items-center justify-center">
             <div className="text-center">
@@ -333,64 +407,123 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
         )}
       </div>
 
-      {/* bottom controls */}
-      <footer className="border-t border-neutral-800 px-6 py-3 flex items-center justify-center gap-3">
-        <ControlButton onClick={() => daily?.setLocalAudio(!daily?.localAudio())} label="mic" />
-        <ControlButton onClick={() => daily?.setLocalVideo(!daily?.localVideo())} label="cam" />
-      </footer>
+      <ParticipantControlBar />
     </main>
   );
 }
 
-function VideoTile({ sessionId, name, isLocal, cyan }) {
+// ============================================================================
+// shared video tile component used by both pair room and main room
+// ============================================================================
+function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride }) {
   const ref = useRef();
   const daily = useDaily();
+  const [name, setName] = useState(nameOverride || (isLocal ? 'you' : ''));
+  const [hasVideo, setHasVideo] = useState(false);
+
   useEffect(() => {
     if (!daily || !ref.current) return;
     const update = () => {
       const p = daily.participants()[sessionId];
       if (!p) return;
-      const stream = p.tracks?.video?.persistentTrack;
-      if (stream) {
-        ref.current.srcObject = new MediaStream([stream]);
+      const userName = nameOverride || p.user_name || (isLocal ? 'you' : 'guest');
+      setName(userName);
+      const track = p.tracks?.video?.persistentTrack;
+      if (track) {
+        ref.current.srcObject = new MediaStream([track]);
+        setHasVideo(true);
+      } else {
+        setHasVideo(false);
       }
     };
     update();
     daily.on('participant-updated', update);
     daily.on('track-started', update);
+    daily.on('track-stopped', update);
     return () => {
       daily.off('participant-updated', update);
       daily.off('track-started', update);
+      daily.off('track-stopped', update);
     };
-  }, [daily, sessionId]);
+  }, [daily, sessionId, isLocal, nameOverride]);
 
-  const borderClass = cyan ? 'border-2' : 'border';
-  const borderStyle = cyan ? { borderColor: '#01ecf3' } : { borderColor: '#262626' };
+  const isHostTile = name?.toLowerCase().startsWith('host');
+  const borderStyle = (cyan || isHostTile)
+    ? { border: '2px solid #01ecf3' }
+    : { border: '1px solid #262626' };
 
   return (
-    <div className={`relative rounded-md ${borderClass} overflow-hidden bg-neutral-900`} style={borderStyle}>
+    <div className="relative rounded-md overflow-hidden bg-neutral-900 aspect-video" style={borderStyle}>
       <video ref={ref} autoPlay playsInline muted={isLocal} className="w-full h-full object-cover" />
-      <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur px-2 py-1 rounded text-sm font-semibold">
-        {name} {isLocal && <span className="text-neutral-400 text-xs">· you</span>}
+      {!hasVideo && (
+        <div className="absolute inset-0 flex items-center justify-center" style={{ background: '#1a1a1a' }}>
+          <div
+            className="w-16 h-16 rounded-full display flex items-center justify-center text-black text-xl"
+            style={{ background: colorForName(name || '') }}
+          >
+            {initials(name || '?')}
+          </div>
+        </div>
+      )}
+      <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur px-2 py-1 rounded text-xs font-semibold">
+        {name} {isLocal && <span className="text-neutral-400">· you</span>}
       </div>
+      {isHostTile && !isLocal && (
+        <div className="absolute top-2 left-2 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded" style={{ background: '#01ecf3', color: '#000' }}>
+          host
+        </div>
+      )}
     </div>
   );
 }
 
-function ControlButton({ onClick, label }) {
+// ============================================================================
+// participant control bar (mic / cam / leave) · used wherever there's a daily call
+// ============================================================================
+function ParticipantControlBar() {
+  const daily = useDaily();
+  const [audioOn, setAudioOn] = useState(true);
+  const [videoOn, setVideoOn] = useState(true);
+
+  function toggleAudio() {
+    if (!daily) return;
+    const next = !audioOn;
+    daily.setLocalAudio(next);
+    setAudioOn(next);
+  }
+  function toggleVideo() {
+    if (!daily) return;
+    const next = !videoOn;
+    daily.setLocalVideo(next);
+    setVideoOn(next);
+  }
+
   return (
-    <button
-      onClick={onClick}
-      className="w-11 h-11 bg-neutral-800 border border-neutral-700 rounded-full hover:bg-neutral-700 text-white"
-      title={label}
-    >
-      {label === 'mic' ? '🎤' : '📹'}
-    </button>
+    <footer className="border-t border-neutral-800 px-6 py-3 flex items-center justify-center gap-3 bg-black">
+      <button
+        onClick={toggleAudio}
+        className={`px-4 py-2 rounded-full text-xs font-semibold border ${audioOn ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-red-900/30 border-red-700 text-red-300'}`}
+      >
+        {audioOn ? 'mic on' : 'mic off'}
+      </button>
+      <button
+        onClick={toggleVideo}
+        className={`px-4 py-2 rounded-full text-xs font-semibold border ${videoOn ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-red-900/30 border-red-700 text-red-300'}`}
+      >
+        {videoOn ? 'cam on' : 'cam off'}
+      </button>
+      <button
+        onClick={() => { if (confirm('leave this session?')) window.location.href = '/'; }}
+        className="px-4 py-2 rounded-full text-xs font-semibold border border-red-500 text-red-400 hover:bg-red-500 hover:text-white"
+      >
+        leave
+      </button>
+    </footer>
   );
 }
 
 // ============================================================================
-// TRANSITIONS
+// SPLITTING TRANSITION (unchanged)
 // ============================================================================
 function SplittingTransition({ partnerName, prompt, roomLabel, count, myName }) {
   return (
@@ -437,52 +570,7 @@ function SplittingTransition({ partnerName, prompt, roomLabel, count, myName }) 
 }
 
 // ============================================================================
-// LATE JOINER VIEW
-// ============================================================================
-function LateJoinerView({ session, participants, myName }) {
-  return (
-    <main className="min-h-screen flex text-white" style={{ background: 'linear-gradient(135deg,#0a0a0a 0%,#1a1a1a 100%)' }}>
-      <div className="flex-1 flex flex-col justify-center p-12">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs uppercase tracking-widest font-semibold w-fit mb-6" style={{ background: 'rgba(1,236,243,0.1)', border: '1px solid rgba(1,236,243,0.3)', color: '#01ecf3' }}>
-          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#01ecf3' }}></span>
-          rounds in progress
-        </div>
-        <div className="display text-6xl mb-4">
-          hey {myName?.split(' ')[0] || 'there'} <span style={{ color: '#01ecf3' }}>*</span><br/>perfect timing.
-        </div>
-        <p className="text-base text-neutral-400 max-w-md mb-8">
-          everyone's mid-conversation right now · round <strong style={{ color: '#01ecf3' }}>{session.current_round} of {session.rounds_total}</strong> happening in pairs. you'll get folded in at the next reshuffle.
-        </p>
-        <div className="rounded-md p-5 w-fit" style={{ background: '#01ecf3', color: '#000', border: '2px solid #000', boxShadow: '6px 6px 0 #000' }}>
-          <div className="text-[10px] uppercase tracking-widest font-bold mb-1 opacity-60">your match opens at</div>
-          <div className="display text-3xl">next round</div>
-        </div>
-        <p className="text-sm text-neutral-600 mt-8 max-w-md">
-          [we'll auto-pair you · you won't sit out longer than this round]
-        </p>
-      </div>
-
-      <aside className="w-96 bg-black/50 border-l border-neutral-800 p-6 flex flex-col gap-4">
-        <div>
-          <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 font-semibold">{participants.filter((p) => p.is_present).length} folks here</div>
-          <div className="grid grid-cols-3 gap-2">
-            {participants.filter((p) => p.is_present).slice(0, 12).map((p) => (
-              <div key={p.id} className="text-center">
-                <div className="w-12 h-12 mx-auto rounded-full display flex items-center justify-center text-black text-base" style={{ background: colorForName(p.name) }}>
-                  {initials(p.name)}
-                </div>
-                <div className="text-[10px] mt-1 text-neutral-400 truncate">{p.name?.split(' ')[0]}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </aside>
-    </main>
-  );
-}
-
-// ============================================================================
-// ENDED VIEW
+// ENDED VIEW (unchanged)
 // ============================================================================
 function EndedView({ session }) {
   return (
@@ -499,9 +587,9 @@ function EndedView({ session }) {
 }
 
 // ============================================================================
-// shared participant tile
+// shared static participant tile (for fallback no-video state)
 // ============================================================================
-function ParticipantTile({ name, isHost, isMe }) {
+function ParticipantTile({ name, isMe }) {
   return (
     <div className="relative aspect-[4/3] bg-neutral-900 border border-neutral-800 rounded-md overflow-hidden">
       <div className="absolute inset-0 flex items-center justify-center">
@@ -510,7 +598,6 @@ function ParticipantTile({ name, isHost, isMe }) {
         </div>
       </div>
       <div className="absolute bottom-1.5 left-1.5 bg-black/70 px-1.5 py-0.5 rounded text-[11px]">{name} {isMe && '· you'}</div>
-      {isHost && <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest text-black" style={{ background: '#01ecf3' }}>host</div>}
     </div>
   );
 }
