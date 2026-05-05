@@ -5,14 +5,25 @@ import { useRouter } from 'next/navigation';
 const PROMPT_LIBRARY = [
   { tag: 'opener', text: 'what brought you to the for-good world?' },
   { tag: 'opener', text: 'what are you working on that you actually love?' },
+  { tag: 'opener', text: 'what made you fall for this work in the first place?' },
+  { tag: 'opener', text: "what's a story you tell over and over about why you do this?" },
   { tag: 'deep', text: "what's a recent thing you changed your mind about?" },
   { tag: 'deep', text: "what are you doing next that scares you a little?" },
+  { tag: 'deep', text: "what's an old assumption about our sector you've outgrown?" },
+  { tag: 'deep', text: 'what does success look like to you now, versus five years ago?' },
   { tag: 'vulnerable', text: "what's been hard lately, professionally or otherwise?" },
+  { tag: 'vulnerable', text: 'what part of this job do you find lonely?' },
+  { tag: 'vulnerable', text: "what's a moment in this work that humbled you?" },
   { tag: 'story', text: 'tell me about a time someone in our sector showed up for you.' },
+  { tag: 'story', text: 'tell me about a person who taught you something about this work.' },
+  { tag: 'story', text: 'tell me about a time you got something really wrong, and what came of it.' },
   { tag: 'spicy', text: "what's a take you have about our sector that nobody asks for?" },
+  { tag: 'spicy', text: 'what is something nonprofits should stop apologizing for?' },
   { tag: 'fun', text: "if you weren't doing this work, what would you be doing?" },
   { tag: 'fun', text: "what's the best thing you've eaten this month?" },
+  { tag: 'fun', text: "what's a totally non-work thing you've been geeking out on lately?" },
   { tag: 'closer', text: 'who in this room should i meet next? why?' },
+  { tag: 'closer', text: "what's something you're trying to make happen that someone here might help with?" },
 ];
 
 function NewSessionInner() {
