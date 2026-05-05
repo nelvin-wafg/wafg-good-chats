@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DailyProvider, useDaily, useParticipantIds, useLocalSessionId } from '@daily-co/daily-react';
 import DailyIframe from '@daily-co/daily-js';
 import { colorForName, initials } from '@/lib/brand';
+import CopyLink from '@/components/CopyLink';
 
 // host's command center · runs the session AND shows up on camera in the main room.
 // host stays in the main daily.co room for the entire active session
@@ -153,7 +154,7 @@ function LiveControlInner({ session, participants, pairings, secondsLeft, busy, 
           <a href="/host" className="text-xs text-neutral-500 hover:text-white">← dashboard</a>
           <span className="text-neutral-600">·</span>
           <span className="text-sm font-semibold">{session.name}</span>
-          <span className="text-xs text-neutral-500">/r/{session.code}</span>
+          <HeaderCopyLink code={session.code} />
         </div>
         <div className="flex items-center gap-3">
           <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded ${isRunning ? 'animate-pulse' : ''}`} style={{ background: isEnded ? '#444' : '#01ecf3', color: isEnded ? '#aaa' : '#000' }}>
@@ -173,31 +174,37 @@ function LiveControlInner({ session, participants, pairings, secondsLeft, busy, 
           {/* state-specific controls bar */}
           <div className="px-6 py-4 border-b border-neutral-800">
             {session.status === 'draft' && (
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="display text-2xl">ready when you are.</div>
-                  <p className="text-sm text-neutral-400 mt-1">share <span className="font-mono" style={{ color: '#01ecf3' }}>wafg.app/r/{session.code}</span></p>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="display text-2xl">ready when you are.</div>
+                    <p className="text-sm text-neutral-400 mt-1">share the link below · then hit go live</p>
+                  </div>
+                  <button onClick={() => action('start')} disabled={busy} className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap">
+                    go live *
+                  </button>
                 </div>
-                <button onClick={() => action('start')} disabled={busy} className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap">
-                  go live *
-                </button>
+                <CopyLink code={session.code} variant="dark" label="participant link" />
               </div>
             )}
 
             {session.status === 'live' && (
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="display text-2xl">main room is open.</div>
-                  <p className="text-sm text-neutral-400 mt-1">welcome folks · kick it off when ready</p>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="display text-2xl">main room is open.</div>
+                    <p className="text-sm text-neutral-400 mt-1">welcome folks · kick it off when ready</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => action('round', { action: 'start' })} disabled={busy} className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap">
+                      kick it off *
+                    </button>
+                    <button onClick={() => { if (confirm('end this session now? this closes the room and marks the session ended.')) action('end'); }} disabled={busy} className="px-4 py-3 rounded-md border-2 border-red-500 text-red-400 hover:bg-red-500 hover:text-white font-semibold text-sm whitespace-nowrap">
+                      end session
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => action('round', { action: 'start' })} disabled={busy} className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap">
-                    kick it off *
-                  </button>
-                  <button onClick={() => { if (confirm('end this session now? this closes the room and marks the session ended.')) action('end'); }} disabled={busy} className="px-4 py-3 rounded-md border-2 border-red-500 text-red-400 hover:bg-red-500 hover:text-white font-semibold text-sm whitespace-nowrap">
-                    end session
-                  </button>
-                </div>
+                <CopyLink code={session.code} variant="dark" label="still need to share? grab the link" />
               </div>
             )}
 
@@ -458,4 +465,30 @@ function fmtTime(secs) {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+// small inline copy-link for the header bar
+function HeaderCopyLink({ code }) {
+  const [copied, setCopied] = useState(false);
+  async function copy(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const url = `${window.location.origin}/r/${code}`;
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  }
+  return (
+    <button
+      onClick={copy}
+      title="copy participant share link"
+      className="text-xs flex items-center gap-1.5 hover:text-cyan-300 transition-colors"
+      style={{ color: copied ? '#01ecf3' : '#737373' }}
+    >
+      <span className="font-mono">/r/{code}</span>
+      <span>{copied ? '✓ copied' : '· copy'}</span>
+    </button>
+  );
 }

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase-server';
+import CopyLink from '@/components/CopyLink';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,19 +44,22 @@ export default async function HostDashboard() {
 
       {/* live session */}
       {live && (
-        <Link href={`/host/s/${live.id}`} className="block mb-8 sticker rounded-md p-5 no-underline" style={{ background: '#01ecf3', color: '#000' }}>
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="mb-8 sticker rounded-md p-5" style={{ background: '#01ecf3', color: '#000' }}>
+          <div className="flex items-center justify-between mb-4 gap-4">
+            <div className="min-w-0">
               <div className="text-[10px] uppercase tracking-widest font-bold mb-1 opacity-60 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-black animate-pulse"></span>
                 live right now
               </div>
-              <div className="display text-2xl">{live.name}</div>
-              <p className="text-sm opacity-70 mt-1">round {live.current_round} of {live.rounds_total} · click to jump in</p>
+              <div className="display text-2xl truncate">{live.name}</div>
+              <p className="text-sm opacity-70 mt-1">round {live.current_round} of {live.rounds_total}</p>
             </div>
-            <div className="display text-4xl">→</div>
+            <Link href={`/host/s/${live.id}`} className="display text-2xl no-underline whitespace-nowrap" style={{ color: '#000' }}>
+              open →
+            </Link>
           </div>
-        </Link>
+          <CopyLink code={live.code} variant="oncyan" label="share this link with participants" />
+        </div>
       )}
 
       {/* stats */}
@@ -71,13 +75,16 @@ export default async function HostDashboard() {
           <h2 className="display text-xl mb-3">drafts</h2>
           <div className="grid gap-3">
             {drafts.map((s) => (
-              <Link key={s.id} href={`/host/new?id=${s.id}`} className="sticker-sm bg-white rounded-md p-4 flex items-center justify-between no-underline text-black">
-                <div>
-                  <div className="font-semibold">{s.name}</div>
-                  <div className="text-xs text-neutral-500">code: /r/{s.code}</div>
+              <div key={s.id} className="sticker-sm bg-white rounded-md p-4">
+                <div className="flex items-center justify-between mb-3 gap-4">
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate">{s.name}</div>
+                    <div className="text-xs text-neutral-500">draft · publish before sharing</div>
+                  </div>
+                  <Link href={`/host/new?id=${s.id}`} className="text-sm underline whitespace-nowrap">edit →</Link>
                 </div>
-                <div className="text-sm">edit →</div>
-              </Link>
+                <CopyLink code={s.code} variant="light" label="participant link (works once you go live)" />
+              </div>
             ))}
           </div>
         </section>
