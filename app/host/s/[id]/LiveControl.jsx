@@ -190,9 +190,14 @@ function LiveControlInner({ session, participants, pairings, secondsLeft, busy, 
                   <div className="display text-2xl">main room is open.</div>
                   <p className="text-sm text-neutral-400 mt-1">welcome folks · kick it off when ready</p>
                 </div>
-                <button onClick={() => action('round', { action: 'start' })} disabled={busy} className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap">
-                  kick it off *
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => action('round', { action: 'start' })} disabled={busy} className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap">
+                    kick it off *
+                  </button>
+                  <button onClick={() => { if (confirm('end this session now? this closes the room and marks the session ended.')) action('end'); }} disabled={busy} className="px-4 py-3 rounded-md border-2 border-red-500 text-red-400 hover:bg-red-500 hover:text-white font-semibold text-sm whitespace-nowrap">
+                    end session
+                  </button>
+                </div>
               </div>
             )}
 
@@ -202,9 +207,14 @@ function LiveControlInner({ session, participants, pairings, secondsLeft, busy, 
                   <div className="display text-2xl">round {session.current_round} wrapped.</div>
                   {nextPrompt && <p className="text-sm text-neutral-400 mt-1">next: <span style={{ color: '#01ecf3' }}>{nextPrompt}</span></p>}
                 </div>
-                <button onClick={() => action('round', { action: 'start' })} disabled={busy} className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap">
-                  start round {session.current_round + 1} *
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => action('round', { action: 'start' })} disabled={busy} className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap">
+                    start round {session.current_round + 1} *
+                  </button>
+                  <button onClick={() => { if (confirm('end this session now? skips remaining rounds.')) action('end'); }} disabled={busy} className="px-4 py-3 rounded-md border-2 border-red-500 text-red-400 hover:bg-red-500 hover:text-white font-semibold text-sm whitespace-nowrap">
+                    end session
+                  </button>
+                </div>
               </div>
             )}
 
