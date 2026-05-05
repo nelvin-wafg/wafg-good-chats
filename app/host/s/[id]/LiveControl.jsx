@@ -83,6 +83,16 @@ export default function LiveControl({ session: initialSession }) {
       const co = DailyIframe.createCallObject({ videoSource: true, audioSource: true });
       await co.join({ url, token });
       if (!mounted) { co.destroy(); return; }
+
+      // attempt to enable daily's krisp noise cancellation. if it's not available
+      // on the daily plan, this throws and we silently fall back to browser-native
+      // noise suppression (which is already on by default).
+      try {
+        await co.updateInputSettings({ audio: { processor: { type: 'noise-cancellation' } } });
+      } catch {
+        // krisp not available · browser-native noise suppression remains active
+      }
+
       setCallObject(co);
     }
     manageCall();

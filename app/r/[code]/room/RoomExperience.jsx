@@ -119,6 +119,14 @@ export default function RoomExperience({ session: initialSession }) {
       const co = DailyIframe.createCallObject({ videoSource: true, audioSource: true });
       await co.join({ url, token });
       if (!mounted) { co.destroy(); return; }
+
+      // attempt daily's krisp noise cancellation; falls back to browser-native if not on plan
+      try {
+        await co.updateInputSettings({ audio: { processor: { type: 'noise-cancellation' } } });
+      } catch {
+        // not available · browser-native processing remains active
+      }
+
       setCallObject(co);
       setCurrentRoom({ name: targetRoom.name, isPair: targetRoom.isPair });
 
