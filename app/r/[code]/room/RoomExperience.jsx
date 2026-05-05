@@ -176,6 +176,12 @@ export default function RoomExperience({ session: initialSession }) {
   const isWithHost = Boolean(session.status === 'running_round' && myAssignment?.isWithHost);
   const isLateJoiner = Boolean(session.status === 'running_round' && !myAssignment);
 
+  // build a name→profile lookup so video tiles can resolve linkedin from the daily user_name
+  const participantsByName = participants.reduce((acc, p) => {
+    if (p.name) acc[p.name] = p;
+    return acc;
+  }, {});
+
   // main room (with live video)
   if (callObject && !currentRoom?.isPair) {
     return (
@@ -183,6 +189,7 @@ export default function RoomExperience({ session: initialSession }) {
         <MainRoomView
           session={session}
           participants={participants}
+          participantsByName={participantsByName}
           myName={participantName}
           myId={participantId}
           isLateJoiner={isLateJoiner}
@@ -199,6 +206,7 @@ export default function RoomExperience({ session: initialSession }) {
     <MainRoomView
       session={session}
       participants={participants}
+      participantsByName={participantsByName}
       myName={participantName}
       myId={participantId}
       isLateJoiner={isLateJoiner}
@@ -212,7 +220,7 @@ export default function RoomExperience({ session: initialSession }) {
 // ============================================================================
 // MAIN ROOM VIEW · works both with and without daily video
 // ============================================================================
-function MainRoomView({ session, participants, myName, myId, isLateJoiner, isWithHost, withHostAssignment, withVideo }) {
+function MainRoomView({ session, participants, participantsByName, myName, myId, isLateJoiner, isWithHost, withHostAssignment, withVideo }) {
   const liveCount = participants.filter((p) => p.is_present).length;
   const isPreSession = session.status === 'live' || session.status === 'draft';
 
@@ -274,7 +282,7 @@ function MainRoomView({ session, participants, myName, myId, isLateJoiner, isWit
           </div>
 
           {withVideo
-            ? <MainRoomVideoGallery />
+            ? <MainRoomVideoGallery participantsByName={participantsByName} />
             : <MainRoomStaticGallery participants={participants} myId={myId} />}
         </div>
 
@@ -332,7 +340,7 @@ function MainRoomView({ session, participants, myName, myId, isLateJoiner, isWit
 }
 
 // daily-aware video gallery for main room
-function MainRoomVideoGallery() {
+function MainRoomVideoGallery({ participantsByName }) {
   const localId = useLocalSessionId();
   const remoteIds = useParticipantIds({ filter: 'remote' });
   const ids = [localId, ...remoteIds].filter(Boolean);
@@ -344,7 +352,7 @@ function MainRoomVideoGallery() {
   return (
     <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
       {ids.map((id) => (
-        <DailyVideoTile key={id} sessionId={id} isLocal={id === localId} />
+        <DailyVideoTile key={id} sessionId={id} isLocal={id === localId} participantsByName={participantsByName} />
       ))}
     </div>
   );
@@ -432,7 +440,7 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
       <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 p-4">
         <DailyVideoTile sessionId={localId} isLocal nameOverride={myName} />
         {remoteIds.length > 0 ? (
-          <DailyVideoTile sessionId={remoteIds[0]} cyan nameOverride={assignment.partnerName} />
+          <DailyVideoTile sessionId={remoteIds[0]} cyan nameOverride={assignment.partnerName} linkedinOverride={assignment.partnerLinkedinUrl} />
         ) : (
           <div className="rounded-md bg-neutral-900 border-2 border-dashed border-neutral-700 flex items-center justify-center">
             <div className="text-center">
@@ -451,7 +459,7 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
 // ============================================================================
 // shared video tile component used by both pair room and main room
 // ============================================================================
-function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride }) {
+function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverride, participantsByName }) {
   const ref = useRef();
   const daily = useDaily();
   const [name, setName] = useState(nameOverride || (isLocal ? 'you' : ''));
@@ -483,6 +491,10 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride }) {
     };
   }, [daily, sessionId, isLocal, nameOverride]);
 
+  // resolve linkedin: explicit override (e.g. partner in pair room) wins,
+  // otherwise look up by name in the participantsByName map (main room gallery)
+  const linkedinUrl = linkedinOverride || participantsByName?.[name]?.linkedin_url || null;
+
   const isHostTile = name?.toLowerCase().startsWith('host');
   const borderStyle = (cyan || isHostTile)
     ? { border: '2px solid #01ecf3' }
@@ -501,8 +513,20 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride }) {
           </div>
         </div>
       )}
-      <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur px-2 py-1 rounded text-xs font-semibold">
-        {name} {isLocal && <span className="text-neutral-400">· you</span>}
+      <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur px-2 py-1 rounded text-xs font-semibold flex items-center gap-2">
+        <span>{name}{isLocal && <span className="text-neutral-400 ml-1">· you</span>}</span>
+        {linkedinUrl && !isLocal && (
+          <a
+            href={linkedinUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="open linkedin"
+            className="inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold no-underline"
+            style={{ background: '#0a66c2', color: '#fff' }}
+          >
+            in
+          </a>
+        )}
       </div>
       {isHostTile && !isLocal && (
         <div className="absolute top-2 left-2 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded" style={{ background: '#01ecf3', color: '#000' }}>

@@ -59,20 +59,43 @@ create index if not exists idx_sessions_code on sessions(code);
 create index if not exists idx_sessions_status on sessions(status);
 
 -- ============================================================================
--- PARTICIPANTS · people who joined a session (no auth required)
+-- PROFILES · persistent contact info shared across sessions, keyed by email
+-- ============================================================================
+create table if not exists profiles (
+  id uuid primary key default uuid_generate_v4(),
+  email text unique not null,
+  display_name text not null,
+  linkedin_url text,
+  newsletter_opt_in boolean default true,
+  kit_synced_at timestamptz,                  -- when we last sent this email to Kit
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+create index if not exists idx_profiles_email on profiles(email);
+
+-- ============================================================================
+-- PARTICIPANTS · people who joined a session
+-- linked to a profile when the joiner provided email; no profile for legacy rows
 -- ============================================================================
 create table if not exists participants (
   id uuid primary key default uuid_generate_v4(),
   session_id uuid not null references sessions(id) on delete cascade,
+  profile_id uuid references profiles(id) on delete set null,
   name text not null,
   joined_at timestamptz default now(),
   left_at timestamptz,
   is_present boolean default true,
-  current_room_name text,                     -- the daily room they're currently in
+  current_room_name text,
   metadata jsonb default '{}'::jsonb
 );
+
+-- backfill: ensure profile_id column exists on legacy participants tables.
+-- must run BEFORE the index below.
+alter table participants add column if not exists profile_id uuid references profiles(id) on delete set null;
+
 create index if not exists idx_participants_session on participants(session_id);
 create index if not exists idx_participants_present on participants(session_id, is_present);
+create index if not exists idx_participants_profile on participants(profile_id);
 
 -- ============================================================================
 -- ROUNDS · history of who paired with whom each round
@@ -108,6 +131,8 @@ create index if not exists idx_pairings_b on pairings(participant_b_id);
 
 -- ============================================================================
 -- CAPTURES · "save this connection" button taps
+-- snapshots captured profile's contact info at capture time so the recap survives
+-- if the profile changes later
 -- ============================================================================
 create table if not exists captures (
   id uuid primary key default uuid_generate_v4(),
@@ -115,11 +140,19 @@ create table if not exists captures (
   capturer_id uuid not null references participants(id) on delete cascade,
   captured_id uuid not null references participants(id) on delete cascade,
   pairing_id uuid references pairings(id) on delete set null,
+  captured_email text,                         -- snapshot of captured person's email at capture time
+  captured_linkedin_url text,                  -- snapshot of captured person's linkedin
+  captured_name text,                          -- snapshot of captured person's display name
   note text,
   created_at timestamptz default now()
 );
 create index if not exists idx_captures_session on captures(session_id);
 create index if not exists idx_captures_capturer on captures(capturer_id);
+
+-- backfill: add capture snapshot columns (idempotent)
+alter table captures add column if not exists captured_email text;
+alter table captures add column if not exists captured_linkedin_url text;
+alter table captures add column if not exists captured_name text;
 
 -- ============================================================================
 -- RATE_LIMITS · sliding-window request tracking per IP/key
@@ -159,6 +192,7 @@ alter table rounds enable row level security;
 alter table pairings enable row level security;
 alter table captures enable row level security;
 alter table rate_limits enable row level security;
+alter table profiles enable row level security;
 
 -- hosts: authenticated host reads self only.
 drop policy if exists "hosts read self" on hosts;

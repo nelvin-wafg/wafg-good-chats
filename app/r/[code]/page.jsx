@@ -1,4 +1,6 @@
+import { cookies } from 'next/headers';
 import { adminClient } from '@/lib/supabase-server';
+import { getProfileFromCookies } from '@/lib/profile-cookie';
 import JoinForm from './JoinForm';
 
 export default async function JoinPage({ params }) {
@@ -23,5 +25,25 @@ export default async function JoinPage({ params }) {
     );
   }
 
-  return <JoinForm session={session} />;
+  // returning user · check the persistent profile cookie
+  let knownProfile = null;
+  const cookieStore = cookies();
+  const cookieData = getProfileFromCookies(cookieStore);
+  if (cookieData?.profileId) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('display_name, email, linkedin_url, newsletter_opt_in')
+      .eq('id', cookieData.profileId)
+      .maybeSingle();
+    if (profile) {
+      knownProfile = {
+        displayName: profile.display_name,
+        email: profile.email,
+        linkedinUrl: profile.linkedin_url,
+        newsletterOptIn: profile.newsletter_opt_in,
+      };
+    }
+  }
+
+  return <JoinForm session={session} knownProfile={knownProfile} />;
 }

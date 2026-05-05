@@ -116,10 +116,17 @@ export default function LiveControl({ session: initialSession }) {
     }
   }
 
+  // build a name→profile lookup so video tiles can resolve linkedin
+  const participantsByName = participants.reduce((acc, p) => {
+    if (p.name) acc[p.name] = p;
+    return acc;
+  }, {});
+
   const inner = (
     <LiveControlInner
       session={session}
       participants={participants}
+      participantsByName={participantsByName}
       pairings={pairings}
       secondsLeft={secondsLeft}
       busy={busy}
@@ -137,7 +144,7 @@ export default function LiveControl({ session: initialSession }) {
 // ============================================================================
 // inner component (uses daily hooks if wrapped in DailyProvider)
 // ============================================================================
-function LiveControlInner({ session, participants, pairings, secondsLeft, busy, action, hasCall }) {
+function LiveControlInner({ session, participants, participantsByName, pairings, secondsLeft, busy, action, hasCall }) {
   const isPre = session.status === 'draft' || session.status === 'live';
   const isRunning = session.status === 'running_round';
   const isBetween = session.status === 'between_rounds';
@@ -265,7 +272,7 @@ function LiveControlInner({ session, participants, pairings, secondsLeft, busy, 
 
           {/* video gallery · everyone in the main daily room */}
           <div className="flex-1 overflow-y-auto p-4">
-            {hasCall ? <HostVideoGallery /> : (
+            {hasCall ? <HostVideoGallery participantsByName={participantsByName} /> : (
               <div className="h-full flex items-center justify-center text-neutral-600 text-sm">
                 {isEnded ? '[session has ended]' : '[main room not live yet · click "go live" to open it]'}
               </div>
@@ -343,7 +350,7 @@ function LiveControlInner({ session, participants, pairings, secondsLeft, busy, 
 // ============================================================================
 // host video gallery · all daily participants in the main room
 // ============================================================================
-function HostVideoGallery() {
+function HostVideoGallery({ participantsByName }) {
   const localId = useLocalSessionId();
   const remoteIds = useParticipantIds({ filter: 'remote' });
   const ids = [localId, ...remoteIds].filter(Boolean);
@@ -355,13 +362,13 @@ function HostVideoGallery() {
   return (
     <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(220px, 1fr))` }}>
       {ids.map((id) => (
-        <DailyVideoTile key={id} sessionId={id} isLocal={id === localId} />
+        <DailyVideoTile key={id} sessionId={id} isLocal={id === localId} participantsByName={participantsByName} />
       ))}
     </div>
   );
 }
 
-function DailyVideoTile({ sessionId, isLocal }) {
+function DailyVideoTile({ sessionId, isLocal, participantsByName }) {
   const ref = useRef();
   const daily = useDaily();
   const [name, setName] = useState(isLocal ? 'host (you)' : '');
@@ -394,6 +401,7 @@ function DailyVideoTile({ sessionId, isLocal }) {
   }, [daily, sessionId, isLocal]);
 
   const isHostTile = isLocal || name?.toLowerCase().startsWith('host');
+  const linkedinUrl = !isHostTile ? participantsByName?.[name]?.linkedin_url : null;
 
   return (
     <div
@@ -411,8 +419,20 @@ function DailyVideoTile({ sessionId, isLocal }) {
           </div>
         </div>
       )}
-      <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur px-2 py-0.5 rounded text-xs font-medium">
-        {name}
+      <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur px-2 py-0.5 rounded text-xs font-medium flex items-center gap-2">
+        <span>{name}</span>
+        {linkedinUrl && (
+          <a
+            href={linkedinUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="open linkedin"
+            className="inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold no-underline"
+            style={{ background: '#0a66c2', color: '#fff' }}
+          >
+            in
+          </a>
+        )}
       </div>
       {isHostTile && (
         <div className="absolute top-2 left-2 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded" style={{ background: '#01ecf3', color: '#000' }}>

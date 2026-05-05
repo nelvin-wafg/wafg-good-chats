@@ -30,22 +30,22 @@ export async function POST(request, { params }) {
 
   const admin = adminClient();
 
-  // resolve partner participant id by name in this session
-  // note: name match is best-effort; if multiple participants share a name we pick the first.
-  // for v2, pass partnerId explicitly from the client (also via signed structure).
+  // resolve partner participant id by name in this session, pulling profile info too
   const { data: partner } = await admin
     .from('participants')
-    .select('id')
+    .select('id, name, profiles(email, linkedin_url)')
     .eq('session_id', sessionId)
     .eq('name', partnerName)
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (!partner) return new NextResponse('partner not found', { status: 404 });
   if (partner.id === me.participantId) {
     return new NextResponse('cannot capture yourself', { status: 400 });
   }
 
+  // snapshot captured person's profile fields at capture time so the recap survives
+  // future profile edits
   const { error } = await admin
     .from('captures')
     .insert({
@@ -53,6 +53,9 @@ export async function POST(request, { params }) {
       capturer_id: me.participantId,
       captured_id: partner.id,
       pairing_id: pairingId,
+      captured_name: partner.name,
+      captured_email: partner.profiles?.email || null,
+      captured_linkedin_url: partner.profiles?.linkedin_url || null,
       note,
     });
 

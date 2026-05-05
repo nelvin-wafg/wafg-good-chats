@@ -49,6 +49,8 @@ WAFG-branded video pairs, auto-rotating rounds, prompts, capture-the-connection,
    - `DAILY_DOMAIN` — from daily step 3.2
    - `NEXT_PUBLIC_APP_URL` — your vercel URL once deployed (e.g. `https://wafg-good-chats.vercel.app`), update after first deploy
    - `SESSION_SECRET` — long random string (32+ chars) used to sign participant cookies. Generate via 1password, bitwarden, or `https://generate-secret.vercel.app/64`. Never commit the real value.
+   - `KIT_API_KEY` — from Kit (formerly ConvertKit) → Account → Settings → Developer. Used to add new joiner emails to your newsletter when they opt in.
+   - `KIT_FORM_ID` — the Kit form ID to subscribe new joiners to. Find it in Kit → Grow → Landing Pages & Forms → pick the form → settings → embed (the form id is in the URL/embed snippet). If either KIT_API_KEY or KIT_FORM_ID is missing, the join flow still works · the Kit sync is just skipped.
 4. Deploy. Vercel runs `npm install` and `npm run build` automatically.
 
 ### 5. supabase auth callback

@@ -37,11 +37,19 @@ export async function GET(request, { params }) {
     if (session.host_id !== user.id) return new NextResponse('forbidden', { status: 403 });
   }
 
-  const { data: participants = [] } = await admin
+  const { data: rawParticipants = [] } = await admin
     .from('participants')
-    .select('id, name, is_present, current_room_name, joined_at')
+    .select('id, name, is_present, current_room_name, joined_at, profiles(linkedin_url)')
     .eq('session_id', session.id)
     .order('joined_at', { ascending: true });
+  const participants = (rawParticipants || []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    is_present: p.is_present,
+    current_room_name: p.current_room_name,
+    joined_at: p.joined_at,
+    linkedin_url: p.profiles?.linkedin_url || null,
+  }));
 
   // identify the calling participant (if any) from the cookie.
   const cookieStore = cookies();
@@ -75,6 +83,7 @@ export async function GET(request, { params }) {
           roomName: myPairing.room_name,
           roomLabel: myPairing.room_label,
           partnerName: partner?.name || 'your match',
+          partnerLinkedinUrl: partner?.linkedin_url || null,
           prompt: myPairing.rounds.prompt_text,
           secondsRemaining,
           isWithHost: false,
