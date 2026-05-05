@@ -223,6 +223,7 @@ export default function RoomExperience({ session: initialSession }) {
 function MainRoomView({ session, participants, participantsByName, myName, myId, isLateJoiner, isWithHost, withHostAssignment, withVideo }) {
   const liveCount = participants.filter((p) => p.is_present).length;
   const isPreSession = session.status === 'live' || session.status === 'draft';
+  const isClosing = session.status === 'closing';
 
   // when paired with the host, count down the round timer locally
   const [hostSecondsLeft, setHostSecondsLeft] = useState(withHostAssignment?.secondsRemaining || 0);
@@ -278,7 +279,9 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
                 ? <>1-on-1 with the host.<br/>your round, your rules.</>
                 : isLateJoiner
                   ? <>hang tight.<br/>next round picks you up.</>
-                  : <>between rounds.<br/>nice work.</>}
+                  : isClosing
+                    ? <>all rounds done.<br/>host is wrapping up.</>
+                    : <>between rounds.<br/>nice work.</>}
           </div>
 
           {withVideo
@@ -290,7 +293,7 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
         <aside className="bg-neutral-950 border-l border-neutral-800 p-6 flex flex-col gap-4">
           <div className="rounded-md p-5" style={{ background: '#01ecf3', color: '#000' }}>
             <div className="text-[10px] uppercase tracking-widest font-bold mb-2 opacity-60">
-              {isPreSession ? 'pre-session' : isWithHost ? 'this round' : isLateJoiner ? 'happening now' : 'next up'}
+              {isPreSession ? 'pre-session' : isWithHost ? 'this round' : isLateJoiner ? 'happening now' : isClosing ? 'closing out' : 'next up'}
             </div>
             <div className="display text-2xl mb-2">
               {isPreSession
@@ -299,14 +302,18 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
                   ? `round ${session.current_round} of ${session.rounds_total}`
                   : isLateJoiner
                     ? `round ${session.current_round} of ${session.rounds_total}`
-                    : `round ${session.current_round + 1} of ${session.rounds_total}`}
+                    : isClosing
+                      ? `${session.rounds_total} rounds done`
+                      : `round ${session.current_round + 1} of ${session.rounds_total}`}
             </div>
             <p className="text-sm">
               {isWithHost
                 ? '[odd number this round · you get the host\'s full attention]'
                 : isLateJoiner
                   ? '[others are paired up in breakouts · you\'ll join the next shuffle]'
-                  : '[the host will kick things off · you\'ll get auto-paired]'}
+                  : isClosing
+                    ? '[stick around for the host\'s wrap-up · the call closes when they hit close out]'
+                    : '[the host will kick things off · you\'ll get auto-paired]'}
             </p>
           </div>
 
@@ -428,13 +435,12 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
           <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>this round's prompt</div>
           <div className="display text-xl">{assignment.prompt || '— [no prompt this round]'}</div>
         </div>
-        <button
-          onClick={handleCapture}
-          disabled={captured}
-          className={`px-5 py-3 rounded font-semibold text-sm whitespace-nowrap ${captured ? 'bg-neutral-700 text-neutral-400' : 'btn-cyan'}`}
-        >
-          {captured ? '* captured' : 'capture this connection *'}
-        </button>
+        <CaptureControl
+          captured={captured}
+          partnerName={assignment.partnerName}
+          partnerLinkedinUrl={assignment.partnerLinkedinUrl}
+          onCapture={handleCapture}
+        />
       </div>
 
       <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 p-4">
@@ -453,6 +459,47 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
 
       <ParticipantControlBar />
     </main>
+  );
+}
+
+// ============================================================================
+// capture control · pre-capture button + post-capture confirmation with linkedin CTA
+// ============================================================================
+function CaptureControl({ captured, partnerName, partnerLinkedinUrl, onCapture }) {
+  const partnerFirst = (partnerName || '').split(' ')[0] || 'them';
+
+  if (!captured) {
+    return (
+      <button
+        onClick={onCapture}
+        className="px-5 py-3 rounded font-semibold text-sm whitespace-nowrap btn-cyan"
+      >
+        capture this connection *
+      </button>
+    );
+  }
+
+  // post-capture: confirm + give them an immediate action when partner has linkedin
+  return (
+    <div className="flex items-center gap-3 whitespace-nowrap">
+      <div className="text-xs uppercase tracking-widest font-bold flex items-center gap-1.5" style={{ color: '#01ecf3' }}>
+        <span>✓</span><span>saved</span>
+      </div>
+      {partnerLinkedinUrl ? (
+        <a
+          href={partnerLinkedinUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded font-semibold text-sm no-underline"
+          style={{ background: '#0a66c2', color: '#fff' }}
+        >
+          <span>connect with {partnerFirst} on linkedin</span>
+          <span>→</span>
+        </a>
+      ) : (
+        <span className="text-xs text-neutral-400">[no linkedin shared · you'll see them in your recap]</span>
+      )}
+    </div>
   );
 }
 

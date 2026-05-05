@@ -261,6 +261,22 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
               </div>
             )}
 
+            {session.status === 'closing' && (
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="display text-2xl">all rounds wrapped.</div>
+                  <p className="text-sm text-neutral-400 mt-1">say a final thing · close out when ready</p>
+                </div>
+                <button
+                  onClick={() => { if (confirm('close out the session and end the call for everyone?')) action('end'); }}
+                  disabled={busy}
+                  className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap"
+                >
+                  close out *
+                </button>
+              </div>
+            )}
+
             {isEnded && (
               <div>
                 <div className="display text-2xl mb-1">that's a wrap.</div>

@@ -15,7 +15,7 @@ export default async function HostDashboard() {
     .order('created_at', { ascending: false })
     .limit(20);
 
-  const live = (sessions || []).find((s) => ['live', 'running_round', 'between_rounds'].includes(s.status));
+  const live = (sessions || []).find((s) => ['live', 'running_round', 'between_rounds', 'closing'].includes(s.status));
   const past = (sessions || []).filter((s) => s.status === 'ended');
   const drafts = (sessions || []).filter((s) => s.status === 'draft');
 
