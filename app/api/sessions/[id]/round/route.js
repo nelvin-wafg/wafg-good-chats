@@ -64,6 +64,21 @@ async function startRound(admin, session) {
     return new NextResponse('need at least 2 people present to pair', { status: 400 });
   }
 
+  // auto-cap rounds_total at the very first round based on actual attendance.
+  // with N people, max unique rounds is N-1 (everyone meets everyone exactly once).
+  // beyond that, pairs would have to repeat. capping makes the natural session length
+  // match attendance · host can extend manually later if they want repeats.
+  if (newRoundNumber === 1) {
+    const maxUnique = Math.max(1, presentParticipants.length - 1);
+    if (session.rounds_total > maxUnique) {
+      await admin
+        .from('sessions')
+        .update({ rounds_total: maxUnique })
+        .eq('id', session.id);
+      session.rounds_total = maxUnique;
+    }
+  }
+
   // pull past pair history for no-repeats
   const { data: pastPairings = [] } = await admin
     .from('pairings')
@@ -134,7 +149,7 @@ async function startRound(admin, session) {
     })
   );
 
-  // sit-out person (if any)
+  // sit-out person (if any) · stays in main room with the host this round
   if (sitOut) {
     pairingInserts.push({
       round_id: round.id,
@@ -142,7 +157,7 @@ async function startRound(admin, session) {
       participant_a_id: sitOut,
       participant_b_id: null,
       room_name: null,
-      room_label: 'breather',
+      room_label: 'with the host',
     });
   }
 

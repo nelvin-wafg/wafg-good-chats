@@ -20,8 +20,8 @@ function NewSessionInner() {
   const [step, setStep] = useState(1); // 1 basics, 2 rhythm, 3 prompts
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
-  const [rounds, setRounds] = useState(6);
-  const [perRound, setPerRound] = useState(5);
+  const [rounds, setRounds] = useState(8);
+  const [perRound, setPerRound] = useState(7);
   const [selected, setSelected] = useState([]);
   const [custom, setCustom] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -109,14 +109,17 @@ function NewSessionInner() {
           {step === 2 && (
             <div className="sticker bg-white rounded-md p-6">
               <h2 className="display text-xl mb-4">rhythm</h2>
-              <Field label="how many rounds?">
-                <input type="number" min={2} max={12} value={rounds} onChange={(e) => setRounds(parseInt(e.target.value) || 6)} className="w-32 border-2 border-black rounded px-4 py-3 text-lg" />
+              <Field label="max rounds">
+                <input type="number" min={2} max={20} value={rounds} onChange={(e) => setRounds(parseInt(e.target.value) || 8)} className="w-32 border-2 border-black rounded px-4 py-3 text-lg" />
+                <p className="text-xs text-neutral-500 mt-2">
+                  [ceiling · we auto-cap based on attendance to keep every pairing unique. with 10 people you'll get 9 rounds; with 6 people, 5.]
+                </p>
               </Field>
               <Field label="minutes per round">
-                <input type="number" min={2} max={15} value={perRound} onChange={(e) => setPerRound(parseInt(e.target.value) || 5)} className="w-32 border-2 border-black rounded px-4 py-3 text-lg" />
+                <input type="number" min={2} max={15} value={perRound} onChange={(e) => setPerRound(parseInt(e.target.value) || 7)} className="w-32 border-2 border-black rounded px-4 py-3 text-lg" />
               </Field>
               <p className="text-sm text-neutral-600 mt-2">
-                total session: ~{Math.round(rounds * (perRound + 0.5) + 5)} minutes [includes break + intro/closing]
+                up to ~{Math.round(rounds * (perRound + 0.5) + 5)} minutes [includes break + intro/closing] · usually shorter once auto-capped to attendance
               </p>
               <div className="flex justify-between mt-6">
                 <button onClick={() => setStep(1)} className="text-sm underline">← back</button>

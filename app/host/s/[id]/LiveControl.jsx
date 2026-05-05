@@ -219,18 +219,31 @@ function LiveControlInner({ session, participants, pairings, secondsLeft, busy, 
             )}
 
             {isRunning && (
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>round {session.current_round} of {session.rounds_total} · live</div>
-                  {currentPrompt && <div className="display text-base">{currentPrompt}</div>}
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="display text-4xl" style={{ color: secondsLeft <= 30 ? '#fbbf24' : '#01ecf3' }}>
-                    {fmtTime(secondsLeft)}
+              <div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>round {session.current_round} of {session.rounds_total} · live</div>
+                    {currentPrompt && <div className="display text-base">{currentPrompt}</div>}
                   </div>
-                  <button onClick={() => action('round', { action: 'end' })} disabled={busy} className="btn-cyan px-4 py-2 rounded-md text-sm">end round *</button>
-                  <button onClick={() => { if (confirm('end the whole session?')) action('end'); }} disabled={busy} className="px-4 py-2 rounded-md border-2 border-red-500 text-red-400 hover:bg-red-500 hover:text-white font-semibold text-sm">end session</button>
+                  <div className="flex items-center gap-3">
+                    <div className="display text-4xl" style={{ color: secondsLeft <= 30 ? '#fbbf24' : '#01ecf3' }}>
+                      {fmtTime(secondsLeft)}
+                    </div>
+                    <button onClick={() => action('round', { action: 'end' })} disabled={busy} className="btn-cyan px-4 py-2 rounded-md text-sm">end round *</button>
+                    <button onClick={() => { if (confirm('end the whole session?')) action('end'); }} disabled={busy} className="px-4 py-2 rounded-md border-2 border-red-500 text-red-400 hover:bg-red-500 hover:text-white font-semibold text-sm">end session</button>
+                  </div>
                 </div>
+                {(() => {
+                  const withHostPairing = pairings.find((p) => !p.participant_b_name);
+                  if (!withHostPairing) return null;
+                  return (
+                    <div className="mt-3 px-4 py-2 rounded text-sm" style={{ background: 'rgba(1,236,243,0.15)', color: '#01ecf3' }}>
+                      <span className="font-bold uppercase tracking-widest text-[10px] mr-2">your conversation this round:</span>
+                      <span className="font-semibold">{withHostPairing.participant_a_name}</span>
+                      <span className="text-neutral-400 ml-2">· they're with you in main room</span>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -281,18 +294,27 @@ function LiveControlInner({ session, participants, pairings, secondsLeft, busy, 
             <div>
               <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">live pairings</div>
               <div className="space-y-2">
-                {pairings.map((pa) => (
-                  <div key={pa.id} className="bg-neutral-900 border border-neutral-800 rounded p-3 text-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-medium truncate">{pa.participant_a_name}</span>
-                        <span className="text-neutral-500">×</span>
-                        <span className="font-medium truncate">{pa.participant_b_name || <span className="italic text-neutral-500">sit out</span>}</span>
+                {pairings.map((pa) => {
+                  const isWithHost = !pa.participant_b_name;
+                  return (
+                    <div
+                      key={pa.id}
+                      className={`rounded p-3 text-sm border ${isWithHost ? 'border-cyan-400' : 'bg-neutral-900 border-neutral-800'}`}
+                      style={isWithHost ? { background: 'rgba(1,236,243,0.1)', borderColor: '#01ecf3' } : {}}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-medium truncate">{pa.participant_a_name}</span>
+                          <span className="text-neutral-500">×</span>
+                          <span className={`font-medium truncate ${isWithHost ? '' : ''}`} style={isWithHost ? { color: '#01ecf3' } : {}}>
+                            {isWithHost ? 'you (host)' : pa.participant_b_name}
+                          </span>
+                        </div>
+                        <span className="text-[10px] whitespace-nowrap" style={{ color: '#01ecf3' }}>* {pa.room_label}</span>
                       </div>
-                      <span className="text-[10px] whitespace-nowrap" style={{ color: '#01ecf3' }}>* {pa.room_label}</span>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

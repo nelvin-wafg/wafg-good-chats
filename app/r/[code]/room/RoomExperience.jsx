@@ -173,6 +173,9 @@ export default function RoomExperience({ session: initialSession }) {
     );
   }
 
+  const isWithHost = Boolean(session.status === 'running_round' && myAssignment?.isWithHost);
+  const isLateJoiner = Boolean(session.status === 'running_round' && !myAssignment);
+
   // main room (with live video)
   if (callObject && !currentRoom?.isPair) {
     return (
@@ -182,7 +185,9 @@ export default function RoomExperience({ session: initialSession }) {
           participants={participants}
           myName={participantName}
           myId={participantId}
-          isLateJoiner={session.status === 'running_round'}
+          isLateJoiner={isLateJoiner}
+          isWithHost={isWithHost}
+          withHostAssignment={isWithHost ? myAssignment : null}
           withVideo
         />
       </DailyProvider>
@@ -196,7 +201,9 @@ export default function RoomExperience({ session: initialSession }) {
       participants={participants}
       myName={participantName}
       myId={participantId}
-      isLateJoiner={session.status === 'running_round'}
+      isLateJoiner={isLateJoiner}
+      isWithHost={isWithHost}
+      withHostAssignment={isWithHost ? myAssignment : null}
       withVideo={false}
     />
   );
@@ -205,9 +212,18 @@ export default function RoomExperience({ session: initialSession }) {
 // ============================================================================
 // MAIN ROOM VIEW · works both with and without daily video
 // ============================================================================
-function MainRoomView({ session, participants, myName, myId, isLateJoiner, withVideo }) {
+function MainRoomView({ session, participants, myName, myId, isLateJoiner, isWithHost, withHostAssignment, withVideo }) {
   const liveCount = participants.filter((p) => p.is_present).length;
   const isPreSession = session.status === 'live' || session.status === 'draft';
+
+  // when paired with the host, count down the round timer locally
+  const [hostSecondsLeft, setHostSecondsLeft] = useState(withHostAssignment?.secondsRemaining || 0);
+  useEffect(() => {
+    if (!isWithHost) return;
+    setHostSecondsLeft(Math.max(0, withHostAssignment?.secondsRemaining || 0));
+    const id = setInterval(() => setHostSecondsLeft((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(id);
+  }, [isWithHost, withHostAssignment?.pairingId]); // eslint-disable-line
 
   return (
     <main className="min-h-screen flex flex-col text-white" style={{ background: '#000' }}>
@@ -226,6 +242,20 @@ function MainRoomView({ session, participants, myName, myId, isLateJoiner, withV
         </div>
       )}
 
+      {isWithHost && (
+        <div className="px-6 py-3 flex items-center justify-between gap-4 border-b border-neutral-800" style={{ background: 'rgba(1,236,243,0.1)' }}>
+          <div>
+            <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>* you're with the host this round *</div>
+            {withHostAssignment?.prompt && (
+              <div className="display text-base">{withHostAssignment.prompt}</div>
+            )}
+          </div>
+          <div className="display text-3xl" style={{ color: hostSecondsLeft <= 30 ? '#fbbf24' : '#01ecf3' }}>
+            {fmtTime(hostSecondsLeft)}
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr,360px] overflow-hidden">
 
         {/* gallery (video or static) */}
@@ -236,9 +266,11 @@ function MainRoomView({ session, participants, myName, myId, isLateJoiner, withV
           <div className="display text-3xl mb-6">
             {isPreSession
               ? <>welcome in.<br/>we'll start together.</>
-              : isLateJoiner
-                ? <>hang tight.<br/>next round picks you up.</>
-                : <>between rounds.<br/>nice work.</>}
+              : isWithHost
+                ? <>1-on-1 with the host.<br/>your round, your rules.</>
+                : isLateJoiner
+                  ? <>hang tight.<br/>next round picks you up.</>
+                  : <>between rounds.<br/>nice work.</>}
           </div>
 
           {withVideo
@@ -250,19 +282,23 @@ function MainRoomView({ session, participants, myName, myId, isLateJoiner, withV
         <aside className="bg-neutral-950 border-l border-neutral-800 p-6 flex flex-col gap-4">
           <div className="rounded-md p-5" style={{ background: '#01ecf3', color: '#000' }}>
             <div className="text-[10px] uppercase tracking-widest font-bold mb-2 opacity-60">
-              {isPreSession ? 'pre-session' : isLateJoiner ? 'happening now' : 'next up'}
+              {isPreSession ? 'pre-session' : isWithHost ? 'this round' : isLateJoiner ? 'happening now' : 'next up'}
             </div>
             <div className="display text-2xl mb-2">
               {isPreSession
                 ? 'waiting for kickoff'
-                : isLateJoiner
+                : isWithHost
                   ? `round ${session.current_round} of ${session.rounds_total}`
-                  : `round ${session.current_round + 1} of ${session.rounds_total}`}
+                  : isLateJoiner
+                    ? `round ${session.current_round} of ${session.rounds_total}`
+                    : `round ${session.current_round + 1} of ${session.rounds_total}`}
             </div>
             <p className="text-sm">
-              {isLateJoiner
-                ? '[others are paired up in breakouts · you\'ll join the next shuffle]'
-                : '[the host will kick things off · you\'ll get auto-paired]'}
+              {isWithHost
+                ? '[odd number this round · you get the host\'s full attention]'
+                : isLateJoiner
+                  ? '[others are paired up in breakouts · you\'ll join the next shuffle]'
+                  : '[the host will kick things off · you\'ll get auto-paired]'}
             </p>
           </div>
 

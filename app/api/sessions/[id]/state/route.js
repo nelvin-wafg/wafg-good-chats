@@ -59,21 +59,38 @@ export async function GET(request, { params }) {
     const myPairing = pairings.find(
       (p) => p.participant_a_id === participantId || p.participant_b_id === participantId
     );
-    if (myPairing && myPairing.room_name) {
-      const partnerId = myPairing.participant_a_id === participantId
-        ? myPairing.participant_b_id
-        : myPairing.participant_a_id;
-      const partner = participants.find((p) => p.id === partnerId);
+    if (myPairing) {
       const startedAt = new Date(myPairing.rounds.started_at).getTime();
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      assignment = {
-        pairingId: myPairing.id,
-        roomName: myPairing.room_name,
-        roomLabel: myPairing.room_label,
-        partnerName: partner?.name || 'your match',
-        prompt: myPairing.rounds.prompt_text,
-        secondsRemaining: Math.max(0, session.round_seconds - elapsed),
-      };
+      const secondsRemaining = Math.max(0, session.round_seconds - elapsed);
+
+      if (myPairing.room_name && myPairing.participant_b_id) {
+        // standard pair room
+        const partnerId = myPairing.participant_a_id === participantId
+          ? myPairing.participant_b_id
+          : myPairing.participant_a_id;
+        const partner = participants.find((p) => p.id === partnerId);
+        assignment = {
+          pairingId: myPairing.id,
+          roomName: myPairing.room_name,
+          roomLabel: myPairing.room_label,
+          partnerName: partner?.name || 'your match',
+          prompt: myPairing.rounds.prompt_text,
+          secondsRemaining,
+          isWithHost: false,
+        };
+      } else if (!myPairing.participant_b_id) {
+        // sit-out: this participant is paired with the host in the main room
+        assignment = {
+          pairingId: myPairing.id,
+          roomName: null,
+          roomLabel: myPairing.room_label || 'with the host',
+          partnerName: 'the host',
+          prompt: myPairing.rounds.prompt_text,
+          secondsRemaining,
+          isWithHost: true,
+        };
+      }
     }
   }
 
