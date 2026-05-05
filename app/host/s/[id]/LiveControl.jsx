@@ -289,8 +289,12 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
           {/* video gallery · everyone in the main daily room */}
           <div className="flex-1 overflow-y-auto p-4">
             {hasCall ? <HostVideoGallery participantsByName={participantsByName} /> : (
-              <div className="h-full flex items-center justify-center text-neutral-600 text-sm">
-                {isEnded ? '[session has ended]' : '[main room not live yet · click "go live" to open it]'}
+              <div className="h-full flex items-center justify-center text-neutral-600 text-sm text-center px-6">
+                {isEnded
+                  ? '[session has ended]'
+                  : session.status === 'draft'
+                    ? '[click "go live *" to open the main room]'
+                    : '[connecting to main room... if this sticks for more than a few seconds, check browser devtools → network for /api/daily/token errors]'}
               </div>
             )}
           </div>
