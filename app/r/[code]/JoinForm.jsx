@@ -101,10 +101,26 @@ export default function JoinForm({ session, knownProfile }) {
             {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
           </form>
 
-          <div className="text-center text-sm">
+          <div className="text-center text-sm flex items-center justify-center gap-4">
             <button
               type="button"
-              onClick={() => { setShowFull(true); setRecognized(false); }}
+              onClick={() => { setShowFull(true); setRecognized(true); }}
+              className="underline text-neutral-600 hover:text-black"
+            >
+              edit my info
+            </button>
+            <span className="text-neutral-400">·</span>
+            <button
+              type="button"
+              onClick={() => {
+                // clear values for a different account
+                setShowFull(true);
+                setRecognized(false);
+                setName('');
+                setEmail('');
+                setLinkedinUrl('');
+                setNewsletterOptIn(true);
+              }}
               className="underline text-neutral-600 hover:text-black"
             >
               not me · use a different account

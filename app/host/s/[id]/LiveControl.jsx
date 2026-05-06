@@ -4,6 +4,7 @@ import { DailyProvider, useDaily, useParticipantIds, useLocalSessionId } from '@
 import DailyIframe from '@daily-co/daily-js';
 import { colorForName, initials } from '@/lib/brand';
 import CopyLink from '@/components/CopyLink';
+import { showToast } from '@/components/Toast';
 
 // host's command center · runs the session AND shows up on camera in the main room.
 // host stays in the main daily.co room for the entire active session
@@ -118,9 +119,12 @@ export default function LiveControl({ session: initialSession }) {
         credentials: 'same-origin',
         body: body ? JSON.stringify(body) : undefined,
       });
-      if (!res.ok) alert(await res.text());
+      if (!res.ok) {
+        const text = await res.text();
+        showToast(text || `request failed (${res.status})`, 'error');
+      }
     } catch (e) {
-      alert(e.message);
+      showToast(e.message || 'something went wrong', 'error');
     } finally {
       setBusy(false);
     }
@@ -226,20 +230,12 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
             )}
 
             {isBetween && (
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="display text-2xl">round {session.current_round} wrapped.</div>
-                  {nextPrompt && <p className="text-sm text-neutral-400 mt-1">next: <span style={{ color: '#01ecf3' }}>{nextPrompt}</span></p>}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => action('round', { action: 'start' })} disabled={busy} className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap">
-                    start round {session.current_round + 1} *
-                  </button>
-                  <button onClick={() => { if (confirm('end this session now? skips remaining rounds.')) action('end'); }} disabled={busy} className="px-4 py-3 rounded-md border-2 border-red-500 text-red-400 hover:bg-red-500 hover:text-white font-semibold text-sm whitespace-nowrap">
-                    end session
-                  </button>
-                </div>
-              </div>
+              <BetweenRoundsBar
+                session={session}
+                nextPrompt={nextPrompt}
+                busy={busy}
+                action={action}
+              />
             )}
 
             {isRunning && (
@@ -287,13 +283,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
               </div>
             )}
 
-            {isEnded && (
-              <div>
-                <div className="display text-2xl mb-1">that's a wrap.</div>
-                <p className="text-sm text-neutral-400">{participants.length} people · {pairings.length} pairings.</p>
-                <a href="/host" className="inline-block mt-3 text-sm underline">back to dashboard →</a>
-              </div>
-            )}
+            {isEnded && <HostRecapPanel sessionId={session.id} />}
           </div>
 
           {/* video gallery · everyone in the main daily room */}
@@ -390,7 +380,7 @@ function HostVideoGallery({ participantsByName }) {
   }
 
   return (
-    <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(220px, 1fr))` }}>
+    <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(160px, 1fr))` }}>
       {ids.map((id) => (
         <DailyVideoTile key={id} sessionId={id} isLocal={id === localId} participantsByName={participantsByName} />
       ))}
@@ -515,6 +505,174 @@ function fmtTime(secs) {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+// between rounds, auto-advance to the next round after a short countdown.
+// host can pause/resume the countdown.
+function BetweenRoundsBar({ session, nextPrompt, busy, action }) {
+  const AUTO_ADVANCE_SECONDS = 15;
+  const [remaining, setRemaining] = useState(AUTO_ADVANCE_SECONDS);
+  const [paused, setPaused] = useState(false);
+  const [triggered, setTriggered] = useState(false);
+
+  // reset countdown whenever between_rounds re-enters or current_round changes
+  useEffect(() => {
+    setRemaining(AUTO_ADVANCE_SECONDS);
+    setPaused(false);
+    setTriggered(false);
+  }, [session.current_round]);
+
+  // tick down
+  useEffect(() => {
+    if (paused || triggered) return;
+    if (remaining <= 0) {
+      setTriggered(true);
+      action('round', { action: 'start' });
+      return;
+    }
+    const id = setTimeout(() => setRemaining((r) => r - 1), 1000);
+    return () => clearTimeout(id);
+  }, [remaining, paused, triggered]); // eslint-disable-line
+
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="min-w-0">
+        <div className="flex items-center gap-3">
+          <div className="display text-2xl">round {session.current_round} wrapped.</div>
+          {!paused && !triggered && (
+            <span className="text-sm" style={{ color: '#01ecf3' }}>
+              · round {session.current_round + 1} starts in <strong>{remaining}s</strong>
+            </span>
+          )}
+          {paused && (
+            <span className="text-sm text-amber-400">· paused</span>
+          )}
+          {triggered && (
+            <span className="text-sm text-neutral-500">· starting...</span>
+          )}
+        </div>
+        {nextPrompt && <p className="text-sm text-neutral-400 mt-1 truncate">next: <span style={{ color: '#01ecf3' }}>{nextPrompt}</span></p>}
+      </div>
+      <div className="flex items-center gap-2">
+        {!triggered && (
+          <button
+            onClick={() => setPaused((p) => !p)}
+            disabled={busy}
+            className="px-3 py-2 rounded-md border border-neutral-600 text-neutral-300 hover:bg-neutral-800 text-xs whitespace-nowrap"
+          >
+            {paused ? 'resume' : 'hold up'}
+          </button>
+        )}
+        <button onClick={() => action('round', { action: 'start' })} disabled={busy || triggered} className="btn-cyan px-5 py-3 rounded-md text-base whitespace-nowrap">
+          start now *
+        </button>
+        <button onClick={() => { if (confirm('end this session now? skips remaining rounds.')) action('end'); }} disabled={busy} className="px-3 py-2 rounded-md border-2 border-red-500 text-red-400 hover:bg-red-500 hover:text-white font-semibold text-xs whitespace-nowrap">
+          end session
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// host post-session recap · pulls full data from /recap and renders summary + capture list
+function HostRecapPanel({ sessionId }) {
+  const [recap, setRecap] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/sessions/${sessionId}/recap`, { credentials: 'same-origin' })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (!cancelled) { setRecap(d); setLoading(false); } })
+      .catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [sessionId]);
+
+  if (loading) {
+    return <div className="text-sm text-neutral-400">[pulling recap...]</div>;
+  }
+  if (!recap || recap.role !== 'host') {
+    return (
+      <div>
+        <div className="display text-2xl mb-1">that's a wrap.</div>
+        <a href="/host" className="inline-block mt-3 text-sm underline">back to dashboard →</a>
+      </div>
+    );
+  }
+
+  // tally captures per participant
+  const capturerCounts = {};
+  for (const c of recap.captures) capturerCounts[c.capturer_name] = (capturerCounts[c.capturer_name] || 0) + 1;
+
+  return (
+    <div>
+      <div className="display text-2xl mb-3">that's a wrap.</div>
+
+      <div className="grid grid-cols-3 gap-3 mb-5 max-w-md">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-md p-3">
+          <div className="display text-2xl" style={{ color: '#01ecf3' }}>{recap.stats.total_participants}</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold mt-1 text-neutral-500">people</div>
+        </div>
+        <div className="bg-neutral-900 border border-neutral-800 rounded-md p-3">
+          <div className="display text-2xl" style={{ color: '#01ecf3' }}>{recap.stats.total_rounds}</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold mt-1 text-neutral-500">rounds</div>
+        </div>
+        <div className="bg-neutral-900 border border-neutral-800 rounded-md p-3">
+          <div className="display text-2xl" style={{ color: '#01ecf3' }}>{recap.stats.total_captures}</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold mt-1 text-neutral-500">captures</div>
+        </div>
+      </div>
+
+      {/* captures list */}
+      {recap.captures.length > 0 && (
+        <div className="bg-neutral-900 border border-neutral-800 rounded-md p-4 mb-5 max-w-2xl">
+          <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">connections captured</div>
+          <ul className="divide-y divide-neutral-800 max-h-64 overflow-y-auto">
+            {recap.captures.map((c) => (
+              <li key={c.id} className="py-2 text-sm flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="font-medium">{c.capturer_name}</span>
+                  <span className="text-neutral-500"> wanted to stay in touch with </span>
+                  <span className="font-medium">{c.captured_name}</span>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {c.captured_linkedin_url && (
+                    <a href={c.captured_linkedin_url} target="_blank" rel="noopener noreferrer" className="text-[10px] px-2 py-0.5 rounded font-bold" style={{ background: '#0a66c2', color: '#fff' }}>in</a>
+                  )}
+                  {c.captured_email && (
+                    <span className="text-[10px] text-neutral-500 font-mono">{c.captured_email}</span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* participants list */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-md p-4 mb-5 max-w-2xl">
+        <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">all participants</div>
+        <ul className="divide-y divide-neutral-800 max-h-64 overflow-y-auto">
+          {recap.participants.map((p) => (
+            <li key={p.id} className="py-2 text-sm flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <span className="font-medium">{p.name}</span>
+                {p.email && <span className="text-neutral-500 ml-2 font-mono text-xs">{p.email}</span>}
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0 text-xs text-neutral-500">
+                <span>{capturerCounts[p.name] || 0} captures</span>
+                {p.linkedin_url && (
+                  <a href={p.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-[10px] px-2 py-0.5 rounded font-bold" style={{ background: '#0a66c2', color: '#fff' }}>in</a>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <a href="/host" className="inline-block text-sm underline text-neutral-400 hover:text-white">back to dashboard →</a>
+    </div>
+  );
 }
 
 // small inline copy-link for the header bar

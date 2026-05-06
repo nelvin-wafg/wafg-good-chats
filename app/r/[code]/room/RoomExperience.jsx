@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DailyProvider, useDaily, useParticipantIds, useLocalSessionId } from '@daily-co/daily-react';
 import DailyIframe from '@daily-co/daily-js';
 import { colorForName, initials } from '@/lib/brand';
+import { showToast } from '@/components/Toast';
 
 // participant experience.
 // state machine: lobby → main_room → splitting → pair_room → returning → main_room → ... → ended
@@ -159,6 +160,24 @@ export default function RoomExperience({ session: initialSession }) {
       }
     };
   }, [callObject]);
+
+  // mark participant is_present=false when they navigate away or close the tab.
+  // sendBeacon is reliable during page unload (regular fetch isn't).
+  useEffect(() => {
+    if (!participantId) return;
+    const handler = () => {
+      try {
+        const blob = new Blob([JSON.stringify({})], { type: 'application/json' });
+        navigator.sendBeacon(`/api/sessions/${initialSession.id}/leave`, blob);
+      } catch {}
+    };
+    window.addEventListener('beforeunload', handler);
+    window.addEventListener('pagehide', handler);
+    return () => {
+      window.removeEventListener('beforeunload', handler);
+      window.removeEventListener('pagehide', handler);
+    };
+  }, [participantId, initialSession.id]);
 
   // ── render branches ──
 
@@ -365,7 +384,7 @@ function MainRoomVideoGallery({ participantsByName }) {
   }
 
   return (
-    <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+    <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
       {ids.map((id) => (
         <DailyVideoTile key={id} sessionId={id} isLocal={id === localId} participantsByName={participantsByName} />
       ))}
@@ -412,7 +431,7 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
   async function handleCapture() {
     if (captured) return;
     try {
-      await fetch(`/api/sessions/${session.id}/capture`, {
+      const res = await fetch(`/api/sessions/${session.id}/capture`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
@@ -421,8 +440,14 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
           pairingId: assignment.pairingId,
         }),
       });
-      setCaptured(true);
-    } catch {}
+      if (res.ok) {
+        setCaptured(true);
+      } else {
+        showToast("couldn't save · try again", 'error');
+      }
+    } catch {
+      showToast('connection issue · try again', 'error');
+    }
   }
 
   return (
@@ -685,16 +710,98 @@ function SplittingTransition({ partnerName, prompt, roomLabel, count, myName }) 
 }
 
 // ============================================================================
-// ENDED VIEW (unchanged)
+// ENDED VIEW · participant recap with their captures
 // ============================================================================
 function EndedView({ session }) {
+  const [recap, setRecap] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/sessions/${session.id}/recap`, { credentials: 'same-origin' })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (!cancelled) { setRecap(d); setLoading(false); } })
+      .catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [session.id]);
+
   return (
-    <main className="min-h-screen flex items-center justify-center p-8" style={{ background: '#01ecf3', color: '#000' }}>
-      <div className="max-w-xl text-center">
-        <div className="display text-7xl mb-4">that's a wrap.</div>
-        <p className="text-lg mb-2">good chats happened. {session.rounds_total} rounds, just like that.</p>
-        <p className="script text-3xl mt-4">what starts here, ripples →</p>
-        <p className="text-sm mt-12 opacity-70">[your captures + a recap will hit your inbox if we have it]</p>
+    <main className="min-h-screen p-6 md:p-12" style={{ background: '#01ecf3', color: '#000' }}>
+      <div className="max-w-2xl mx-auto">
+        <div className="display text-5xl md:text-7xl mb-4">that's a wrap.</div>
+        <p className="text-lg mb-1">good chats happened.</p>
+
+        {loading && <p className="text-sm opacity-70 mt-6">[pulling your recap...]</p>}
+
+        {!loading && recap && (
+          <div className="mt-8 space-y-6">
+
+            {/* stats row */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-black text-white rounded-md p-4">
+                <div className="display text-3xl">{recap.captures.length}</div>
+                <div className="text-[10px] uppercase tracking-widest font-bold mt-1 opacity-60" style={{ color: '#01ecf3' }}>you captured</div>
+              </div>
+              <div className="bg-black text-white rounded-md p-4">
+                <div className="display text-3xl">{recap.captured_by_count}</div>
+                <div className="text-[10px] uppercase tracking-widest font-bold mt-1 opacity-60" style={{ color: '#01ecf3' }}>captured you</div>
+              </div>
+              <div className="bg-black text-white rounded-md p-4">
+                <div className="display text-3xl">{recap.mutual_capture_count}</div>
+                <div className="text-[10px] uppercase tracking-widest font-bold mt-1 opacity-60" style={{ color: '#01ecf3' }}>mutual</div>
+              </div>
+            </div>
+
+            {/* captures list */}
+            {recap.captures.length > 0 ? (
+              <div className="bg-white rounded-md p-5 sticker">
+                <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">people you wanted to stay in touch with</div>
+                <ul className="divide-y divide-neutral-200">
+                  {recap.captures.map((c) => (
+                    <li key={c.id} className="py-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-semibold truncate">{c.captured_name}</div>
+                        {c.captured_email && <div className="text-xs text-neutral-500 truncate">{c.captured_email}</div>}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {c.captured_linkedin_url && (
+                          <a
+                            href={c.captured_linkedin_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-bold no-underline"
+                            style={{ background: '#0a66c2', color: '#fff' }}
+                          >
+                            <span>linkedin</span><span>→</span>
+                          </a>
+                        )}
+                        {c.captured_email && (
+                          <a
+                            href={`mailto:${c.captured_email}?subject=Great chatting at WAFG Spread Good Chats`}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-bold no-underline border-2 border-black"
+                            style={{ background: '#fff', color: '#000' }}
+                          >
+                            <span>email</span><span>→</span>
+                          </a>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-neutral-500 mt-4">
+                  [screenshot or save this list · the page closes when you navigate away]
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-md p-5 sticker">
+                <div className="font-semibold">no captures this time.</div>
+                <p className="text-sm text-neutral-600 mt-1">[next session, tap the heart on someone you want to stay in touch with]</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <p className="script text-3xl mt-10">what starts here, ripples →</p>
         <a href="/" className="inline-block mt-8 underline text-sm">close out</a>
       </div>
     </main>

@@ -83,7 +83,7 @@ function LoginInner() {
             placeholder="you@weareforgood.com"
             required
             autoFocus
-            className="w-full border-2 border-black rounded px-4 py-3 mb-4 focus:outline-none focus:ring-2 focus:ring-wafg-cyan"
+            className="w-full border-2 border-black rounded px-4 py-3 mb-4 text-base focus:outline-none focus:ring-2 focus:ring-wafg-cyan"
           />
           <button
             type="submit"
