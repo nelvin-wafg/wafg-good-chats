@@ -164,8 +164,10 @@ export default function RoomExperience({ session: initialSession }) {
     };
   }, [callObject]);
 
-  // mark participant is_present=false when they navigate away or close the tab.
-  // sendBeacon is reliable during page unload (regular fetch isn't).
+  // mark participant is_present=false AND destroy the daily call when they
+  // navigate away or close the tab. destroy() synchronously tears down the
+  // WebRTC connection so the camera/mic stop publishing immediately.
+  // sendBeacon hits our server even after the tab closes.
   useEffect(() => {
     if (!participantId) return;
     const handler = () => {
@@ -173,6 +175,11 @@ export default function RoomExperience({ session: initialSession }) {
         const blob = new Blob([JSON.stringify({})], { type: 'application/json' });
         navigator.sendBeacon(`/api/sessions/${initialSession.id}/leave`, blob);
       } catch {}
+      // tear down daily so the camera/mic stop publishing immediately
+      if (callObject) {
+        try { callObject.leave(); } catch {}
+        try { callObject.destroy(); } catch {}
+      }
     };
     window.addEventListener('beforeunload', handler);
     window.addEventListener('pagehide', handler);
@@ -180,7 +187,7 @@ export default function RoomExperience({ session: initialSession }) {
       window.removeEventListener('beforeunload', handler);
       window.removeEventListener('pagehide', handler);
     };
-  }, [participantId, initialSession.id]);
+  }, [participantId, initialSession.id, callObject]);
 
   // ── render branches ──
 
