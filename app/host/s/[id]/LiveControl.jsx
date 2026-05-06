@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { DailyProvider, useDaily, useParticipantIds, useLocalSessionId } from '@daily-co/daily-react';
+import { DailyProvider, useDaily, useParticipantIds, useLocalSessionId, useMediaTrack, useParticipantProperty } from '@daily-co/daily-react';
 import DailyIframe from '@daily-co/daily-js';
 import { colorForName, initials } from '@/lib/brand';
 import CopyLink from '@/components/CopyLink';
@@ -85,14 +85,16 @@ export default function LiveControl({ session: initialSession }) {
       await co.join({ url, token });
       if (!mounted) { co.destroy(); return; }
 
-      // attempt to enable daily's krisp noise cancellation. if it's not available
-      // on the daily plan, this throws and we silently fall back to browser-native
-      // noise suppression (which is already on by default).
+      // defensive: explicitly enable local video + audio after join.
+      // some browsers don't reliably honor videoSource:true on createCallObject alone,
+      // and the symptom is "the host's camera doesn't publish, nobody sees them."
+      try { await co.setLocalVideo(true); } catch (e) { console.warn('[daily] setLocalVideo failed', e); }
+      try { await co.setLocalAudio(true); } catch (e) { console.warn('[daily] setLocalAudio failed', e); }
+
+      // attempt daily's krisp noise cancellation; falls back silently
       try {
         await co.updateInputSettings({ audio: { processor: { type: 'noise-cancellation' } } });
-      } catch {
-        // krisp not available · browser-native noise suppression remains active
-      }
+      } catch {}
 
       setCallObject(co);
     }
@@ -271,15 +273,24 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <div className="display text-2xl">all rounds wrapped.</div>
-                  <p className="text-sm text-neutral-400 mt-1">say a final thing · close out when ready</p>
+                  <p className="text-sm text-neutral-400 mt-1">say a final thing · close out · or run another round (pairs may repeat)</p>
                 </div>
-                <button
-                  onClick={() => { if (confirm('close out the session and end the call for everyone?')) action('end'); }}
-                  disabled={busy}
-                  className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap"
-                >
-                  close out *
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { if (confirm('run another round? everyone has already met everyone, so pairs will repeat.')) action('round', { action: 'start', allowRepeats: true }); }}
+                    disabled={busy}
+                    className="px-4 py-3 rounded-md border-2 border-cyan-400 text-cyan-300 hover:bg-cyan-400 hover:text-black font-semibold text-sm whitespace-nowrap"
+                  >
+                    do another round
+                  </button>
+                  <button
+                    onClick={() => { if (confirm('close out the session and end the call for everyone?')) action('end'); }}
+                    disabled={busy}
+                    className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap"
+                  >
+                    close out *
+                  </button>
+                </div>
               </div>
             )}
 
@@ -390,37 +401,24 @@ function HostVideoGallery({ participantsByName }) {
 
 function DailyVideoTile({ sessionId, isLocal, participantsByName }) {
   const ref = useRef();
-  const daily = useDaily();
-  const [name, setName] = useState(isLocal ? 'host (you)' : '');
-  const [hasVideo, setHasVideo] = useState(false);
+  const videoState = useMediaTrack(sessionId, 'video');
+  const userName = useParticipantProperty(sessionId, 'user_name');
+  const name = userName || (isLocal ? 'host' : 'guest');
+  const hasVideo = !!videoState?.persistentTrack && videoState.state !== 'off';
 
   useEffect(() => {
-    if (!daily || !ref.current) return;
-    const update = () => {
-      const p = daily.participants()[sessionId];
-      if (!p) return;
-      const userName = p.user_name || (isLocal ? 'host (you)' : 'guest');
-      setName(isLocal && p.user_name === 'host' ? 'host (you)' : userName);
-      const track = p.tracks?.video?.persistentTrack;
-      if (track) {
-        ref.current.srcObject = new MediaStream([track]);
-        setHasVideo(true);
-      } else {
-        setHasVideo(false);
-      }
-    };
-    update();
-    daily.on('participant-updated', update);
-    daily.on('track-started', update);
-    daily.on('track-stopped', update);
-    return () => {
-      daily.off('participant-updated', update);
-      daily.off('track-started', update);
-      daily.off('track-stopped', update);
-    };
-  }, [daily, sessionId, isLocal]);
+    if (!ref.current) return;
+    const track = videoState?.persistentTrack;
+    if (track) {
+      ref.current.srcObject = new MediaStream([track]);
+    } else {
+      ref.current.srcObject = null;
+    }
+  }, [videoState?.persistentTrack]);
 
-  const isHostTile = isLocal || name?.toLowerCase().startsWith('host');
+  // host tile is the local one in LiveControl context
+  const isHostTile = isLocal;
+  const displayName = isLocal ? `${name} · you` : name;
   const linkedinUrl = !isHostTile ? participantsByName?.[name]?.linkedin_url : null;
 
   return (
@@ -428,7 +426,14 @@ function DailyVideoTile({ sessionId, isLocal, participantsByName }) {
       className="relative rounded-md overflow-hidden bg-neutral-900 aspect-video"
       style={isHostTile ? { border: '2px solid #01ecf3' } : { border: '1px solid #333' }}
     >
-      <video ref={ref} autoPlay playsInline muted={isLocal} className="w-full h-full object-cover" />
+      <video
+        ref={ref}
+        autoPlay
+        playsInline
+        muted={isLocal}
+        className="w-full h-full object-cover"
+        style={isLocal ? { transform: 'scaleX(-1)' } : undefined}
+      />
       {!hasVideo && (
         <div className="absolute inset-0 flex items-center justify-center" style={{ background: '#1a1a1a' }}>
           <div
@@ -440,7 +445,7 @@ function DailyVideoTile({ sessionId, isLocal, participantsByName }) {
         </div>
       )}
       <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur px-2 py-0.5 rounded text-xs font-medium flex items-center gap-2">
-        <span>{name}</span>
+        <span>{displayName}</span>
         {linkedinUrl && (
           <a
             href={linkedinUrl}

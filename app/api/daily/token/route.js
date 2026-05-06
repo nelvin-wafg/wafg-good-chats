@@ -69,6 +69,7 @@ export async function POST(request) {
   if (sessionRow.status === 'ended') return new NextResponse('session has ended', { status: 410 });
 
   // auth check
+  let resolvedUserName = userName;
   if (isOwner) {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -76,13 +77,19 @@ export async function POST(request) {
 
     const { data: host } = await admin
       .from('hosts')
-      .select('is_approved')
+      .select('is_approved, display_name')
       .eq('id', user.id)
       .maybeSingle();
     if (!host?.is_approved) return new NextResponse('host not approved', { status: 403 });
 
     if (sessionRow.host_id !== user.id) {
       return new NextResponse('not the host of this session', { status: 403 });
+    }
+
+    // override the userName with the host's actual display name so participants see "Nelvin"
+    // not the placeholder "host" string the client sent
+    if (host.display_name) {
+      resolvedUserName = host.display_name;
     }
   } else {
     // participant flow
@@ -105,7 +112,7 @@ export async function POST(request) {
   try {
     const token = await createMeetingToken({
       roomName,
-      userName: userName.slice(0, 64),
+      userName: (resolvedUserName || userName).slice(0, 64),
       isOwner,
       expMinutes: 30,
     });

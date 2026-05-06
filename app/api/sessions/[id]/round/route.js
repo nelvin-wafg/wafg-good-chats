@@ -22,13 +22,18 @@ const ROOM_LABELS = [
   "the slow lane",
 ];
 
-// POST /api/sessions/:id/round  body: { action: 'start' | 'end' }
+// POST /api/sessions/:id/round  body: { action: 'start' | 'end', allowRepeats?: boolean }
+// allowRepeats=true on action='start' lets the host run another round even when
+// all unique pairings have been exhausted · pairs may repeat.
 export async function POST(request, { params }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new NextResponse('not authenticated', { status: 401 });
 
-  const { action } = await request.json();
+  const body = await request.json().catch(() => ({}));
+  const action = body?.action;
+  const allowRepeats = Boolean(body?.allowRepeats);
+
   const admin = adminClient();
   const { data: session } = await admin
     .from('sessions')
@@ -38,17 +43,29 @@ export async function POST(request, { params }) {
   if (!session) return new NextResponse('session not found', { status: 404 });
   if (session.host_id !== user.id) return new NextResponse('forbidden', { status: 403 });
 
-  if (action === 'start') return startRound(admin, session);
+  if (action === 'start') return startRound(admin, session, { allowRepeats });
   if (action === 'end') return endRound(admin, session);
   return new NextResponse('invalid action', { status: 400 });
 }
 
-async function startRound(admin, session) {
-  if (session.status !== 'live' && session.status !== 'between_rounds') {
+async function startRound(admin, session, { allowRepeats = false } = {}) {
+  // accept 'closing' too when allowRepeats is set · host wants to extend post-final-round
+  const validStatuses = allowRepeats
+    ? ['live', 'between_rounds', 'closing']
+    : ['live', 'between_rounds'];
+  if (!validStatuses.includes(session.status)) {
     return new NextResponse(`cannot start round from status ${session.status}`, { status: 400 });
   }
   if (session.current_round >= session.rounds_total) {
-    return new NextResponse('all rounds complete', { status: 400 });
+    if (!allowRepeats) {
+      return new NextResponse('all rounds complete', { status: 400 });
+    }
+    // extend rounds_total by 1 so the round counter stays sensible (round X of X+1)
+    await admin
+      .from('sessions')
+      .update({ rounds_total: session.rounds_total + 1 })
+      .eq('id', session.id);
+    session.rounds_total = session.rounds_total + 1;
   }
 
   const newRoundNumber = (session.current_round || 0) + 1;

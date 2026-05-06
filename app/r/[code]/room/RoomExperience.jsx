@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { DailyProvider, useDaily, useParticipantIds, useLocalSessionId } from '@daily-co/daily-react';
+import { DailyProvider, useDaily, useParticipantIds, useLocalSessionId, useMediaTrack, useParticipantProperty } from '@daily-co/daily-react';
 import DailyIframe from '@daily-co/daily-js';
 import { colorForName, initials } from '@/lib/brand';
 import { showToast } from '@/components/Toast';
@@ -121,12 +121,15 @@ export default function RoomExperience({ session: initialSession }) {
       await co.join({ url, token });
       if (!mounted) { co.destroy(); return; }
 
+      // defensive: explicitly enable local video + audio after join.
+      // browsers don't always honor videoSource:true on createCallObject reliably.
+      try { await co.setLocalVideo(true); } catch (e) { console.warn('[daily] setLocalVideo failed', e); }
+      try { await co.setLocalAudio(true); } catch (e) { console.warn('[daily] setLocalAudio failed', e); }
+
       // attempt daily's krisp noise cancellation; falls back to browser-native if not on plan
       try {
         await co.updateInputSettings({ audio: { processor: { type: 'noise-cancellation' } } });
-      } catch {
-        // not available · browser-native processing remains active
-      }
+      } catch {}
 
       setCallObject(co);
       setCurrentRoom({ name: targetRoom.name, isPair: targetRoom.isPair });
@@ -476,18 +479,21 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
         />
       </div>
 
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 p-4">
-        <DailyVideoTile sessionId={localId} isLocal nameOverride={myName} />
-        {remoteIds.length > 0 ? (
-          <DailyVideoTile sessionId={remoteIds[0]} cyan nameOverride={assignment.partnerName} linkedinOverride={assignment.partnerLinkedinUrl} />
-        ) : (
-          <div className="rounded-md bg-neutral-900 border-2 border-dashed border-neutral-700 flex items-center justify-center">
-            <div className="text-center">
-              <div className="display text-2xl mb-2">{assignment.partnerName}</div>
-              <p className="text-sm text-neutral-500">[connecting · hang tight]</p>
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr,300px] overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 overflow-hidden">
+          <DailyVideoTile sessionId={localId} isLocal nameOverride={myName} />
+          {remoteIds.length > 0 ? (
+            <DailyVideoTile sessionId={remoteIds[0]} cyan nameOverride={assignment.partnerName} linkedinOverride={assignment.partnerLinkedinUrl} />
+          ) : (
+            <div className="rounded-md bg-neutral-900 border-2 border-dashed border-neutral-700 flex items-center justify-center">
+              <div className="text-center">
+                <div className="display text-2xl mb-2">{assignment.partnerName}</div>
+                <p className="text-sm text-neutral-500">[connecting · hang tight]</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+        <PairChatPanel myName={myName} />
       </div>
 
       <ParticipantControlBar />
@@ -537,52 +543,134 @@ function CaptureControl({ captured, partnerName, partnerLinkedinUrl, onCapture }
 }
 
 // ============================================================================
+// PAIR ROOM CHAT · live messages between the two participants via daily app-message
+// ============================================================================
+function PairChatPanel({ myName }) {
+  const daily = useDaily();
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    if (!daily) return;
+    const handler = (event) => {
+      const text = event?.data?.text;
+      if (typeof text !== 'string' || !text.trim()) return;
+      setMessages((m) => [...m, {
+        id: `${Date.now()}-${Math.random()}`,
+        text: text.slice(0, 500),
+        from: event?.data?.fromName || 'partner',
+        isLocal: false,
+      }]);
+    };
+    daily.on('app-message', handler);
+    return () => { daily.off('app-message', handler); };
+  }, [daily]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages.length]);
+
+  function send(e) {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || !daily) return;
+    daily.sendAppMessage({ text, fromName: myName }, '*');
+    setMessages((m) => [...m, {
+      id: `${Date.now()}-${Math.random()}`,
+      text,
+      from: myName,
+      isLocal: true,
+    }]);
+    setInput('');
+  }
+
+  return (
+    <div className="hidden lg:flex flex-col border-l border-neutral-800 bg-neutral-950">
+      <div className="px-3 py-2 border-b border-neutral-800 text-[10px] uppercase tracking-widest font-bold text-neutral-500">
+        chat · just between you two
+      </div>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2">
+        {messages.length === 0 && (
+          <p className="text-xs text-neutral-600 italic">[share a link, drop a quick note, whatever feels useful]</p>
+        )}
+        {messages.map((m) => (
+          <div key={m.id} className={m.isLocal ? 'text-right' : ''}>
+            <div
+              className={`inline-block px-3 py-2 rounded-md max-w-[85%] text-sm break-words text-left ${m.isLocal ? '' : 'bg-neutral-800 text-white'}`}
+              style={m.isLocal ? { background: '#01ecf3', color: '#000' } : {}}
+            >
+              {m.text}
+            </div>
+          </div>
+        ))}
+      </div>
+      <form onSubmit={send} className="p-3 border-t border-neutral-800 flex gap-2">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="message..."
+          maxLength={500}
+          className="flex-1 bg-neutral-800 rounded px-3 py-2 text-base text-white border border-neutral-700 focus:outline-none focus:border-cyan-400"
+        />
+        <button
+          type="submit"
+          disabled={!input.trim()}
+          className="px-3 py-2 rounded text-xs font-bold disabled:opacity-50"
+          style={{ background: '#01ecf3', color: '#000' }}
+        >
+          send
+        </button>
+      </form>
+    </div>
+  );
+}
+
+// ============================================================================
 // shared video tile component used by both pair room and main room
 // ============================================================================
 function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverride, participantsByName }) {
   const ref = useRef();
-  const daily = useDaily();
-  const [name, setName] = useState(nameOverride || (isLocal ? 'you' : ''));
-  const [hasVideo, setHasVideo] = useState(false);
+  const videoState = useMediaTrack(sessionId, 'video');
+  const userName = useParticipantProperty(sessionId, 'user_name');
+  const name = nameOverride || userName || (isLocal ? 'you' : 'guest');
+  const hasVideo = !!videoState?.persistentTrack && videoState.state !== 'off';
 
   useEffect(() => {
-    if (!daily || !ref.current) return;
-    const update = () => {
-      const p = daily.participants()[sessionId];
-      if (!p) return;
-      const userName = nameOverride || p.user_name || (isLocal ? 'you' : 'guest');
-      setName(userName);
-      const track = p.tracks?.video?.persistentTrack;
-      if (track) {
-        ref.current.srcObject = new MediaStream([track]);
-        setHasVideo(true);
-      } else {
-        setHasVideo(false);
-      }
-    };
-    update();
-    daily.on('participant-updated', update);
-    daily.on('track-started', update);
-    daily.on('track-stopped', update);
-    return () => {
-      daily.off('participant-updated', update);
-      daily.off('track-started', update);
-      daily.off('track-stopped', update);
-    };
-  }, [daily, sessionId, isLocal, nameOverride]);
+    if (!ref.current) return;
+    const track = videoState?.persistentTrack;
+    if (track) {
+      ref.current.srcObject = new MediaStream([track]);
+    } else {
+      ref.current.srcObject = null;
+    }
+  }, [videoState?.persistentTrack]);
 
-  // resolve linkedin: explicit override (e.g. partner in pair room) wins,
-  // otherwise look up by name in the participantsByName map (main room gallery)
+  // resolve linkedin: explicit override wins, else lookup by name in main room gallery
   const linkedinUrl = linkedinOverride || participantsByName?.[name]?.linkedin_url || null;
 
-  const isHostTile = name?.toLowerCase().startsWith('host');
+  const isHostTile = name?.toLowerCase().includes('host') || (!isLocal && participantsByName?.[name]?.is_host);
   const borderStyle = (cyan || isHostTile)
     ? { border: '2px solid #01ecf3' }
     : { border: '1px solid #262626' };
 
+  // pretty display name handling
+  const displayName = isLocal
+    ? `${name === 'host' || name === 'host (you)' ? 'you' : name} · you`
+    : name;
+
   return (
     <div className="relative rounded-md overflow-hidden bg-neutral-900 aspect-video" style={borderStyle}>
-      <video ref={ref} autoPlay playsInline muted={isLocal} className="w-full h-full object-cover" />
+      <video
+        ref={ref}
+        autoPlay
+        playsInline
+        muted={isLocal}
+        className="w-full h-full object-cover"
+        style={isLocal ? { transform: 'scaleX(-1)' } : undefined}
+      />
       {!hasVideo && (
         <div className="absolute inset-0 flex items-center justify-center" style={{ background: '#1a1a1a' }}>
           <div
@@ -594,7 +682,7 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverri
         </div>
       )}
       <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur px-2 py-1 rounded text-xs font-semibold flex items-center gap-2">
-        <span>{name}{isLocal && <span className="text-neutral-400 ml-1">· you</span>}</span>
+        <span>{displayName}</span>
         {linkedinUrl && !isLocal && (
           <a
             href={linkedinUrl}
