@@ -201,11 +201,13 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
   return (
     <main className="min-h-screen flex flex-col text-white" style={{ background: '#0a0a0a' }}>
       <header className="border-b border-neutral-800 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <a href="/host" className="text-xs text-neutral-500 hover:text-white">← dashboard</a>
+        <div className="flex items-center gap-3 min-w-0">
+          <a href="/host" className="text-xs text-neutral-500 hover:text-white whitespace-nowrap">← dashboard</a>
           <span className="text-neutral-600">·</span>
-          <span className="text-sm font-semibold">{session.name}</span>
+          <span className="text-sm font-semibold truncate">{session.name}</span>
           <HeaderCopyLink code={session.code} />
+          <span className="text-neutral-600">·</span>
+          <CoHostCopyLink sessionId={session.id} />
         </div>
         <div className="flex items-center gap-3">
           <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded ${isRunning ? 'animate-pulse' : ''}`} style={{ background: isEnded ? '#444' : '#01ecf3', color: isEnded ? '#aaa' : '#000' }}>
@@ -780,6 +782,31 @@ function HeaderCopyLink({ code }) {
     >
       <span className="font-mono">/r/{code}</span>
       <span>{copied ? '✓ copied' : '· copy'}</span>
+    </button>
+  );
+}
+
+// co-host link · share with another approved host so they can run this session with you
+function CoHostCopyLink({ sessionId }) {
+  const [copied, setCopied] = useState(false);
+  async function copy(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const url = `${window.location.origin}/host/s/${sessionId}`;
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  }
+  return (
+    <button
+      onClick={copy}
+      title="copy co-host link · share with another approved host (jon, becky)"
+      className="text-xs flex items-center gap-1.5 hover:text-cyan-300 transition-colors"
+      style={{ color: copied ? '#01ecf3' : '#737373' }}
+    >
+      <span>{copied ? '✓ co-host link copied' : 'co-host link'}</span>
     </button>
   );
 }

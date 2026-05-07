@@ -82,12 +82,9 @@ export async function POST(request) {
       .maybeSingle();
     if (!host?.is_approved) return new NextResponse('host not approved', { status: 403 });
 
-    if (sessionRow.host_id !== user.id) {
-      return new NextResponse('not the host of this session', { status: 403 });
-    }
+    // any approved host can request an owner token (co-host enabled).
 
     // override the userName with the host's actual display name so participants see "Nelvin"
-    // not the placeholder "host" string the client sent
     if (host.display_name) {
       resolvedUserName = host.display_name;
     }

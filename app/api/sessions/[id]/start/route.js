@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
-import { createClient, adminClient } from '@/lib/supabase-server';
+import { adminClient } from '@/lib/supabase-server';
+import { getApprovedHost } from '@/lib/auth';
 import { createRoom } from '@/lib/daily';
 
-// POST /api/sessions/:id/start  — flip from draft → live and provision the main daily room
+// POST /api/sessions/:id/start  — flip from draft → live and provision the main daily room.
+// any approved host can start any session (co-host enabled).
 export async function POST(_request, { params }) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return new NextResponse('not authenticated', { status: 401 });
+  const auth = await getApprovedHost();
+  if (!auth) return new NextResponse('not an approved host', { status: 403 });
 
   const admin = adminClient();
   const { data: session, error } = await admin
@@ -15,7 +16,6 @@ export async function POST(_request, { params }) {
     .eq('id', params.id)
     .single();
   if (error || !session) return new NextResponse('session not found', { status: 404 });
-  if (session.host_id !== user.id) return new NextResponse('forbidden', { status: 403 });
   if (session.status !== 'draft' && session.status !== 'live') {
     return new NextResponse('session already started', { status: 400 });
   }

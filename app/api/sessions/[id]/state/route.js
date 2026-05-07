@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { adminClient, createClient } from '@/lib/supabase-server';
+import { adminClient } from '@/lib/supabase-server';
+import { getApprovedHost } from '@/lib/auth';
 import { getParticipantFromCookies } from '@/lib/participant-token';
 import { validateUuid, ValidationError } from '@/lib/validate';
 
@@ -29,12 +30,10 @@ export async function GET(request, { params }) {
 
   if (!session) return new NextResponse('not found', { status: 404 });
 
-  // host view requires authenticated host (and not just any host — the session's host).
+  // host view requires any approved host (co-host enabled).
   if (isHostView) {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return new NextResponse('not authenticated', { status: 401 });
-    if (session.host_id !== user.id) return new NextResponse('forbidden', { status: 403 });
+    const auth = await getApprovedHost();
+    if (!auth) return new NextResponse('forbidden', { status: 403 });
   }
 
   const { data: rawParticipants = [] } = await admin

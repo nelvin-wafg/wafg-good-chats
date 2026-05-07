@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient, adminClient } from '@/lib/supabase-server';
+import { adminClient } from '@/lib/supabase-server';
+import { getApprovedHost } from '@/lib/auth';
 import { createRoom, deleteRoom } from '@/lib/daily';
 import { planRound } from '@/lib/pairing';
 
@@ -26,9 +27,8 @@ const ROOM_LABELS = [
 // allowRepeats=true on action='start' lets the host run another round even when
 // all unique pairings have been exhausted · pairs may repeat.
 export async function POST(request, { params }) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return new NextResponse('not authenticated', { status: 401 });
+  const auth = await getApprovedHost();
+  if (!auth) return new NextResponse('not an approved host', { status: 403 });
 
   const body = await request.json().catch(() => ({}));
   const action = body?.action;
@@ -41,7 +41,6 @@ export async function POST(request, { params }) {
     .eq('id', params.id)
     .single();
   if (!session) return new NextResponse('session not found', { status: 404 });
-  if (session.host_id !== user.id) return new NextResponse('forbidden', { status: 403 });
 
   if (action === 'start') return startRound(admin, session, { allowRepeats });
   if (action === 'end') return endRound(admin, session);

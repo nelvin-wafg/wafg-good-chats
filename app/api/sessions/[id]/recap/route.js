@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { adminClient, createClient } from '@/lib/supabase-server';
+import { adminClient } from '@/lib/supabase-server';
+import { getApprovedHost } from '@/lib/auth';
 import { getParticipantFromCookies } from '@/lib/participant-token';
 import { validateUuid, ValidationError } from '@/lib/validate';
 
@@ -26,17 +27,14 @@ export async function GET(_request, { params }) {
     .maybeSingle();
   if (!session) return new NextResponse('not found', { status: 404 });
 
-  // identify caller: host (auth) OR participant (cookie)
+  // identify caller: any approved host OR participant (cookie)
   let role = null;
   let participantId = null;
-  let userId = null;
 
-  // try host auth
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user && user.id === session.host_id) {
+  // try host auth (any approved host has full recap access)
+  const hostAuth = await getApprovedHost();
+  if (hostAuth) {
     role = 'host';
-    userId = user.id;
   }
 
   // fall back to participant cookie

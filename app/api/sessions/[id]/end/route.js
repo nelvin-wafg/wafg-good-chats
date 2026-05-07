@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server';
-import { createClient, adminClient } from '@/lib/supabase-server';
+import { adminClient } from '@/lib/supabase-server';
+import { getApprovedHost } from '@/lib/auth';
 import { deleteRoom } from '@/lib/daily';
 
-// POST /api/sessions/:id/end  — host ends session early or after final round
+// POST /api/sessions/:id/end  — any approved host ends the session
 export async function POST(_request, { params }) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return new NextResponse('not authenticated', { status: 401 });
+  const auth = await getApprovedHost();
+  if (!auth) return new NextResponse('not an approved host', { status: 403 });
 
   const admin = adminClient();
   const { data: session } = await admin.from('sessions').select('*').eq('id', params.id).single();
   if (!session) return new NextResponse('session not found', { status: 404 });
-  if (session.host_id !== user.id) return new NextResponse('forbidden', { status: 403 });
 
   // tear down all daily rooms (main + any active pair rooms)
   const { data: pairings = [] } = await admin.from('pairings').select('room_name').eq('session_id', session.id);
