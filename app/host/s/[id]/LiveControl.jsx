@@ -14,6 +14,7 @@ export default function LiveControl({ session: initialSession }) {
   const [session, setSession] = useState(initialSession);
   const [participants, setParticipants] = useState([]);
   const [pairings, setPairings] = useState([]);
+  const [pairingsHistory, setPairingsHistory] = useState([]);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [busy, setBusy] = useState(false);
   const [callObject, setCallObject] = useState(null);
@@ -30,6 +31,7 @@ export default function LiveControl({ session: initialSession }) {
         setSession((s) => ({ ...s, ...data.session }));
         setParticipants(data.participants || []);
         setPairings(data.pairings || []);
+        setPairingsHistory(data.pairingsHistory || []);
         if (data.session?.current_round_started_at) {
           const startedAt = new Date(data.session.current_round_started_at).getTime();
           const elapsed = Math.floor((Date.now() - startedAt) / 1000);
@@ -169,6 +171,7 @@ export default function LiveControl({ session: initialSession }) {
       participants={participants}
       participantsByName={participantsByName}
       pairings={pairings}
+      pairingsHistory={pairingsHistory}
       secondsLeft={secondsLeft}
       busy={busy}
       action={action}
@@ -185,7 +188,7 @@ export default function LiveControl({ session: initialSession }) {
 // ============================================================================
 // inner component (uses daily hooks if wrapped in DailyProvider)
 // ============================================================================
-function LiveControlInner({ session, participants, participantsByName, pairings, secondsLeft, busy, action, hasCall }) {
+function LiveControlInner({ session, participants, participantsByName, pairings, pairingsHistory, secondsLeft, busy, action, hasCall }) {
   const isPre = session.status === 'draft' || session.status === 'live';
   const isRunning = session.status === 'running_round';
   const isBetween = session.status === 'between_rounds';
@@ -388,6 +391,8 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
               </div>
             </div>
           )}
+
+          <RoundHistoryPanel pairingsHistory={pairingsHistory} currentRound={session.current_round} />
 
           <div className="border-t border-neutral-800 pt-5">
             <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">session info</div>
@@ -599,6 +604,54 @@ function BetweenRoundsBar({ session, nextPrompt, busy, action }) {
         <button onClick={() => { if (confirm('end this session now? skips remaining rounds.')) action('end'); }} disabled={busy} className="px-3 py-2 rounded-md border-2 border-red-500 text-red-400 hover:bg-red-500 hover:text-white font-semibold text-xs whitespace-nowrap">
           end session
         </button>
+      </div>
+    </div>
+  );
+}
+
+// round history · all rounds and their pairings, current round highlighted
+function RoundHistoryPanel({ pairingsHistory, currentRound }) {
+  if (!pairingsHistory || pairingsHistory.length === 0) return null;
+
+  // group by round number
+  const byRound = {};
+  for (const p of pairingsHistory) {
+    if (!byRound[p.round_number]) byRound[p.round_number] = [];
+    byRound[p.round_number].push(p);
+  }
+  const rounds = Object.keys(byRound).map(Number).sort((a, b) => a - b);
+
+  return (
+    <div className="border-t border-neutral-800 pt-5">
+      <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">round history</div>
+      <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+        {rounds.map((rn) => {
+          const isCurrent = rn === currentRound;
+          return (
+            <div key={rn} className={`rounded p-2 ${isCurrent ? 'border border-cyan-700 bg-cyan-900/10' : 'bg-neutral-900 border border-neutral-800'}`}>
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: isCurrent ? '#01ecf3' : '#888' }}>
+                  round {rn}{isCurrent ? ' · live' : ''}
+                </div>
+                <div className="text-[10px] text-neutral-600">
+                  {byRound[rn].filter((p) => p.participant_b_name).length} pair{byRound[rn].filter((p) => p.participant_b_name).length === 1 ? '' : 's'}
+                </div>
+              </div>
+              <ul className="space-y-1">
+                {byRound[rn].map((p) => (
+                  <li key={p.id} className="text-xs flex items-center justify-between gap-2">
+                    <span className="truncate">
+                      <span className="font-medium">{p.participant_a_name}</span>
+                      <span className="text-neutral-500"> × </span>
+                      <span className="font-medium">{p.participant_b_name || <span className="italic text-neutral-500">with you</span>}</span>
+                    </span>
+                    {p.room_label && <span className="text-[9px] text-neutral-600 whitespace-nowrap">* {p.room_label}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

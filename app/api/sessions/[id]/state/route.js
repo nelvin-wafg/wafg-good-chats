@@ -104,20 +104,42 @@ export async function GET(request, { params }) {
   }
 
   let pairings = [];
-  if (isHostView && (session.status === 'running_round' || session.status === 'between_rounds')) {
-    const { data } = await admin
-      .from('pairings')
-      .select('id, room_name, room_label, participant_a_id, participant_b_id, rounds!inner(round_number)')
-      .eq('session_id', session.id)
-      .eq('rounds.round_number', session.current_round || 0);
+  let pairingsHistory = [];
+  if (isHostView) {
     const idToName = Object.fromEntries(participants.map((p) => [p.id, p.name]));
-    pairings = (data || []).map((p) => ({
-      id: p.id,
-      room_name: p.room_name,
-      room_label: p.room_label,
-      participant_a_name: idToName[p.participant_a_id],
-      participant_b_name: p.participant_b_id ? idToName[p.participant_b_id] : null,
-    }));
+
+    // current round pairings (for the active "live pairings" view)
+    if (session.status === 'running_round' || session.status === 'between_rounds') {
+      const { data } = await admin
+        .from('pairings')
+        .select('id, room_name, room_label, participant_a_id, participant_b_id, rounds!inner(round_number)')
+        .eq('session_id', session.id)
+        .eq('rounds.round_number', session.current_round || 0);
+      pairings = (data || []).map((p) => ({
+        id: p.id,
+        room_name: p.room_name,
+        room_label: p.room_label,
+        participant_a_name: idToName[p.participant_a_id],
+        participant_b_name: p.participant_b_id ? idToName[p.participant_b_id] : null,
+      }));
+    }
+
+    // full history across all rounds (for the round history panel)
+    const { data: allPairings = [] } = await admin
+      .from('pairings')
+      .select('id, room_name, room_label, participant_a_id, participant_b_id, rounds!inner(round_number, prompt_text)')
+      .eq('session_id', session.id);
+    pairingsHistory = (allPairings || [])
+      .map((p) => ({
+        id: p.id,
+        round_number: p.rounds?.round_number,
+        prompt_text: p.rounds?.prompt_text,
+        room_label: p.room_label,
+        participant_a_name: idToName[p.participant_a_id],
+        participant_b_name: p.participant_b_id ? idToName[p.participant_b_id] : null,
+      }))
+      .filter((p) => p.round_number != null)
+      .sort((a, b) => a.round_number - b.round_number);
   }
 
   return NextResponse.json({
@@ -136,6 +158,7 @@ export async function GET(request, { params }) {
     participants,
     assignment,
     pairings,
+    pairingsHistory,
     me: participantId ? { participantId } : null,
   });
 }
