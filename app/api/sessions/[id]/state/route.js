@@ -36,9 +36,24 @@ export async function GET(request, { params }) {
     if (!auth) return new NextResponse('forbidden', { status: 403 });
   }
 
+  // identify the calling participant (if any) from the cookie.
+  const cookieStore = cookies();
+  const me = getParticipantFromCookies(cookieStore, sessionId);
+  const participantId = me?.participantId || null;
+
+  // heartbeat: each poll from a participant marks them present + bumps last_seen.
+  // this is what makes a browser refresh NOT look like a disconnect.
+  if (participantId) {
+    await admin
+      .from('participants')
+      .update({ is_present: true, last_seen: new Date().toISOString() })
+      .eq('id', participantId)
+      .eq('session_id', sessionId);
+  }
+
   const { data: rawParticipants = [] } = await admin
     .from('participants')
-    .select('id, name, is_present, current_room_name, joined_at, profiles(linkedin_url)')
+    .select('id, name, is_present, current_room_name, joined_at, last_seen, profiles(linkedin_url)')
     .eq('session_id', session.id)
     .order('joined_at', { ascending: true });
   const participants = (rawParticipants || []).map((p) => ({
@@ -47,13 +62,9 @@ export async function GET(request, { params }) {
     is_present: p.is_present,
     current_room_name: p.current_room_name,
     joined_at: p.joined_at,
+    last_seen: p.last_seen,
     linkedin_url: p.profiles?.linkedin_url || null,
   }));
-
-  // identify the calling participant (if any) from the cookie.
-  const cookieStore = cookies();
-  const me = getParticipantFromCookies(cookieStore, sessionId);
-  const participantId = me?.participantId || null;
 
   let assignment = null;
   if (participantId && session.status === 'running_round') {

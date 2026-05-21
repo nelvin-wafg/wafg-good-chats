@@ -93,6 +93,10 @@ create table if not exists participants (
 -- must run BEFORE the index below.
 alter table participants add column if not exists profile_id uuid references profiles(id) on delete set null;
 
+-- heartbeat timestamp · updated on every state poll. used to detect real disconnects
+-- vs. brief refreshes (a refreshing participant updates this within ~2s).
+alter table participants add column if not exists last_seen timestamptz default now();
+
 create index if not exists idx_participants_session on participants(session_id);
 create index if not exists idx_participants_present on participants(session_id, is_present);
 create index if not exists idx_participants_profile on participants(profile_id);

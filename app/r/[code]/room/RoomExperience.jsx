@@ -717,24 +717,26 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverri
 // ============================================================================
 function ParticipantControlBar() {
   const daily = useDaily();
-  const [audioOn, setAudioOn] = useState(true);
-  const [videoOn, setVideoOn] = useState(true);
+  const localId = useLocalSessionId();
+  const videoState = useMediaTrack(localId, 'video');
+  const audioState = useMediaTrack(localId, 'audio');
 
-  function toggleAudio() {
+  const videoOn = videoState?.state === 'sendable' || videoState?.state === 'playable';
+  const audioOn = audioState?.state === 'sendable' || audioState?.state === 'playable';
+  const videoBlocked = videoState?.state === 'blocked';
+
+  async function toggleAudio() {
     if (!daily) return;
-    const next = !audioOn;
-    daily.setLocalAudio(next);
-    setAudioOn(next);
+    try { await daily.setLocalAudio(!audioOn); } catch {}
   }
-  function toggleVideo() {
+  async function toggleVideo() {
     if (!daily) return;
-    const next = !videoOn;
-    daily.setLocalVideo(next);
-    setVideoOn(next);
+    // tapping here is a user gesture · this is what lets iOS Safari actually start the camera
+    try { await daily.setLocalVideo(!videoOn); } catch (e) { console.warn('setLocalVideo failed', e); }
   }
 
   return (
-    <footer className="border-t border-neutral-800 px-6 py-3 flex items-center justify-center gap-3 bg-black">
+    <footer className="border-t border-neutral-800 px-6 py-3 flex items-center justify-center gap-3 bg-black flex-wrap">
       <button
         onClick={toggleAudio}
         className={`px-4 py-2 rounded-full text-xs font-semibold border ${audioOn ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-red-900/30 border-red-700 text-red-300'}`}
@@ -744,8 +746,9 @@ function ParticipantControlBar() {
       <button
         onClick={toggleVideo}
         className={`px-4 py-2 rounded-full text-xs font-semibold border ${videoOn ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-red-900/30 border-red-700 text-red-300'}`}
+        style={!videoOn ? { background: '#01ecf3', color: '#000', borderColor: '#01ecf3' } : {}}
       >
-        {videoOn ? 'cam on' : 'cam off'}
+        {videoOn ? 'cam on' : (videoBlocked ? 'camera blocked · check browser settings' : 'tap to turn on camera')}
       </button>
       <button
         onClick={() => { if (confirm('leave this session?')) window.location.href = '/'; }}

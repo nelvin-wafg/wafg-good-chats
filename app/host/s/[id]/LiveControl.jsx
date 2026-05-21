@@ -140,26 +140,33 @@ export default function LiveControl({ session: initialSession }) {
     return acc;
   }, {});
 
-  // security: eject any daily participant who's in our DB but marked is_present=false.
-  // catches the case where someone closes their tab but daily.co's server hasn't
-  // detected the disconnect yet · their video would otherwise keep streaming.
+  // security: eject daily participants who've genuinely gone away.
+  // matches by daily user_id (= our participant id · unique, names can collide)
+  // and only ejects when their heartbeat (last_seen) is stale by >12s.
+  // a browser refresh updates last_seen within ~2s, so refreshes never trigger eject.
   useEffect(() => {
     if (!callObject) return;
-    const inDbNotPresent = new Set(
-      participants.filter((p) => p.name && p.is_present === false).map((p) => p.name)
+    const now = Date.now();
+    const STALE_MS = 12000;
+    const staleIds = new Set(
+      participants
+        .filter((p) => {
+          const seen = p.last_seen ? new Date(p.last_seen).getTime() : 0;
+          return now - seen > STALE_MS;
+        })
+        .map((p) => p.id)
     );
-    if (inDbNotPresent.size === 0) return;
+    if (staleIds.size === 0) return;
     const dailyParticipants = callObject.participants();
     for (const [sid, p] of Object.entries(dailyParticipants || {})) {
       if (sid === 'local') continue;
-      const userName = p?.user_name;
-      if (userName && inDbNotPresent.has(userName)) {
-        // they left our session but are still in the daily room · eject them
-        console.log('[security] ejecting ghost participant:', userName);
+      const uid = p?.user_id;
+      if (uid && staleIds.has(uid)) {
+        console.log('[presence] ejecting stale participant:', uid);
         try {
           callObject.updateParticipant(sid, { eject: true });
         } catch (e) {
-          console.warn('[security] eject failed', e);
+          console.warn('[presence] eject failed', e);
         }
       }
     }

@@ -70,6 +70,7 @@ export async function POST(request) {
 
   // auth check
   let resolvedUserName = userName;
+  let resolvedUserId = null;
   if (isOwner) {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -83,6 +84,7 @@ export async function POST(request) {
     if (!host?.is_approved) return new NextResponse('host not approved', { status: 403 });
 
     // any approved host can request an owner token (co-host enabled).
+    resolvedUserId = `host-${user.id}`;
 
     // override the userName with the host's actual display name so participants see "Nelvin"
     if (host.display_name) {
@@ -93,6 +95,7 @@ export async function POST(request) {
     const cookieStore = cookies();
     const me = getParticipantFromCookies(cookieStore, sessionRow.id);
     if (!me) return new NextResponse('not joined as a participant', { status: 401 });
+    resolvedUserId = me.participantId;
 
     if (pairingForRoom) {
       // for pair rooms, only the two participants in that pairing can get a token
@@ -110,6 +113,7 @@ export async function POST(request) {
     const token = await createMeetingToken({
       roomName,
       userName: (resolvedUserName || userName).slice(0, 64),
+      userId: resolvedUserId,
       isOwner,
       expMinutes: 30,
     });
