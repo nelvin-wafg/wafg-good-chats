@@ -1,6 +1,7 @@
 'use client';
-import { useState, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { showToast } from '@/components/Toast';
 
 const PROMPT_LIBRARY = [
   { tag: 'opener', text: 'what brought you to the for-good world?' },
@@ -28,6 +29,10 @@ const PROMPT_LIBRARY = [
 
 function NewSessionInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get('id');
+  const isEditing = Boolean(editId);
+
   const [step, setStep] = useState(1); // 1 basics, 2 rhythm, 3 prompts
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
@@ -37,8 +42,35 @@ function NewSessionInner() {
   const [custom, setCustom] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [loadingDraft, setLoadingDraft] = useState(isEditing);
 
-  // auto-derive slug from name
+  // load an existing draft's config when editing
+  useEffect(() => {
+    if (!editId) return;
+    let cancelled = false;
+    fetch(`/api/sessions/${editId}/state?host=1`, { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled) return;
+        if (d?.session) {
+          setName(d.session.name || '');
+          setCode(d.session.code || '');
+          setRounds(d.session.rounds_total || 8);
+          setPerRound(Math.round((d.session.round_seconds || 420) / 60));
+          setSelected((d.session.prompts || []).map((p) => p.text).filter(Boolean));
+        } else {
+          showToast("couldn't load that draft", 'error');
+        }
+        setLoadingDraft(false);
+      })
+      .catch(() => {
+        showToast("couldn't load that draft", 'error');
+        setLoadingDraft(false);
+      });
+    return () => { cancelled = true; };
+  }, [editId]);
+
+  // auto-derive slug from name (only when not editing or slug still empty)
   function nameChange(v) {
     setName(v);
     if (!code) setCode(slugify(v));
@@ -62,9 +94,12 @@ function NewSessionInner() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch('/api/sessions', {
-        method: 'POST',
+      const url = isEditing ? `/api/sessions/${editId}` : '/api/sessions';
+      const method = isEditing ? 'PATCH' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({
           name,
           code: slugify(code),
@@ -76,18 +111,26 @@ function NewSessionInner() {
       });
       if (!res.ok) throw new Error(await res.text());
       const { id } = await res.json();
-      router.push(startNow ? `/host/s/${id}` : '/host');
+      router.push(startNow ? `/host/s/${id || editId}` : '/host');
     } catch (e) {
       setError(e.message);
       setSubmitting(false);
     }
   }
 
+  if (loadingDraft) {
+    return (
+      <main className="min-h-screen p-8 max-w-4xl mx-auto" style={{ background: '#f4f4f1' }}>
+        <p className="text-neutral-500">[loading draft...]</p>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen p-8 max-w-4xl mx-auto" style={{ background: '#f4f4f1' }}>
       <header className="mb-8">
         <a href="/host" className="text-sm underline text-neutral-600">← back to dashboard</a>
-        <div className="display text-4xl mt-3">new good chats <span style={{ color: '#01ecf3' }}>*</span></div>
+        <div className="display text-4xl mt-3">{isEditing ? 'edit' : 'new'} good chats <span style={{ color: '#01ecf3' }}>*</span></div>
         <div className="flex gap-1 mt-3">
           <Step n={1} active={step === 1} done={step > 1} label="basics" />
           <Step n={2} active={step === 2} done={step > 2} label="rhythm" />
@@ -158,9 +201,30 @@ function NewSessionInner() {
                 ))}
               </div>
 
+              {/* custom prompts (selected but not in the library) · shown as removable chips */}
+              {selected.filter((t) => !PROMPT_LIBRARY.some((p) => p.text === t)).length > 0 && (
+                <div className="mb-4">
+                  <div className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">your custom prompts</div>
+                  <div className="space-y-2">
+                    {selected.filter((t) => !PROMPT_LIBRARY.some((p) => p.text === t)).map((t) => (
+                      <div key={t} className="flex items-center justify-between gap-2 p-3 rounded border-2 border-black" style={{ background: '#01ecf3' }}>
+                        <span className="text-sm">{t}</span>
+                        <button
+                          onClick={() => setSelected((s) => s.filter((x) => x !== t))}
+                          className="text-xs font-bold underline whitespace-nowrap"
+                          title="remove"
+                        >
+                          remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <Field label="add a custom prompt">
                 <div className="flex gap-2">
-                  <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="your prompt here..." className="flex-1 border-2 border-black rounded px-4 py-2" />
+                  <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="your prompt here..." className="flex-1 border-2 border-black rounded px-4 py-2 text-base" />
                   <button onClick={addCustom} className="btn-black px-4 rounded">add *</button>
                 </div>
               </Field>
@@ -168,8 +232,12 @@ function NewSessionInner() {
               <div className="flex justify-between mt-6 pt-6 border-t-2 border-neutral-200">
                 <button onClick={() => setStep(2)} className="text-sm underline">← back</button>
                 <div className="flex gap-3">
-                  <button onClick={() => handlePublish(false)} disabled={submitting || selected.length < rounds} className="px-6 py-3 rounded-md border-2 border-black bg-white disabled:opacity-50 font-semibold">save as draft</button>
-                  <button onClick={() => handlePublish(true)} disabled={submitting || selected.length < rounds} className="btn-cyan px-6 py-3 rounded-md disabled:opacity-50">{submitting ? 'creating...' : 'go live now *'}</button>
+                  <button onClick={() => handlePublish(false)} disabled={submitting || selected.length < rounds} className="px-6 py-3 rounded-md border-2 border-black bg-white disabled:opacity-50 font-semibold">
+                    {isEditing ? 'save changes' : 'save as draft'}
+                  </button>
+                  <button onClick={() => handlePublish(true)} disabled={submitting || selected.length < rounds} className="btn-cyan px-6 py-3 rounded-md disabled:opacity-50">
+                    {submitting ? 'working...' : 'go live now *'}
+                  </button>
                 </div>
               </div>
               {error && <p className="text-sm text-red-600 mt-3">{error}</p>}

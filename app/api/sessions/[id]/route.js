@@ -1,7 +1,79 @@
 import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase-server';
 import { getApprovedHost } from '@/lib/auth';
-import { deleteRoom } from '@/lib/daily';
+import { deleteRoom, createRoom } from '@/lib/daily';
+import {
+  validateSessionName,
+  validateCode,
+  validateRounds,
+  validateRoundSeconds,
+  validatePrompts,
+  ValidationError,
+} from '@/lib/validate';
+
+// PATCH /api/sessions/:id  — update a draft's config. optionally go live (start_now).
+// only draft or pre-round (live, no rounds started) sessions can be edited.
+export async function PATCH(request, { params }) {
+  const auth = await getApprovedHost();
+  if (!auth) return new NextResponse('not an approved host', { status: 403 });
+
+  let name, code, roundsTotal, roundSeconds, prompts, startNow;
+  try {
+    const body = await request.json();
+    name = validateSessionName(body?.name);
+    code = validateCode(body?.code);
+    roundsTotal = validateRounds(body?.rounds_total);
+    roundSeconds = validateRoundSeconds(body?.round_seconds);
+    prompts = validatePrompts(body?.prompts);
+    startNow = Boolean(body?.start_now);
+  } catch (err) {
+    if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
+    return new NextResponse('bad request', { status: 400 });
+  }
+
+  const admin = adminClient();
+  const { data: session } = await admin
+    .from('sessions')
+    .select('id, status, main_room_name')
+    .eq('id', params.id)
+    .maybeSingle();
+  if (!session) return new NextResponse('session not found', { status: 404 });
+  if (session.status !== 'draft' && session.status !== 'live') {
+    return new NextResponse('this session has already started · can only edit drafts', { status: 400 });
+  }
+
+  const updates = {
+    name,
+    code,
+    rounds_total: roundsTotal,
+    round_seconds: roundSeconds,
+    prompts,
+  };
+
+  // going live from a draft · provision the daily room
+  if (startNow && session.status === 'draft') {
+    try {
+      const room = await createRoom({
+        name: `wafg-main-${code}-${Date.now().toString(36)}`,
+        expMinutes: Math.max(120, (roundsTotal + 2) * Math.ceil(roundSeconds / 60) + 30),
+        isMain: true,
+      });
+      updates.status = 'live';
+      updates.main_room_name = room.name;
+    } catch (e) {
+      console.error('failed to provision daily room on draft go-live', e);
+    }
+  }
+
+  const { error } = await admin.from('sessions').update(updates).eq('id', session.id);
+  if (error) {
+    if (error.code === '23505') {
+      return new NextResponse('that code is already in use · pick a different slug', { status: 409 });
+    }
+    return new NextResponse('could not update session', { status: 500 });
+  }
+  return NextResponse.json({ id: session.id });
+}
 
 // DELETE /api/sessions/:id  — any approved host can delete a session.
 // hard delete · cascades to remove participants, pairings, rounds, captures.
