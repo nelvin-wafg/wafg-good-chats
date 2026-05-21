@@ -4,6 +4,7 @@ import { DailyProvider, useDaily, useParticipantIds, useLocalSessionId, useMedia
 import DailyIframe from '@daily-co/daily-js';
 import { colorForName, initials } from '@/lib/brand';
 import { showToast } from '@/components/Toast';
+import ChatPanel from '@/components/ChatPanel';
 
 // participant experience.
 // state machine: lobby → main_room → splitting → pair_room → returning → main_room → ... → ended
@@ -291,31 +292,31 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
   }, [isWithHost, withHostAssignment?.pairingId]); // eslint-disable-line
 
   return (
-    <main className="min-h-screen flex flex-col text-white" style={{ background: '#000' }}>
-      <header className="flex items-center justify-between px-6 py-3 border-b border-neutral-800">
+    <main className="min-h-screen flex flex-col" style={{ background: '#f4f4f1', color: '#000' }}>
+      <header className="flex items-center justify-between px-6 py-3 border-b border-neutral-200 bg-white">
         <div className="display text-base">
           spread<span style={{ color: '#01ecf3' }}>*</span>good<span style={{ color: '#01ecf3' }}>*</span>chats
         </div>
-        <div className="text-xs text-neutral-400">
-          <span className="font-semibold" style={{ color: '#01ecf3' }}>{liveCount}</span> here · {session.name}
+        <div className="text-xs text-neutral-500">
+          <span className="font-bold text-black">{liveCount}</span> here · {session.name}
         </div>
       </header>
 
       {isLateJoiner && (
-        <div className="px-6 py-2 text-center text-[11px] uppercase tracking-widest font-bold" style={{ background: 'rgba(1,236,243,0.15)', color: '#01ecf3' }}>
+        <div className="px-6 py-2 text-center text-[11px] uppercase tracking-widest font-bold text-black" style={{ background: '#01ecf3' }}>
           * rounds in progress · you'll be folded in at the next reshuffle *
         </div>
       )}
 
       {isWithHost && (
-        <div className="px-6 py-3 flex items-center justify-between gap-4 border-b border-neutral-800" style={{ background: 'rgba(1,236,243,0.1)' }}>
+        <div className="px-6 py-3 flex items-center justify-between gap-4 border-b border-neutral-200" style={{ background: 'rgba(1,236,243,0.18)' }}>
           <div>
-            <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>* you're with the host this round *</div>
+            <div className="text-[10px] uppercase tracking-widest font-bold mb-1 text-neutral-600">* you're with the host this round *</div>
             {withHostAssignment?.prompt && (
               <div className="display text-base">{withHostAssignment.prompt}</div>
             )}
           </div>
-          <div className="display text-3xl" style={{ color: hostSecondsLeft <= 30 ? '#fbbf24' : '#01ecf3' }}>
+          <div className="display text-3xl" style={{ color: hostSecondsLeft <= 30 ? '#d97706' : '#000' }}>
             {fmtTime(hostSecondsLeft)}
           </div>
         </div>
@@ -346,8 +347,8 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
         </div>
 
         {/* right rail */}
-        <aside className="bg-neutral-950 border-l border-neutral-800 p-6 flex flex-col gap-4">
-          <div className="rounded-md p-5" style={{ background: '#01ecf3', color: '#000' }}>
+        <aside className="bg-white border-l border-neutral-200 p-6 flex flex-col gap-4 overflow-hidden">
+          <div className="rounded-md p-5 flex-shrink-0" style={{ background: '#01ecf3', color: '#000' }}>
             <div className="text-[10px] uppercase tracking-widest font-bold mb-2 opacity-60">
               {isPreSession ? 'pre-session' : isWithHost ? 'this round' : isLateJoiner ? 'happening now' : isClosing ? 'closing out' : 'next up'}
             </div>
@@ -373,26 +374,37 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
             </p>
           </div>
 
-          <div className="rounded-md bg-neutral-900 border border-neutral-800 p-4">
+          <div className="rounded-md bg-neutral-50 border border-neutral-200 p-4 flex-shrink-0">
             <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 font-semibold">about this session</div>
-            <div className="text-sm text-neutral-300 space-y-2">
-              <div className="flex justify-between"><span>rounds</span><span style={{ color: '#01ecf3' }}>{session.rounds_total}</span></div>
-              <div className="flex justify-between"><span>per round</span><span style={{ color: '#01ecf3' }}>{Math.round(session.round_seconds / 60)} min</span></div>
-              <div className="flex justify-between"><span>matching</span><span style={{ color: '#01ecf3' }}>random · no repeats</span></div>
+            <div className="text-sm text-neutral-700 space-y-2">
+              <div className="flex justify-between"><span>rounds</span><span className="font-semibold text-black">{session.rounds_total}</span></div>
+              <div className="flex justify-between"><span>per round</span><span className="font-semibold text-black">{Math.round(session.round_seconds / 60)} min</span></div>
+              <div className="flex justify-between"><span>matching</span><span className="font-semibold text-black">random · no repeats</span></div>
             </div>
           </div>
+
+          {withVideo && (
+            <ChatPanel
+              myName={myName}
+              theme="light"
+              title="chat · everyone in the room"
+              placeholder="say hi to the room..."
+              emptyHint="[say hello, drop a link, react to the prompt — everyone in the main room sees this]"
+              className="flex flex-1 min-h-0 border border-neutral-200 rounded-md"
+            />
+          )}
         </aside>
 
       </div>
 
-      {withVideo && <ParticipantControlBar sessionCode={session?.code} />}
+      {withVideo && <ParticipantControlBar sessionCode={session?.code} theme="light" />}
 
       {!withVideo && (
-        <footer className="border-t border-neutral-800 px-6 py-3 flex items-center justify-between">
+        <footer className="border-t border-neutral-200 bg-white px-6 py-3 flex items-center justify-between">
           <div className="text-xs text-neutral-500">main room · everyone together</div>
           <button
             onClick={() => { if (confirm('leave this session?')) window.location.href = session?.code ? `/r/${session.code}` : '/'; }}
-            className="text-sm border border-red-500 text-red-400 px-4 py-2 rounded font-semibold hover:bg-red-500 hover:text-white"
+            className="text-sm border border-red-500 text-red-500 px-4 py-2 rounded font-semibold hover:bg-red-500 hover:text-white"
           >
             leave
           </button>
@@ -519,7 +531,13 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
             </div>
           )}
         </div>
-        <PairChatPanel myName={myName} />
+        <ChatPanel
+          myName={myName}
+          title="chat · just between you two"
+          placeholder="message..."
+          emptyHint="[share a link, drop a quick note, whatever feels useful]"
+          className="hidden lg:flex border-l border-neutral-800"
+        />
       </div>
 
       <ParticipantControlBar sessionCode={session?.code} />
@@ -564,92 +582,6 @@ function CaptureControl({ captured, partnerName, partnerLinkedinUrl, onCapture }
       ) : (
         <span className="text-xs text-neutral-400">[no linkedin shared · you'll see them in your recap]</span>
       )}
-    </div>
-  );
-}
-
-// ============================================================================
-// PAIR ROOM CHAT · live messages between the two participants via daily app-message
-// ============================================================================
-function PairChatPanel({ myName }) {
-  const daily = useDaily();
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const scrollRef = useRef(null);
-
-  useEffect(() => {
-    if (!daily) return;
-    const handler = (event) => {
-      const text = event?.data?.text;
-      if (typeof text !== 'string' || !text.trim()) return;
-      setMessages((m) => [...m, {
-        id: `${Date.now()}-${Math.random()}`,
-        text: text.slice(0, 500),
-        from: event?.data?.fromName || 'partner',
-        isLocal: false,
-      }]);
-    };
-    daily.on('app-message', handler);
-    return () => { daily.off('app-message', handler); };
-  }, [daily]);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages.length]);
-
-  function send(e) {
-    e.preventDefault();
-    const text = input.trim();
-    if (!text || !daily) return;
-    daily.sendAppMessage({ text, fromName: myName }, '*');
-    setMessages((m) => [...m, {
-      id: `${Date.now()}-${Math.random()}`,
-      text,
-      from: myName,
-      isLocal: true,
-    }]);
-    setInput('');
-  }
-
-  return (
-    <div className="hidden lg:flex flex-col border-l border-neutral-800 bg-neutral-950">
-      <div className="px-3 py-2 border-b border-neutral-800 text-[10px] uppercase tracking-widest font-bold text-neutral-500">
-        chat · just between you two
-      </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2">
-        {messages.length === 0 && (
-          <p className="text-xs text-neutral-600 italic">[share a link, drop a quick note, whatever feels useful]</p>
-        )}
-        {messages.map((m) => (
-          <div key={m.id} className={m.isLocal ? 'text-right' : ''}>
-            <div
-              className={`inline-block px-3 py-2 rounded-md max-w-[85%] text-sm break-words text-left ${m.isLocal ? '' : 'bg-neutral-800 text-white'}`}
-              style={m.isLocal ? { background: '#01ecf3', color: '#000' } : {}}
-            >
-              {m.text}
-            </div>
-          </div>
-        ))}
-      </div>
-      <form onSubmit={send} className="p-3 border-t border-neutral-800 flex gap-2">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="message..."
-          maxLength={500}
-          className="flex-1 bg-neutral-800 rounded px-3 py-2 text-base text-white border border-neutral-700 focus:outline-none focus:border-cyan-400"
-        />
-        <button
-          type="submit"
-          disabled={!input.trim()}
-          className="px-3 py-2 rounded text-xs font-bold disabled:opacity-50"
-          style={{ background: '#01ecf3', color: '#000' }}
-        >
-          send
-        </button>
-      </form>
     </div>
   );
 }
@@ -734,7 +666,7 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverri
 // ============================================================================
 // participant control bar (mic / cam / leave) · used wherever there's a daily call
 // ============================================================================
-function ParticipantControlBar({ sessionCode }) {
+function ParticipantControlBar({ sessionCode, theme = 'dark' }) {
   const daily = useDaily();
   const localId = useLocalSessionId();
   const videoState = useMediaTrack(localId, 'video');
@@ -754,24 +686,32 @@ function ParticipantControlBar({ sessionCode }) {
     try { await daily.setLocalVideo(!videoOn); } catch (e) { console.warn('setLocalVideo failed', e); }
   }
 
+  const light = theme === 'light';
+  const footerClass = light ? 'border-neutral-200 bg-white' : 'border-neutral-800 bg-black';
+  const onClass = light ? 'bg-neutral-100 border-neutral-300 text-black' : 'bg-neutral-800 border-neutral-700 text-white';
+  const offClass = light ? 'bg-red-50 border-red-300 text-red-600' : 'bg-red-900/30 border-red-700 text-red-300';
+  const leaveClass = light
+    ? 'border-red-500 text-red-500 hover:bg-red-500 hover:text-white'
+    : 'border-red-500 text-red-400 hover:bg-red-500 hover:text-white';
+
   return (
-    <footer className="border-t border-neutral-800 px-6 py-3 flex items-center justify-center gap-3 bg-black flex-wrap">
+    <footer className={`border-t px-6 py-3 flex items-center justify-center gap-3 flex-wrap ${footerClass}`}>
       <button
         onClick={toggleAudio}
-        className={`px-4 py-2 rounded-full text-xs font-semibold border ${audioOn ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-red-900/30 border-red-700 text-red-300'}`}
+        className={`px-4 py-2 rounded-full text-xs font-semibold border ${audioOn ? onClass : offClass}`}
       >
         {audioOn ? 'mic on' : 'mic off'}
       </button>
       <button
         onClick={toggleVideo}
-        className={`px-4 py-2 rounded-full text-xs font-semibold border ${videoOn ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-red-900/30 border-red-700 text-red-300'}`}
+        className={`px-4 py-2 rounded-full text-xs font-semibold border ${videoOn ? onClass : offClass}`}
         style={!videoOn ? { background: '#01ecf3', color: '#000', borderColor: '#01ecf3' } : {}}
       >
         {videoOn ? 'cam on' : (videoBlocked ? 'camera blocked · check browser settings' : 'tap to turn on camera')}
       </button>
       <button
         onClick={() => { if (confirm('leave this session?')) window.location.href = sessionCode ? `/r/${sessionCode}` : '/'; }}
-        className="px-4 py-2 rounded-full text-xs font-semibold border border-red-500 text-red-400 hover:bg-red-500 hover:text-white"
+        className={`px-4 py-2 rounded-full text-xs font-semibold border ${leaveClass}`}
       >
         leave
       </button>

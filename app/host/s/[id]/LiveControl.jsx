@@ -4,6 +4,7 @@ import { DailyProvider, useDaily, useParticipantIds, useLocalSessionId, useMedia
 import DailyIframe from '@daily-co/daily-js';
 import { colorForName, initials } from '@/lib/brand';
 import CopyLink from '@/components/CopyLink';
+import ChatPanel from '@/components/ChatPanel';
 import { showToast } from '@/components/Toast';
 
 // host's command center · runs the session AND shows up on camera in the main room.
@@ -377,6 +378,16 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
               )}
             </div>
           </div>
+
+          {hasCall && (
+            <ChatPanel
+              myName="host"
+              title="room chat"
+              placeholder="message the room..."
+              emptyHint="[messages from people in the main room show up here]"
+              className="flex h-72 border border-neutral-800 rounded-md"
+            />
+          )}
 
           {pairings.length > 0 && isRunning && (
             <div>
