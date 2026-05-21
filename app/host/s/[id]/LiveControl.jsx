@@ -83,9 +83,15 @@ export default function LiveControl({ session: initialSession }) {
       const { token, url } = await tokenRes.json();
       if (!mounted) return;
 
-      const co = DailyIframe.createCallObject({ videoSource: true, audioSource: true });
+      let co;
+      try {
+        co = DailyIframe.getCallInstance() || DailyIframe.createCallObject({ videoSource: true, audioSource: true });
+      } catch {
+        co = DailyIframe.getCallInstance() || null;
+      }
+      if (!co) return;
       await co.join({ url, token });
-      if (!mounted) { co.destroy(); return; }
+      if (!mounted) { try { co.leave(); } catch {} co.destroy(); return; }
 
       // defensive: explicitly enable local video + audio after join.
       // some browsers don't reliably honor videoSource:true on createCallObject alone,

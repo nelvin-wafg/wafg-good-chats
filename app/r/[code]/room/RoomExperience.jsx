@@ -81,88 +81,107 @@ export default function RoomExperience({ session: initialSession }) {
   })();
   const targetName = targetRoom?.name || null;
 
-  // call lifecycle: join targetRoom, leave when it changes / unmounts.
+  // ── daily call lifecycle ──
+  // CRITICAL: we keep ONE call object for the whole component lifetime and switch
+  // rooms with leave()+join() · NOT destroy()+createCallObject() per room.
+  // daily allows only a single call-object instance per page, and destroy() is
+  // async. the old "destroy then create" approach raced: createCallObject ran
+  // before the previous instance finished tearing down and threw "Duplicate
+  // DailyIframe instances are not allowed", which silently failed the join and
+  // left people stuck on "connecting…" with no video and dead mic/cam buttons.
+  const opChainRef = useRef(Promise.resolve());
+  const joinedNameRef = useRef(null);
+
+  // create the call object exactly once, reuse it for the whole session.
   useEffect(() => {
-    let mounted = true;
-    async function manageCall() {
-      if (!targetRoom) {
-        if (callObject) {
+    let co = null;
+    try {
+      co = DailyIframe.getCallInstance() || DailyIframe.createCallObject({ videoSource: true, audioSource: true });
+    } catch {
+      // an instance already exists (e.g. a fast remount) · reuse it.
+      co = DailyIframe.getCallInstance() || null;
+    }
+    if (co) setCallObject(co);
+    return () => {
+      joinedNameRef.current = null;
+      if (co) {
+        try { co.leave(); } catch {}
+        try { co.destroy(); } catch {}
+      }
+    };
+  }, []);
+
+  // join / switch / leave rooms as targetRoom changes. operations are serialized
+  // through a promise chain so two transitions never run on the call object at
+  // once, and a `cancelled` flag drops superseded transitions.
+  useEffect(() => {
+    if (!callObject) return;
+    let cancelled = false;
+    const target = targetRoom;
+
+    opChainRef.current = opChainRef.current.then(async () => {
+      if (cancelled) return;
+
+      // no room wanted (ended/draft) · leave if we're in one
+      if (!target) {
+        if (joinedNameRef.current) {
           await callObject.leave().catch(() => {});
-          callObject.destroy();
-          setCallObject(null);
+          joinedNameRef.current = null;
           setCurrentRoom(null);
         }
         return;
       }
-      if (currentRoom?.name === targetRoom.name) return; // already there
 
-      // get token
+      // already in the right room
+      if (joinedNameRef.current === target.name) return;
+
+      // token for the target room
       const tokenRes = await fetch('/api/daily/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({
-          roomName: targetRoom.name,
-          userName: participantName,
-          isOwner: false,
-        }),
+        body: JSON.stringify({ roomName: target.name, userName: participantName, isOwner: false }),
       });
-      if (!tokenRes.ok) return;
+      if (cancelled || !tokenRes.ok) return;
       const { token, url } = await tokenRes.json();
-      if (!mounted) return;
+      if (cancelled) return;
 
-      // tear down old call
-      if (callObject) {
+      // leave the current room first · daily can only join from new/left state.
+      const state = callObject.meetingState();
+      if (state !== 'new' && state !== 'left-meeting') {
         await callObject.leave().catch(() => {});
-        callObject.destroy();
       }
+      joinedNameRef.current = null;
+      if (cancelled) return;
 
-      const co = DailyIframe.createCallObject({ videoSource: true, audioSource: true });
-      await co.join({ url, token });
-      if (!mounted) { co.destroy(); return; }
+      await callObject.join({ url, token });
+      if (cancelled) return;
 
-      // defensive: explicitly enable local video + audio after join.
-      // browsers don't always honor videoSource:true on createCallObject reliably.
-      try { await co.setLocalVideo(true); } catch (e) { console.warn('[daily] setLocalVideo failed', e); }
-      try { await co.setLocalAudio(true); } catch (e) { console.warn('[daily] setLocalAudio failed', e); }
-
+      // explicitly enable local media after join · browsers don't reliably honor
+      // videoSource/audioSource:true on the call object alone.
+      try { await callObject.setLocalVideo(true); } catch (e) { console.warn('[daily] setLocalVideo failed', e); }
+      try { await callObject.setLocalAudio(true); } catch (e) { console.warn('[daily] setLocalAudio failed', e); }
       // attempt daily's krisp noise cancellation; falls back to browser-native if not on plan
-      try {
-        await co.updateInputSettings({ audio: { processor: { type: 'noise-cancellation' } } });
-      } catch {}
+      try { await callObject.updateInputSettings({ audio: { processor: { type: 'noise-cancellation' } } }); } catch {}
 
-      setCallObject(co);
-      setCurrentRoom({ name: targetRoom.name, isPair: targetRoom.isPair });
+      joinedNameRef.current = target.name;
+      setCurrentRoom({ name: target.name, isPair: target.isPair });
 
       // brief "splitting" transition only when entering a pair room
-      if (targetRoom.isPair && session.status === 'running_round') {
+      if (target.isPair && session.status === 'running_round') {
         setTransition('splitting');
         let n = 3;
         setTransitionCountdown(n);
         const tid = setInterval(() => {
           n--;
-          if (n <= 0) {
-            clearInterval(tid);
-            setTransition(null);
-          } else {
-            setTransitionCountdown(n);
-          }
+          if (n <= 0) { clearInterval(tid); setTransition(null); }
+          else setTransitionCountdown(n);
         }, 1000);
       }
-    }
-    manageCall();
-    return () => { mounted = false; };
-  }, [targetName, participantName]); // eslint-disable-line
+    }).catch((e) => { console.warn('[daily] room transition failed', e); });
 
-  // cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (callObject) {
-        callObject.leave().catch(() => {});
-        callObject.destroy();
-      }
-    };
-  }, [callObject]);
+    return () => { cancelled = true; };
+  }, [callObject, targetName, participantName]); // eslint-disable-line
 
   // mark participant is_present=false AND destroy the daily call when they
   // navigate away or close the tab. destroy() synchronously tears down the
@@ -313,7 +332,7 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
             {isPreSession
               ? <>welcome in.<br/>we'll start together.</>
               : isWithHost
-                ? <>1-on-1 with the host.<br/>your round, your rules.</>
+                ? <>you're with<br/>the host this round.</>
                 : isLateJoiner
                   ? <>hang tight.<br/>next round picks you up.</>
                   : isClosing
@@ -366,13 +385,13 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
 
       </div>
 
-      {withVideo && <ParticipantControlBar />}
+      {withVideo && <ParticipantControlBar sessionCode={session?.code} />}
 
       {!withVideo && (
         <footer className="border-t border-neutral-800 px-6 py-3 flex items-center justify-between">
           <div className="text-xs text-neutral-500">main room · everyone together</div>
           <button
-            onClick={() => { if (confirm('leave this session?')) window.location.href = '/'; }}
+            onClick={() => { if (confirm('leave this session?')) window.location.href = session?.code ? `/r/${session.code}` : '/'; }}
             className="text-sm border border-red-500 text-red-400 px-4 py-2 rounded font-semibold hover:bg-red-500 hover:text-white"
           >
             leave
@@ -503,7 +522,7 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
         <PairChatPanel myName={myName} />
       </div>
 
-      <ParticipantControlBar />
+      <ParticipantControlBar sessionCode={session?.code} />
     </main>
   );
 }
@@ -715,7 +734,7 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverri
 // ============================================================================
 // participant control bar (mic / cam / leave) · used wherever there's a daily call
 // ============================================================================
-function ParticipantControlBar() {
+function ParticipantControlBar({ sessionCode }) {
   const daily = useDaily();
   const localId = useLocalSessionId();
   const videoState = useMediaTrack(localId, 'video');
@@ -751,7 +770,7 @@ function ParticipantControlBar() {
         {videoOn ? 'cam on' : (videoBlocked ? 'camera blocked · check browser settings' : 'tap to turn on camera')}
       </button>
       <button
-        onClick={() => { if (confirm('leave this session?')) window.location.href = '/'; }}
+        onClick={() => { if (confirm('leave this session?')) window.location.href = sessionCode ? `/r/${sessionCode}` : '/'; }}
         className="px-4 py-2 rounded-full text-xs font-semibold border border-red-500 text-red-400 hover:bg-red-500 hover:text-white"
       >
         leave
