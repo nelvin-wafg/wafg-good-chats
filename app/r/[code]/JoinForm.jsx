@@ -26,7 +26,7 @@ export default function JoinForm({ session, knownProfile }) {
       const res = await fetch('/api/profiles/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, sessionId: session.id }),
       });
       if (!res.ok) return;
       const data = await res.json();

@@ -139,9 +139,10 @@ A sliding-window rate limiter (`lib/rate-limit.js`) backed by the Supabase `rate
 
 - `POST /api/sessions/[id]/join`: 10 joins per IP per 60 seconds.
 - `POST /api/daily/token`: 50 requests per IP per 300 seconds.
+- `POST /api/profiles/lookup`: 20 per IP per 300 seconds, and only operable against a non-ended session (limits email enumeration to active session windows).
 - Sessions also enforce a 60-participant hard cap, server-side.
 
-The rate limiter fails open if the database is unreachable, prioritizing availability over strict enforcement during outages. A periodic cleanup function (`cleanup_rate_limits()`) prunes records older than 1 hour.
+The rate limiter fails open if the database is unreachable, prioritizing availability over strict enforcement during outages. A scheduled daily cron (`/api/cron/cleanup`, configured in `vercel.json`) calls `cleanup_rate_limits()` to prune records older than 1 hour.
 
 Supabase's built-in auth rate limits cover the host magic-link flow (typically 4 emails per hour per IP, configurable in the Supabase dashboard).
 
@@ -157,14 +158,17 @@ Supabase's built-in auth rate limits cover the host magic-link flow (typically 4
 
 ## 10. Secrets management
 
-Six environment variables hold sensitive configuration:
+Environment variables holding sensitive configuration:
 
 - `NEXT_PUBLIC_SUPABASE_URL` (public)
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public, gated by RLS)
 - `SUPABASE_SERVICE_ROLE_KEY` (server-only, bypasses RLS)
 - `DAILY_API_KEY` (server-only, used to mint Daily.co tokens)
 - `DAILY_DOMAIN` (semi-public)
-- `SESSION_SECRET` (server-only, used to sign participant identity cookies)
+- `SESSION_SECRET` (server-only, signs participant identity + profile cookies via HMAC-SHA256)
+- `KIT_API_KEY` (server-only, newsletter sync — optional; absence disables sync)
+- `KIT_FORM_ID` (server-only, Kit form to subscribe joiners to)
+- `CRON_SECRET` (server-only, optional — protects the scheduled cleanup endpoint; Vercel cron sends it as a bearer token)
 
 All secrets are stored in Vercel's encrypted environment variable store. None are committed to the repository. The `.env.example` file documents the required keys with placeholder values only. The `.gitignore` excludes `.env`, `.env.local`, and similar files.
 
@@ -177,9 +181,11 @@ The `SUPABASE_SERVICE_ROLE_KEY` is scoped to server-side usage only (`lib/supaba
 Currently the application relies on:
 - Vercel function logs (request-level).
 - Supabase logs (query-level, retained per Supabase plan).
-- The `rate_limits` table itself, which records every limited request with timestamp.
+- The `rate_limits` table, which records every limited request with timestamp.
+- A `last_seen` heartbeat on each participant, updated every ~2 seconds while their tab is open. Used for presence/pairing accuracy and to eject genuinely-disconnected participants (stale heartbeat > 12s) from live rooms.
+- A scheduled daily cron that prunes `rate_limits` and reaps abandoned sessions (active sessions where all participants have been gone > 1 hour, or empty sessions older than 6 hours).
 
-There is no application-level audit log of host actions (session creates, approvals, ends) or participant-level actions (joins, captures). This is a known gap, listed in section 12.
+There is no application-level audit log of host actions (session creates, approvals, ends, deletes) or participant-level actions (joins, captures). This remains a known gap, listed in section 12.
 
 ---
 
@@ -193,9 +199,7 @@ The following items are known to be incomplete. They reflect the "small, private
 | **No application-level audit log** | Hard to investigate after-the-fact incidents. | Add an `audit_events` table; log host actions, approval changes, session lifecycle events. |
 | **No CAPTCHA or bot detection on `/join`** | Sufficient for current trusted-link distribution; would not survive a brigading attempt against a public link. | Add a lightweight challenge (e.g., Turnstile) if usage broadens. |
 | **No content moderation on participant names** | A participant can join with an offensive display name. Mitigated by host's ability to end the session early. | Add a profanity filter, optional host approval queue for joiners. |
-| **Sit-out fairness in pairing algorithm** | The same participant can randomly sit out two rounds in a row when participant count is odd. UX issue, not security. | Bias the pairing algorithm to weight against repeat sit-outs. |
-| **Capture endpoint resolves partner by display name** | If two participants share an exact display name, the wrong person could be captured. Edge case, low impact. | Pass and validate `partnerId` instead of `partnerName`. |
-| **No backup/recovery plan for participant cookies** | Participants whose cookie is cleared mid-session must rejoin (and re-enter their name). Acceptable UX trade-off. | Optional: support a recover-by-link flow if requested. |
+| **No backup/recovery plan for participant cookies** | Participants whose cookie is cleared mid-session must rejoin. A persistent profile cookie (6-month, HMAC-signed) now recognizes returning users on the same device. | Optional: support a recover-by-link flow if requested. |
 | **Single shared `SESSION_SECRET`** | Rotating the secret invalidates all in-flight participant cookies. | For future, support multiple active signing keys with kid-based rotation. |
 | **Hobby plan gates collaboration on private repos** | Commits authored by accounts other than the project owner are blocked from deploying. Operationally confusing rather than insecure. | Upgrade to Pro plan, or make the repo public, or use only nelvin-wafg as the commit author. |
 
@@ -205,14 +209,17 @@ Items not listed above are explicitly out of scope for v1.
 
 ## 13. Compliance and privacy notes
 
-For legal review, the following points are relevant:
+For legal review, the following points are relevant. **Note: the data collected expanded materially in the 2026-04-29 update** — participants are now asked for email and (optionally) LinkedIn, and opted-in emails are synced to a third-party email marketing platform (Kit). This changes the privacy profile from the original v1.
 
-- **Data minimization.** The application collects only what is required to operate a speed-networking session: email for hosts (for auth), display name for participants, basic session metadata, and capture history (which connections a participant wanted to remember). No PII beyond display name is collected from participants.
-- **Data retention.** No automated deletion is currently implemented. Records remain in Supabase indefinitely. A retention policy should be defined (e.g., delete sessions older than 12 months, with capture exports available to participants on request).
-- **Right to deletion.** Currently a manual SQL operation. A self-service delete flow (host-initiated, deletes session + participants + pairings + captures) is recommended before any GDPR/CCPA-eligible user is on-boarded.
-- **Third-party processors.** Supabase (database + auth), Daily.co (video infrastructure), Vercel (hosting), GitHub (source control). All have published security posture documentation. Their data processing agreements should be reviewed by counsel.
-- **Recording.** Daily.co rooms are configured WITHOUT recording in our default room creation parameters. If recording is enabled in the future, participants must be informed and consent obtained per applicable jurisdiction.
-- **Cookies and tracking.** No third-party tracking or analytics is currently embedded. The only cookies set are session-management cookies (Supabase auth, participant identity), which are functionally necessary and not subject to consent banner requirements in most jurisdictions.
+- **Personal data collected from participants:** display name (required), email (required to join), LinkedIn URL (optional), and capture history (which other participants they wanted to stay in touch with — including a snapshot of those people's name, email, and LinkedIn at capture time). Client IP is recorded at join for rate-limit attribution.
+- **Newsletter sync (consent).** The join form includes a checkbox, checked by default, reading "add me to the WAFG newsletter [unsubscribe anytime]." When checked, the participant's email is sent to Kit (ConvertKit) to subscribe them. **Counsel should confirm that a pre-checked opt-in meets the consent standard for the jurisdictions WAFG operates in** — notably, GDPR generally requires unticked/affirmative opt-in, while US CAN-SPAM is more permissive. If WAFG has EU/UK participants, the default-checked box likely needs to become unchecked-by-default.
+- **Sharing between participants.** A participant's LinkedIn URL is shown to the people they're paired with during a session. Their email and LinkedIn are included in the post-session recap shown to anyone who "captured" them. The join form discloses this ("shown to people you're paired with so they can connect").
+- **Data export.** Hosts can export full participant lists (name, email, LinkedIn, capture counts) as CSV per session and across all sessions. This data leaves the system in the host's control · downstream handling (e.g., import to a CRM) is outside the app's controls and should be governed by WAFG's data policy.
+- **Data retention.** No automated deletion of personal data. Sessions can be hard-deleted by their primary host (cascades to participants, pairings, captures). The daily cron reaps abandoned sessions but does NOT delete personal data on a schedule. A formal retention policy should be defined.
+- **Right to deletion / access.** Host-initiated session delete exists. There is no participant-facing self-service delete or data-access request flow. Recommended before onboarding any GDPR/CCPA-eligible user at scale.
+- **Third-party processors.** Supabase (database + auth), Daily.co (video infrastructure), Vercel (hosting), Kit/ConvertKit (newsletter), GitHub (source control). Each has published security documentation; their data processing agreements should be reviewed by counsel, with particular attention to Kit given it now receives participant emails.
+- **Recording.** Daily.co rooms are configured WITHOUT recording in our default parameters. Pair-room text chat is ephemeral (in-memory, not persisted). If recording is enabled in future, informed consent is required per jurisdiction.
+- **Cookies.** Two functional cookies: a session participant identity cookie (HttpOnly, 8h) and a persistent profile-recognition cookie (HttpOnly, 6 months). Both are HMAC-signed and functionally necessary. No third-party tracking or advertising cookies. The 6-month persistent cookie may warrant disclosure in a cookie notice depending on jurisdiction.
 
 ---
 
@@ -222,6 +229,7 @@ For legal review, the following points are relevant:
 |---|---|---|
 | 2026-04-24 | Initial v1 deployment | (none, AI-assisted build) |
 | 2026-04-26 | Hardening pass: HMAC participant cookies, RLS lockdown, rate limiting, input validation, daily.co token auth | Nelvin Johnson |
+| 2026-04-29 | Lead-gen + features: profiles (email + LinkedIn), Kit newsletter sync, persistent profile cookie, co-host model (any approved host can run any session; only primary host can delete), participant + host recap views, CSV export, analytics page, presence heartbeat, ghost-participant eject by unique ID, scheduled cleanup/reaper cron, draft editing. **Privacy profile expanded — see section 13.** | Nelvin Johnson |
 
 ---
 

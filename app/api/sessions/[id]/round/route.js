@@ -69,12 +69,16 @@ async function startRound(admin, session, { allowRepeats = false } = {}) {
 
   const newRoundNumber = (session.current_round || 0) + 1;
 
-  // get currently-present participants
+  // get currently-present participants · present means: explicitly here (is_present)
+  // AND a recent heartbeat (last_seen within 20s). the heartbeat condition catches
+  // crashed tabs that never fired the /leave beacon, so we don't pair with ghosts.
+  const presenceCutoff = new Date(Date.now() - 20000).toISOString();
   const { data: presentParticipants = [] } = await admin
     .from('participants')
     .select('id, name')
     .eq('session_id', session.id)
-    .eq('is_present', true);
+    .eq('is_present', true)
+    .gte('last_seen', presenceCutoff);
 
   if (presentParticipants.length < 2) {
     return new NextResponse('need at least 2 people present to pair', { status: 400 });

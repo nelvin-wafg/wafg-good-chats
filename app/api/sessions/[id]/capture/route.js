@@ -5,17 +5,19 @@ import { getParticipantFromCookies } from '@/lib/participant-token';
 import { validateParticipantName, validateNote, validateUuid, ValidationError } from '@/lib/validate';
 
 // POST /api/sessions/:id/capture
-// body: { partnerName, pairingId?, note? }
+// body: { pairingId?, partnerName?, note? }
 // capturer identity comes from the HttpOnly cookie · NEVER from request body.
+// partner is resolved from the pairing (authoritative · names can collide).
+// partnerName is only a fallback for the rare case of a missing pairingId.
 export async function POST(request, { params }) {
   let sessionId;
-  let partnerName;
+  let partnerName = null;
   let pairingId = null;
   let note = null;
   try {
     sessionId = validateUuid(params.id, 'session id');
     const body = await request.json();
-    partnerName = validateParticipantName(body?.partnerName);
+    if (body?.partnerName) partnerName = validateParticipantName(body.partnerName);
     if (body?.pairingId) pairingId = validateUuid(body.pairingId, 'pairing id');
     if (body?.note != null) note = validateNote(body.note);
   } catch (err) {
@@ -30,14 +32,43 @@ export async function POST(request, { params }) {
 
   const admin = adminClient();
 
-  // resolve partner participant id by name in this session, pulling profile info too
-  const { data: partner } = await admin
-    .from('participants')
-    .select('id, name, profiles(email, linkedin_url)')
-    .eq('session_id', sessionId)
-    .eq('name', partnerName)
-    .limit(1)
-    .maybeSingle();
+  // resolve the partner participant id — prefer the pairing (correct even with duplicate names)
+  let partnerId = null;
+  if (pairingId) {
+    const { data: pairing } = await admin
+      .from('pairings')
+      .select('participant_a_id, participant_b_id')
+      .eq('id', pairingId)
+      .eq('session_id', sessionId)
+      .maybeSingle();
+    if (pairing) {
+      // the partner is whichever side of the pairing isn't me
+      if (pairing.participant_a_id === me.participantId) partnerId = pairing.participant_b_id;
+      else if (pairing.participant_b_id === me.participantId) partnerId = pairing.participant_a_id;
+      else return new NextResponse('not part of this pairing', { status: 403 });
+    }
+  }
+
+  // fetch the partner by id (preferred) or fall back to name lookup
+  let partner = null;
+  if (partnerId) {
+    const { data } = await admin
+      .from('participants')
+      .select('id, name, profiles(email, linkedin_url)')
+      .eq('id', partnerId)
+      .eq('session_id', sessionId)
+      .maybeSingle();
+    partner = data;
+  } else if (partnerName) {
+    const { data } = await admin
+      .from('participants')
+      .select('id, name, profiles(email, linkedin_url)')
+      .eq('session_id', sessionId)
+      .eq('name', partnerName)
+      .limit(1)
+      .maybeSingle();
+    partner = data;
+  }
 
   if (!partner) return new NextResponse('partner not found', { status: 404 });
   if (partner.id === me.participantId) {
