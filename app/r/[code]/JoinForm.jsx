@@ -9,8 +9,10 @@ export default function JoinForm({ session, knownProfile }) {
   const [name, setName] = useState(knownProfile?.displayName || '');
   const [email, setEmail] = useState(knownProfile?.email || '');
   const [linkedinUrl, setLinkedinUrl] = useState(knownProfile?.linkedinUrl || '');
+  // unchecked by default for new users (affirmative opt-in · GDPR-friendly).
+  // returning users keep their previous choice.
   const [newsletterOptIn, setNewsletterOptIn] = useState(
-    knownProfile ? Boolean(knownProfile.newsletterOptIn) : true
+    knownProfile ? Boolean(knownProfile.newsletterOptIn) : false
   );
   const [showFull, setShowFull] = useState(!knownProfile); // returning users see compact view first
   const [submitting, setSubmitting] = useState(false);
@@ -119,7 +121,7 @@ export default function JoinForm({ session, knownProfile }) {
                 setName('');
                 setEmail('');
                 setLinkedinUrl('');
-                setNewsletterOptIn(true);
+                setNewsletterOptIn(false);
               }}
               className="underline text-neutral-600 hover:text-black"
             >
