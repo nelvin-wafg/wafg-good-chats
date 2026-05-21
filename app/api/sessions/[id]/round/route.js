@@ -47,13 +47,18 @@ export async function POST(request, { params }) {
   return new NextResponse('invalid action', { status: 400 });
 }
 
-async function startRound(admin, session, { allowRepeats = false } = {}) {
-  // accept 'closing' too when allowRepeats is set · host wants to extend post-final-round
-  const validStatuses = allowRepeats
-    ? ['live', 'between_rounds', 'closing']
-    : ['live', 'between_rounds'];
-  if (!validStatuses.includes(session.status)) {
-    return new NextResponse(`cannot start round from status ${session.status}`, { status: 400 });
+async function startRound(admin, session, { allowRepeats = false, fromAdvance = false } = {}) {
+  // fromAdvance=true means we were called straight out of endRound to chain into
+  // the next round (seamless pair → pair), so the status is still 'running_round'
+  // and we skip the normal status gate.
+  if (!fromAdvance) {
+    // accept 'closing' too when allowRepeats is set · host wants to extend post-final-round
+    const validStatuses = allowRepeats
+      ? ['live', 'between_rounds', 'closing']
+      : ['live', 'between_rounds'];
+    if (!validStatuses.includes(session.status)) {
+      return new NextResponse(`cannot start round from status ${session.status}`, { status: 400 });
+    }
   }
   if (session.current_round >= session.rounds_total) {
     if (!allowRepeats) {
@@ -183,7 +188,13 @@ async function startRound(admin, session, { allowRepeats = false } = {}) {
 
   await admin.from('pairings').insert(pairingInserts);
 
-  // update participants' current_room_name so the participant client knows where to go
+  // update participants' current_room_name so the host views know who's where.
+  // reset everyone to the main room first, then stamp the paired folks into their
+  // rooms · this covers the seamless-advance path where endRound doesn't pre-clear.
+  await admin
+    .from('participants')
+    .update({ current_room_name: null })
+    .eq('session_id', session.id);
   for (const insert of pairingInserts) {
     if (insert.room_name) {
       await admin
@@ -216,14 +227,25 @@ async function endRound(admin, session) {
     return new NextResponse('no round running', { status: 400 });
   }
 
-  // mark round ended
+  // mark the current round ended
   await admin
     .from('rounds')
     .update({ ended_at: new Date().toISOString() })
     .eq('session_id', session.id)
     .eq('round_number', session.current_round);
 
-  // pull pairings for this round to find rooms to tear down
+  const isLast = session.current_round >= session.rounds_total;
+
+  // ── more rounds to go · advance straight into the next round ──
+  // participants jump from their current pair room into the next one with no trip
+  // back to the main room. we intentionally do NOT delete the just-ended pair
+  // rooms here · they expire on their own, and deleting them mid-switch would
+  // briefly disconnect people. startRound re-pairs and resets the round timer.
+  if (!isLast) {
+    return startRound(admin, session, { fromAdvance: true });
+  }
+
+  // ── that was the final round · tear rooms down and return everyone to main ──
   const { data: roundRows = [] } = await admin
     .from('rounds')
     .select('id')
@@ -241,21 +263,15 @@ async function endRound(admin, session) {
     );
   }
 
-  // bring everyone back to main room
   await admin
     .from('participants')
     .update({ current_room_name: null })
     .eq('session_id', session.id);
 
-  // determine if more rounds left
-  const isLast = session.current_round >= session.rounds_total;
   await admin
     .from('sessions')
-    .update({
-      status: isLast ? 'closing' : 'between_rounds',
-      current_round_started_at: null,
-    })
+    .update({ status: 'closing', current_round_started_at: null })
     .eq('id', session.id);
 
-  return NextResponse.json({ ok: true, isLast });
+  return NextResponse.json({ ok: true, isLast: true });
 }

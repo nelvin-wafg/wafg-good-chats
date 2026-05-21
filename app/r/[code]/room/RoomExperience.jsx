@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { DailyProvider, useDaily, useParticipantIds, useLocalSessionId, useMediaTrack, useParticipantProperty } from '@daily-co/daily-react';
+import { DailyProvider, DailyAudio, useDaily, useParticipantIds, useLocalSessionId, useMediaTrack, useParticipantProperty } from '@daily-co/daily-react';
 import DailyIframe from '@daily-co/daily-js';
 import { colorForName, initials } from '@/lib/brand';
 import { showToast } from '@/components/Toast';
@@ -226,6 +226,9 @@ export default function RoomExperience({ session: initialSession }) {
           transition={transition}
           transitionCountdown={transitionCountdown}
         />
+        {/* renders hidden <audio> elements for remote participants · without this,
+            mics capture but nobody can hear anyone (custom call-object UI). */}
+        <DailyAudio />
       </DailyProvider>
     );
   }
@@ -254,6 +257,8 @@ export default function RoomExperience({ session: initialSession }) {
           withHostAssignment={isWithHost ? myAssignment : null}
           withVideo
         />
+        {/* hidden audio elements for everyone in the main room */}
+        <DailyAudio />
       </DailyProvider>
     );
   }
@@ -492,21 +497,21 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
   }
 
   return (
-    <main className="min-h-screen flex flex-col text-white" style={{ background: '#000' }}>
-      <header className="flex items-center justify-between px-6 py-3 border-b border-neutral-800">
+    <main className="min-h-screen flex flex-col" style={{ background: '#f4f4f1', color: '#000' }}>
+      <header className="flex items-center justify-between px-6 py-3 border-b border-neutral-200 bg-white">
         <div className="flex items-center gap-3">
           <div className="display text-sm">round <span style={{ color: '#01ecf3' }}>{session.current_round}</span>/{session.rounds_total}</div>
-          {wrapUp && <span className="text-xs uppercase tracking-widest font-bold animate-pulse" style={{ color: '#fbbf24' }}>* wrapping up</span>}
+          {wrapUp && <span className="text-xs uppercase tracking-widest font-bold animate-pulse" style={{ color: '#d97706' }}>* wrapping up</span>}
         </div>
-        <div className="display text-3xl" style={{ color: wrapUp ? '#fbbf24' : '#01ecf3' }}>
+        <div className="display text-3xl" style={{ color: wrapUp ? '#d97706' : '#000' }}>
           {fmtTime(secondsLeft)}
         </div>
-        <div className="text-xs text-neutral-400">{assignment.roomLabel}</div>
+        <div className="text-xs text-neutral-500">{assignment.roomLabel}</div>
       </header>
 
-      <div className="px-6 py-4 border-b border-neutral-800 flex items-center justify-between gap-4" style={{ background: 'rgba(1,236,243,0.05)' }}>
+      <div className="px-6 py-4 border-b border-neutral-200 flex items-center justify-between gap-4" style={{ background: 'rgba(1,236,243,0.15)' }}>
         <div className="flex-1">
-          <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>this round's prompt</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold mb-1 text-neutral-600">this round's prompt</div>
           <div className="display text-xl">{assignment.prompt || '— [no prompt this round]'}</div>
         </div>
         <CaptureControl
@@ -533,14 +538,15 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
         </div>
         <ChatPanel
           myName={myName}
+          theme="light"
           title="chat · just between you two"
           placeholder="message..."
           emptyHint="[share a link, drop a quick note, whatever feels useful]"
-          className="hidden lg:flex border-l border-neutral-800"
+          className="hidden lg:flex border-l border-neutral-200"
         />
       </div>
 
-      <ParticipantControlBar sessionCode={session?.code} />
+      <ParticipantControlBar sessionCode={session?.code} theme="light" />
     </main>
   );
 }
@@ -724,8 +730,8 @@ function ParticipantControlBar({ sessionCode, theme = 'dark' }) {
 // ============================================================================
 function SplittingTransition({ partnerName, prompt, roomLabel, count, myName }) {
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center text-white relative overflow-hidden" style={{ background: 'radial-gradient(ellipse at center, #001a1a 0%, #000 70%)' }}>
-      <div className="absolute top-20 text-xs uppercase tracking-[0.3em] font-bold" style={{ color: '#01ecf3' }}>pairing up</div>
+    <main className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden" style={{ background: 'radial-gradient(ellipse at center, #e6fcfd 0%, #f4f4f1 70%)', color: '#000' }}>
+      <div className="absolute top-20 text-xs uppercase tracking-[0.3em] font-bold text-neutral-500">pairing up</div>
 
       <div className="text-center mb-8">
         <div className="text-xs uppercase tracking-widest text-neutral-500 mb-2 font-semibold">you're with</div>
@@ -737,14 +743,14 @@ function SplittingTransition({ partnerName, prompt, roomLabel, count, myName }) 
       <div className="flex items-center gap-8 mb-12">
         <div
           className="w-24 h-24 rounded-full flex items-center justify-center display text-3xl text-black border-2 border-black"
-          style={{ background: '#01ecf3', boxShadow: '4px 4px 0 #01ecf3' }}
+          style={{ background: '#01ecf3', boxShadow: '4px 4px 0 #000' }}
         >
           {initials(myName)}
         </div>
-        <div className="display text-2xl animate-pulse" style={{ color: '#01ecf3' }}>→ ←</div>
+        <div className="display text-2xl animate-pulse text-black">→ ←</div>
         <div
           className="w-24 h-24 rounded-full flex items-center justify-center display text-3xl text-black border-2 border-black"
-          style={{ background: colorForName(partnerName), boxShadow: '4px 4px 0 #01ecf3' }}
+          style={{ background: colorForName(partnerName), boxShadow: '4px 4px 0 #000' }}
         >
           {initials(partnerName || '')}
         </div>
@@ -752,13 +758,13 @@ function SplittingTransition({ partnerName, prompt, roomLabel, count, myName }) 
 
       <div className="text-center">
         <div className="text-xs uppercase tracking-widest text-neutral-500 font-semibold mb-2">opening room in</div>
-        <div className="display text-9xl" style={{ color: '#01ecf3' }}>{count || '*'}</div>
-        {roomLabel && <div className="text-sm text-neutral-500 mt-4">your room: <span style={{ color: '#01ecf3' }}>* {roomLabel} *</span></div>}
+        <div className="display text-9xl text-black">{count || '*'}</div>
+        {roomLabel && <div className="text-sm text-neutral-500 mt-4">your room: <span className="font-semibold text-black">* {roomLabel} *</span></div>}
       </div>
 
       {prompt && (
-        <div className="mt-8 max-w-md text-center px-5 py-3 rounded" style={{ background: 'rgba(1,236,243,0.1)', border: '1px solid rgba(1,236,243,0.3)' }}>
-          <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>this round's prompt</div>
+        <div className="mt-8 max-w-md text-center px-5 py-3 rounded" style={{ background: 'rgba(1,236,243,0.18)', border: '1px solid rgba(1,236,243,0.5)' }}>
+          <div className="text-[10px] uppercase tracking-widest font-bold mb-1 text-neutral-600">this round's prompt</div>
           <div className="display text-base">{prompt}</div>
         </div>
       )}

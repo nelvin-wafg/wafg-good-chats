@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { DailyProvider, useDaily, useParticipantIds, useLocalSessionId, useMediaTrack, useParticipantProperty } from '@daily-co/daily-react';
+import { DailyProvider, DailyAudio, useDaily, useParticipantIds, useLocalSessionId, useMediaTrack, useParticipantProperty } from '@daily-co/daily-react';
 import DailyIframe from '@daily-co/daily-js';
 import { colorForName, initials } from '@/lib/brand';
 import CopyLink from '@/components/CopyLink';
@@ -51,6 +51,19 @@ export default function LiveControl({ session: initialSession }) {
     const id = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(id);
   }, [session.status]);
+
+  // auto-advance: when the round timer hits 0, move straight into the next round
+  // (or to closeout if that was the last one). the host tab is the clock authority,
+  // so this fires here · participants just follow their new assignment on the next
+  // poll. the ref guards against firing more than once per round.
+  const advanceFiredRef = useRef(null);
+  useEffect(() => {
+    if (session.status !== 'running_round') return;
+    if (secondsLeft > 0) return;
+    if (advanceFiredRef.current === session.current_round) return;
+    advanceFiredRef.current = session.current_round;
+    action('round', { action: 'end' });
+  }, [session.status, session.current_round, secondsLeft]); // eslint-disable-line
 
   // join main daily.co room when session is active
   useEffect(() => {
@@ -194,7 +207,13 @@ export default function LiveControl({ session: initialSession }) {
   );
 
   if (callObject) {
-    return <DailyProvider callObject={callObject}>{inner}</DailyProvider>;
+    return (
+      <DailyProvider callObject={callObject}>
+        {inner}
+        {/* hidden audio elements so the host hears everyone in the main room */}
+        <DailyAudio />
+      </DailyProvider>
+    );
   }
   return inner;
 }
