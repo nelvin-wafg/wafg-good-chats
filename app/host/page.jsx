@@ -87,6 +87,14 @@ export default function HostDashboard() {
             export all (csv)
           </a>
           <span className="text-neutral-400">·</span>
+          <a
+            href="/api/host/export/people"
+            className="underline text-neutral-600 hover:text-black"
+            download
+          >
+            people (csv)
+          </a>
+          <span className="text-neutral-400">·</span>
           <form action="/api/auth/signout" method="POST" className="inline">
             <button type="submit" className="underline text-neutral-600 hover:text-black">sign out</button>
           </form>
