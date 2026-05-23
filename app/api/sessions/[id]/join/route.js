@@ -118,7 +118,7 @@ export async function POST(request, { params }) {
 
   // sync to Kit if opted in (fire-and-forget; don't block the join on Kit availability)
   if (newsletterOptIn && (!existingProfile || !existingProfile.kit_synced_at)) {
-    addSubscriberToKit({ email, firstName: name.split(' ')[0] })
+    addSubscriberToKit({ email, firstName: name.split(' ')[0], linkedinUrl })
       .then(async (r) => {
         if (r.ok) {
           await admin.from('profiles').update({ kit_synced_at: now }).eq('id', profileId);
