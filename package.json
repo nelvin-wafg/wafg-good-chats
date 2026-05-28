@@ -2,7 +2,7 @@
   "name": "wafg-good-chats",
   "version": "0.1.0",
   "private": true,
-  "description": "Spread Good Chats — speed networking for We Are For Good community.",
+  "description": "Good Chats — speed networking for We Are For Good community.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

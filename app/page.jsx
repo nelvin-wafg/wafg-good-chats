@@ -5,7 +5,7 @@ export default function Landing() {
     <main className="min-h-screen flex items-center justify-center p-8" style={{ background: '#f4f4f1' }}>
       <div className="max-w-xl text-center">
         <div className="display text-6xl md:text-8xl mb-6">
-          spread<span style={{ color: '#01ecf3' }}>*</span>good<br/>chats
+          Good<span style={{ color: '#01ecf3' }}>*</span>Chats
         </div>
         <p className="text-lg text-neutral-600 mb-8">
           a we are for good thing. five-minute conversations, on purpose.

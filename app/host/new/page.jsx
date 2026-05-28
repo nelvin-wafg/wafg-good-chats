@@ -130,7 +130,7 @@ function NewSessionInner() {
     <main className="min-h-screen p-8 max-w-4xl mx-auto" style={{ background: '#f4f4f1' }}>
       <header className="mb-8">
         <a href="/host" className="text-sm underline text-neutral-600">← back to dashboard</a>
-        <div className="display text-4xl mt-3">{isEditing ? 'edit' : 'new'} good chats <span style={{ color: '#01ecf3' }}>*</span></div>
+        <div className="display text-4xl mt-3">{isEditing ? 'edit' : 'new'} Good Chats <span style={{ color: '#01ecf3' }}>*</span></div>
         <div className="flex gap-1 mt-3">
           <Step n={1} active={step === 1} done={step > 1} label="basics" />
           <Step n={2} active={step === 2} done={step > 2} label="rhythm" />

@@ -6,6 +6,36 @@ import { colorForName, initials } from '@/lib/brand';
 import { showToast } from '@/components/Toast';
 import ChatPanel from '@/components/ChatPanel';
 
+// iOS Safari blocks remote audio playback until the user has interacted with the
+// page in a way that unlocks the audio context. DailyAudio handles autoplay on
+// most browsers but iOS needs an explicit nudge. we call this on the first
+// participant gesture (any control bar tap) and reuse the unlocked context for
+// the rest of the session. also force-plays any current <audio> elements in case
+// a fresh batch was created after a room switch.
+let _audioCtx = null;
+function unlockIosAudio() {
+  try {
+    if (typeof window === 'undefined') return;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (Ctx && !_audioCtx) {
+      _audioCtx = new Ctx();
+      const buf = _audioCtx.createBuffer(1, 1, 22050);
+      const src = _audioCtx.createBufferSource();
+      src.buffer = buf;
+      src.connect(_audioCtx.destination);
+      src.start(0);
+    }
+    if (_audioCtx && _audioCtx.state === 'suspended') {
+      _audioCtx.resume().catch(() => {});
+    }
+    if (typeof document !== 'undefined') {
+      document.querySelectorAll('audio').forEach((a) => {
+        try { a.play().catch(() => {}); } catch {}
+      });
+    }
+  } catch {}
+}
+
 // participant experience.
 // state machine: lobby → main_room → splitting → pair_room → returning → main_room → ... → ended
 // participant is in the main daily.co room whenever they're in the "with everyone" state,
@@ -23,6 +53,11 @@ export default function RoomExperience({ session: initialSession }) {
   const [transitionCountdown, setTransitionCountdown] = useState(0);
   const [callObject, setCallObject] = useState(null);
   const [currentRoom, setCurrentRoom] = useState(null); // { name, isPair }
+  const [showEdit, setShowEdit] = useState(false);
+
+  // my linkedin (from the poll's participant row) · used to prefill the edit modal
+  const myParticipantRow = participants.find((p) => p.id === participantId) || null;
+  const myLinkedin = myParticipantRow?.linkedin_url || null;
 
   // load participant name (UI only). authoritative identity is HttpOnly cookie.
   useEffect(() => {
@@ -168,6 +203,12 @@ export default function RoomExperience({ session: initialSession }) {
       joinedNameRef.current = target.name;
       setCurrentRoom({ name: target.name, isPair: target.isPair });
 
+      // nudge iOS audio playback after each room switch · DailyAudio mounts new
+      // <audio> elements per room and iOS sometimes needs them poked into play.
+      // if the audio context was already unlocked by a prior tap, this just
+      // force-plays the new elements; if not, it's a safe no-op.
+      setTimeout(unlockIosAudio, 500);
+
       // brief "splitting" transition only when entering a pair room
       if (target.isPair && session.status === 'running_round') {
         setTransition('splitting');
@@ -225,10 +266,23 @@ export default function RoomExperience({ session: initialSession }) {
           myName={participantName}
           transition={transition}
           transitionCountdown={transitionCountdown}
+          onEditProfile={() => setShowEdit(true)}
         />
         {/* renders hidden <audio> elements for remote participants · without this,
             mics capture but nobody can hear anyone (custom call-object UI). */}
         <DailyAudio />
+        {showEdit && (
+          <EditProfileModal
+            session={session}
+            initialName={participantName}
+            initialLinkedin={myLinkedin}
+            callObject={callObject}
+            onClose={(saved, data) => {
+              setShowEdit(false);
+              if (saved && data?.name) setParticipantName(data.name);
+            }}
+          />
+        )}
       </DailyProvider>
     );
   }
@@ -256,9 +310,22 @@ export default function RoomExperience({ session: initialSession }) {
           isWithHost={isWithHost}
           withHostAssignment={isWithHost ? myAssignment : null}
           withVideo
+          onEditProfile={() => setShowEdit(true)}
         />
         {/* hidden audio elements for everyone in the main room */}
         <DailyAudio />
+        {showEdit && (
+          <EditProfileModal
+            session={session}
+            initialName={participantName}
+            initialLinkedin={myLinkedin}
+            callObject={callObject}
+            onClose={(saved, data) => {
+              setShowEdit(false);
+              if (saved && data?.name) setParticipantName(data.name);
+            }}
+          />
+        )}
       </DailyProvider>
     );
   }
@@ -282,7 +349,7 @@ export default function RoomExperience({ session: initialSession }) {
 // ============================================================================
 // MAIN ROOM VIEW · works both with and without daily video
 // ============================================================================
-function MainRoomView({ session, participants, participantsByName, myName, myId, isLateJoiner, isWithHost, withHostAssignment, withVideo }) {
+function MainRoomView({ session, participants, participantsByName, myName, myId, isLateJoiner, isWithHost, withHostAssignment, withVideo, onEditProfile }) {
   const liveCount = participants.filter((p) => p.is_present).length;
   const isPreSession = session.status === 'live' || session.status === 'draft';
   const isClosing = session.status === 'closing';
@@ -300,7 +367,7 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
     <main className="min-h-screen flex flex-col" style={{ background: '#f4f4f1', color: '#000' }}>
       <header className="flex items-center justify-between px-6 py-3 border-b border-neutral-200 bg-white">
         <div className="display text-base">
-          spread<span style={{ color: '#01ecf3' }}>*</span>good<span style={{ color: '#01ecf3' }}>*</span>chats
+          Good<span style={{ color: '#01ecf3' }}>*</span>Chats
         </div>
         <div className="text-xs text-neutral-500">
           <span className="font-bold text-black">{liveCount}</span> here · {session.name}
@@ -402,7 +469,7 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
 
       </div>
 
-      {withVideo && <ParticipantControlBar sessionCode={session?.code} theme="light" />}
+      {withVideo && <ParticipantControlBar sessionCode={session?.code} theme="light" onEditProfile={onEditProfile} />}
 
       {!withVideo && (
         <footer className="border-t border-neutral-200 bg-white px-6 py-3 flex items-center justify-between">
@@ -455,7 +522,7 @@ function MainRoomStaticGallery({ participants, myId }) {
 // ============================================================================
 // PAIR ROOM VIEW (mostly unchanged from prior version)
 // ============================================================================
-function PairRoomView({ assignment, session, myName, transition, transitionCountdown }) {
+function PairRoomView({ assignment, session, myName, transition, transitionCountdown, onEditProfile }) {
   const daily = useDaily();
   const localId = useLocalSessionId();
   const remoteIds = useParticipantIds({ filter: 'remote' });
@@ -546,7 +613,7 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
         />
       </div>
 
-      <ParticipantControlBar sessionCode={session?.code} theme="light" />
+      <ParticipantControlBar sessionCode={session?.code} theme="light" onEditProfile={onEditProfile} />
     </main>
   );
 }
@@ -672,7 +739,7 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverri
 // ============================================================================
 // participant control bar (mic / cam / leave) · used wherever there's a daily call
 // ============================================================================
-function ParticipantControlBar({ sessionCode, theme = 'dark' }) {
+function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile }) {
   const daily = useDaily();
   const localId = useLocalSessionId();
   const videoState = useMediaTrack(localId, 'video');
@@ -684,10 +751,12 @@ function ParticipantControlBar({ sessionCode, theme = 'dark' }) {
   const audioBlocked = audioState?.state === 'blocked';
 
   async function toggleAudio() {
+    unlockIosAudio(); // every tap doubles as an iOS audio unlock
     if (!daily) return;
     try { await daily.setLocalAudio(!audioOn); } catch {}
   }
   async function toggleVideo() {
+    unlockIosAudio();
     if (!daily) return;
     // tapping here is a user gesture · this is what lets iOS Safari actually start the camera
     try { await daily.setLocalVideo(!videoOn); } catch (e) { console.warn('setLocalVideo failed', e); }
@@ -716,6 +785,15 @@ function ParticipantControlBar({ sessionCode, theme = 'dark' }) {
       >
         {videoOn ? 'cam on' : (videoBlocked ? 'camera blocked · check browser settings' : 'tap to turn on camera')}
       </button>
+      {onEditProfile && (
+        <button
+          onClick={onEditProfile}
+          className={`px-4 py-2 rounded-full text-xs font-semibold border ${onClass}`}
+          title="update your name or linkedin"
+        >
+          edit info
+        </button>
+      )}
       <button
         onClick={() => { if (confirm('leave this session?')) window.location.href = sessionCode ? `/r/${sessionCode}` : '/'; }}
         className={`px-4 py-2 rounded-full text-xs font-semibold border ${leaveClass}`}
@@ -770,6 +848,103 @@ function SplittingTransition({ partnerName, prompt, roomLabel, count, myName }) 
         </div>
       )}
     </main>
+  );
+}
+
+// ============================================================================
+// EDIT PROFILE MODAL · lets a participant update their name + linkedin mid-room
+// ============================================================================
+function EditProfileModal({ session, initialName, initialLinkedin, callObject, onClose }) {
+  const [name, setName] = useState(initialName || '');
+  const [linkedin, setLinkedin] = useState(initialLinkedin || '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function save(e) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/profiles/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          sessionId: session.id,
+          name: name.trim(),
+          linkedinUrl: linkedin.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        setError(await res.text() || "couldn't save");
+        setBusy(false);
+        return;
+      }
+      // live-update the daily display name so people see the new name right away
+      if (callObject) {
+        try { await callObject.setUserName(name.trim()); } catch {}
+      }
+      try { window.sessionStorage.setItem(`pname:${session.id}`, name.trim()); } catch {}
+      onClose(true, { name: name.trim(), linkedinUrl: linkedin.trim() || null });
+    } catch {
+      setError('connection issue · try again');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(false); }}
+    >
+      <div className="bg-white rounded-md p-6 max-w-md w-full sticker" style={{ color: '#000' }}>
+        <div className="display text-2xl mb-1">edit your info</div>
+        <p className="text-xs text-neutral-500 mb-4">[updates this session and your saved profile]</p>
+        <form onSubmit={save} className="space-y-3">
+          <label className="block">
+            <div className="text-sm font-semibold mb-1">name</div>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={48}
+              required
+              className="w-full border-2 border-black rounded px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-wafg-cyan"
+            />
+          </label>
+          <label className="block">
+            <div className="text-sm font-semibold mb-1">linkedin <span className="text-neutral-500 font-normal">(optional)</span></div>
+            <input
+              type="text"
+              value={linkedin}
+              onChange={(e) => setLinkedin(e.target.value)}
+              placeholder="linkedin.com/in/your-profile"
+              maxLength={200}
+              className="w-full border-2 border-black rounded px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-wafg-cyan"
+            />
+          </label>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <div className="flex gap-2 justify-end pt-2">
+            <button
+              type="button"
+              onClick={() => onClose(false)}
+              disabled={busy}
+              className="px-4 py-2 text-sm font-semibold underline text-neutral-600 hover:text-black"
+            >
+              cancel
+            </button>
+            <button
+              type="submit"
+              disabled={busy || !name.trim()}
+              className="btn-cyan px-5 py-2 rounded-md text-sm font-bold disabled:opacity-50"
+            >
+              {busy ? 'saving...' : 'save *'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -841,7 +1016,7 @@ function EndedView({ session }) {
                         )}
                         {c.captured_email && (
                           <a
-                            href={`mailto:${c.captured_email}?subject=Great chatting at WAFG Spread Good Chats`}
+                            href={`mailto:${c.captured_email}?subject=Great chatting at Good Chats`}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-bold no-underline border-2 border-black"
                             style={{ background: '#fff', color: '#000' }}
                           >

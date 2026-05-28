@@ -57,21 +57,29 @@ export default function LiveControl({ session: initialSession }) {
   // so this fires here · participants just follow their new assignment on the next
   // poll. the ref guards against firing more than once per round.
   //
-  // we derive elapsed from the server-supplied current_round_started_at rather than
-  // trusting local secondsLeft, because secondsLeft starts at 0 before the first poll
-  // lands · without this check a mid-round refresh could fire end-of-round on render 1.
+  // we use an INDEPENDENT 1s heartbeat (not a useEffect on secondsLeft) for two
+  // reasons: React bails on identical state updates so a settled secondsLeft===0
+  // wouldn't re-trigger an effect; and browsers throttle setInterval when the tab
+  // is backgrounded, but as soon as the tab returns the next tick fires immediately
+  // and the server-derived elapsed check is correct without needing local state to
+  // be up-to-date.
   const advanceFiredRef = useRef(null);
   useEffect(() => {
-    if (session.status !== 'running_round') return;
-    if (!session.current_round_started_at) return;
-    const startedAt = new Date(session.current_round_started_at).getTime();
-    if (!Number.isFinite(startedAt)) return;
-    const elapsedSeconds = (Date.now() - startedAt) / 1000;
-    if (elapsedSeconds < session.round_seconds) return;
-    if (advanceFiredRef.current === session.current_round) return;
-    advanceFiredRef.current = session.current_round;
-    action('round', { action: 'end' });
-  }, [session.status, session.current_round, session.current_round_started_at, session.round_seconds, secondsLeft]); // eslint-disable-line
+    const tick = () => {
+      if (session.status !== 'running_round') return;
+      if (!session.current_round_started_at) return;
+      const startedAt = new Date(session.current_round_started_at).getTime();
+      if (!Number.isFinite(startedAt)) return;
+      const elapsedSeconds = (Date.now() - startedAt) / 1000;
+      if (elapsedSeconds < session.round_seconds) return;
+      if (advanceFiredRef.current === session.current_round) return;
+      advanceFiredRef.current = session.current_round;
+      action('round', { action: 'end' });
+    };
+    tick(); // check immediately so we don't have to wait 1s after a state change
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [session.status, session.current_round, session.current_round_started_at, session.round_seconds]); // eslint-disable-line
 
   // join main daily.co room when session is active
   useEffect(() => {
@@ -142,6 +150,40 @@ export default function LiveControl({ session: initialSession }) {
     };
   }, [callObject]);
 
+  // kick a participant: eject them from the daily call (their tab gets a
+  // 'left-meeting' event and disconnects) AND mark them absent in the db so
+  // the host views update immediately. they could still rejoin via the link.
+  async function kickParticipant(participantId, participantName) {
+    if (!participantId) return;
+    if (!confirm(`remove ${participantName || 'this person'} from the session?`)) return;
+    // 1 · daily eject (client-side · we have the call object here)
+    if (callObject) {
+      try {
+        const dailyParticipants = callObject.participants();
+        for (const [sid, p] of Object.entries(dailyParticipants || {})) {
+          if (sid === 'local') continue;
+          if (p?.user_id === participantId) {
+            try { callObject.updateParticipant(sid, { eject: true }); } catch (e) { console.warn('[kick] eject failed', e); }
+            break;
+          }
+        }
+      } catch (e) {
+        console.warn('[kick] enumerate participants failed', e);
+      }
+    }
+    // 2 · mark absent in db so host views stop showing them
+    try {
+      await fetch(`/api/sessions/${session.id}/kick`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ participantId }),
+      });
+    } catch (e) {
+      showToast("couldn't fully remove · refresh host view", 'error');
+    }
+  }
+
   async function action(path, body) {
     setBusy(true);
     try {
@@ -175,7 +217,7 @@ export default function LiveControl({ session: initialSession }) {
   useEffect(() => {
     if (!callObject) return;
     const now = Date.now();
-    const STALE_MS = 12000;
+    const STALE_MS = 8000;
     const staleIds = new Set(
       participants
         .filter((p) => {
@@ -211,6 +253,7 @@ export default function LiveControl({ session: initialSession }) {
       busy={busy}
       action={action}
       hasCall={Boolean(callObject)}
+      onKick={kickParticipant}
     />
   );
 
@@ -229,7 +272,7 @@ export default function LiveControl({ session: initialSession }) {
 // ============================================================================
 // inner component (uses daily hooks if wrapped in DailyProvider)
 // ============================================================================
-function LiveControlInner({ session, participants, participantsByName, pairings, pairingsHistory, secondsLeft, busy, action, hasCall }) {
+function LiveControlInner({ session, participants, participantsByName, pairings, pairingsHistory, secondsLeft, busy, action, hasCall, onKick }) {
   const isPre = session.status === 'draft' || session.status === 'live';
   const isRunning = session.status === 'running_round';
   const isBetween = session.status === 'between_rounds';
@@ -393,11 +436,19 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
             </div>
             <div className="grid grid-cols-4 gap-2">
               {participants.filter((p) => p.is_present && !p.current_room_name).map((p) => (
-                <div key={p.id} className="text-center">
+                <div key={p.id} className="text-center relative group">
                   <div className="w-12 h-12 mx-auto rounded-full display flex items-center justify-center text-black text-base" style={{ background: colorForName(p.name) }}>
                     {initials(p.name)}
                   </div>
                   <div className="text-[10px] mt-1 text-neutral-400 truncate">{p.name?.split(' ')[0]}</div>
+                  <button
+                    type="button"
+                    onClick={() => onKick?.(p.id, p.name)}
+                    className="absolute -top-1 right-1 w-5 h-5 rounded-full bg-red-600 text-white text-xs font-bold hidden group-hover:flex items-center justify-center leading-none"
+                    title={`remove ${p.name} from the session`}
+                  >
+                    ×
+                  </button>
                 </div>
               ))}
               {participants.filter((p) => p.is_present && !p.current_room_name).length === 0 && (
@@ -431,10 +482,28 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="font-medium truncate">{pa.participant_a_name}</span>
-                          <span className="text-neutral-500">×</span>
+                          <button
+                            type="button"
+                            onClick={() => onKick?.(pa.participant_a_id, pa.participant_a_name)}
+                            className="w-4 h-4 rounded-full bg-red-600/40 hover:bg-red-600 text-white text-[10px] font-bold flex items-center justify-center leading-none flex-shrink-0"
+                            title={`remove ${pa.participant_a_name} from the session`}
+                          >
+                            ×
+                          </button>
+                          <span className="text-neutral-500">·</span>
                           <span className={`font-medium truncate ${isWithHost ? '' : ''}`} style={isWithHost ? { color: '#01ecf3' } : {}}>
                             {isWithHost ? 'you (host)' : pa.participant_b_name}
                           </span>
+                          {!isWithHost && pa.participant_b_id && (
+                            <button
+                              type="button"
+                              onClick={() => onKick?.(pa.participant_b_id, pa.participant_b_name)}
+                              className="w-4 h-4 rounded-full bg-red-600/40 hover:bg-red-600 text-white text-[10px] font-bold flex items-center justify-center leading-none flex-shrink-0"
+                              title={`remove ${pa.participant_b_name} from the session`}
+                            >
+                              ×
+                            </button>
+                          )}
                         </div>
                         <span className="text-[10px] whitespace-nowrap" style={{ color: '#01ecf3' }}>* {pa.room_label}</span>
                       </div>

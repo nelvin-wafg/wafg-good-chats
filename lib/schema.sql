@@ -1,5 +1,5 @@
 -- ============================================================================
--- spread good chats · supabase schema
+-- good chats · supabase schema
 -- run this entire file in Supabase > SQL Editor > New query > Run
 -- safe to run multiple times (uses IF NOT EXISTS / CREATE OR REPLACE / DROP IF EXISTS)
 -- ============================================================================

@@ -1,4 +1,4 @@
-# Spread Good Chats · Security Posture
+# Good Chats · Security Posture
 
 **Project:** `wafg-good-chats`
 **Live URL:** https://wafg-good-chats.vercel.app
@@ -9,7 +9,7 @@
 
 ## 1. Overview
 
-Spread Good Chats is a video-based speed networking application built for the We Are For Good community. Hosts create timed "sessions" where participants are auto-paired into 5-minute conversations across multiple rounds. The application replaces a third-party tool that was capped at 10 participants and offered no branding control.
+Good Chats is a video-based speed networking application built for the We Are For Good community. Hosts create timed "sessions" where participants are auto-paired into 5-minute conversations across multiple rounds. The application replaces a third-party tool that was capped at 10 participants and offered no branding control.
 
 This document describes the security and privacy controls in place as of the date above. It is intentionally honest about both what has been built and what has not. The application currently targets "small, private, invite-shared community sessions" as its threat profile. Any plans to broaden the audience (public sign-ups, paid usage, regulated data) should trigger a re-review against the gaps listed in section 12.
 

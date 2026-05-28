@@ -82,7 +82,7 @@ export default function JoinForm({ session, knownProfile }) {
         <div className="w-full max-w-md">
 
           <div className="mb-6">
-            <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-1">good chats · happening now</div>
+            <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-1">Good Chats · happening now</div>
             <div className="display text-4xl">{session.name}</div>
           </div>
 
@@ -143,7 +143,7 @@ export default function JoinForm({ session, knownProfile }) {
       <div className="w-full max-w-md">
 
         <div className="mb-6">
-          <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-1">good chats · happening now</div>
+          <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-1">Good Chats · happening now</div>
           <div className="display text-4xl">{session.name}</div>
         </div>
 

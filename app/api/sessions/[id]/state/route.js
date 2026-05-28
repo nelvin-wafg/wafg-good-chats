@@ -129,6 +129,8 @@ export async function GET(request, { params }) {
         id: p.id,
         room_name: p.room_name,
         room_label: p.room_label,
+        participant_a_id: p.participant_a_id,
+        participant_b_id: p.participant_b_id,
         participant_a_name: idToName[p.participant_a_id],
         participant_b_name: p.participant_b_id ? idToName[p.participant_b_id] : null,
       }));

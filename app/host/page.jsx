@@ -71,7 +71,7 @@ export default function HostDashboard() {
 
       <header className="flex items-start justify-between mb-8 gap-4">
         <div>
-          <div className="text-xs uppercase tracking-widest font-bold text-neutral-500">spread good chats · host</div>
+          <div className="text-xs uppercase tracking-widest font-bold text-neutral-500">Good Chats · host</div>
           <div className="display text-3xl md:text-4xl mt-1">
             hey {data.host?.display_name || 'friend'} <span style={{ color: '#01ecf3' }}>*</span>
           </div>
