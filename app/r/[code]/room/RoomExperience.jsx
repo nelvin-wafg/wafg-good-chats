@@ -501,7 +501,7 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
       <header className="flex items-center justify-between px-6 py-3 border-b border-neutral-200 bg-white">
         <div className="flex items-center gap-3">
           <div className="display text-sm">round <span style={{ color: '#01ecf3' }}>{session.current_round}</span>/{session.rounds_total}</div>
-          {wrapUp && <span className="text-xs uppercase tracking-widest font-bold animate-pulse" style={{ color: '#d97706' }}>* wrapping up</span>}
+          {wrapUp && <span className="text-xs uppercase tracking-widest font-bold animate-pulse" style={{ color: '#d97706' }}>* wrapping up · next partner soon</span>}
         </div>
         <div className="display text-3xl" style={{ color: wrapUp ? '#d97706' : '#000' }}>
           {fmtTime(secondsLeft)}
@@ -681,6 +681,7 @@ function ParticipantControlBar({ sessionCode, theme = 'dark' }) {
   const videoOn = videoState?.state === 'sendable' || videoState?.state === 'playable';
   const audioOn = audioState?.state === 'sendable' || audioState?.state === 'playable';
   const videoBlocked = videoState?.state === 'blocked';
+  const audioBlocked = audioState?.state === 'blocked';
 
   async function toggleAudio() {
     if (!daily) return;
@@ -706,7 +707,7 @@ function ParticipantControlBar({ sessionCode, theme = 'dark' }) {
         onClick={toggleAudio}
         className={`px-4 py-2 rounded-full text-xs font-semibold border ${audioOn ? onClass : offClass}`}
       >
-        {audioOn ? 'mic on' : 'mic off'}
+        {audioOn ? 'mic on' : (audioBlocked ? 'mic blocked · check browser settings' : 'mic off · tap to unmute')}
       </button>
       <button
         onClick={toggleVideo}

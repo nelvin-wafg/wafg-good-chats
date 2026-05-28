@@ -56,14 +56,22 @@ export default function LiveControl({ session: initialSession }) {
   // (or to closeout if that was the last one). the host tab is the clock authority,
   // so this fires here · participants just follow their new assignment on the next
   // poll. the ref guards against firing more than once per round.
+  //
+  // we derive elapsed from the server-supplied current_round_started_at rather than
+  // trusting local secondsLeft, because secondsLeft starts at 0 before the first poll
+  // lands · without this check a mid-round refresh could fire end-of-round on render 1.
   const advanceFiredRef = useRef(null);
   useEffect(() => {
     if (session.status !== 'running_round') return;
-    if (secondsLeft > 0) return;
+    if (!session.current_round_started_at) return;
+    const startedAt = new Date(session.current_round_started_at).getTime();
+    if (!Number.isFinite(startedAt)) return;
+    const elapsedSeconds = (Date.now() - startedAt) / 1000;
+    if (elapsedSeconds < session.round_seconds) return;
     if (advanceFiredRef.current === session.current_round) return;
     advanceFiredRef.current = session.current_round;
     action('round', { action: 'end' });
-  }, [session.status, session.current_round, secondsLeft]); // eslint-disable-line
+  }, [session.status, session.current_round, session.current_round_started_at, session.round_seconds, secondsLeft]); // eslint-disable-line
 
   // join main daily.co room when session is active
   useEffect(() => {
