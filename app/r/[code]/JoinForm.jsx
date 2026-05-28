@@ -1,9 +1,13 @@
 'use client';
 import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function JoinForm({ session, knownProfile }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // ?removed=1 means the host kicked us · show a soft explanation rather than
+  // letting the person wonder why they ended up back on the join screen.
+  const wasRemoved = searchParams?.get('removed') === '1';
 
   // form state · prefill from known profile if present
   const [name, setName] = useState(knownProfile?.displayName || '');
@@ -86,6 +90,13 @@ export default function JoinForm({ session, knownProfile }) {
             <div className="display text-4xl">{session.name}</div>
           </div>
 
+          {wasRemoved && (
+            <div className="mb-4 rounded-md p-4 border-2" style={{ background: 'rgba(220, 38, 38, 0.05)', borderColor: '#dc2626' }}>
+              <div className="text-xs uppercase tracking-widest font-bold mb-1" style={{ color: '#dc2626' }}>* removed from session *</div>
+              <p className="text-sm text-neutral-700">the host removed you from this session. if you think this was a mistake, you can rejoin below.</p>
+            </div>
+          )}
+
           <form onSubmit={handleJoin} className="sticker bg-white rounded-md p-6 mb-4">
             <div className="text-xs uppercase tracking-widest font-bold mb-2" style={{ color: '#01ecf3' }}>welcome back</div>
             <div className="display text-3xl mb-1">{knownProfile.displayName} *</div>
@@ -146,6 +157,13 @@ export default function JoinForm({ session, knownProfile }) {
           <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-1">Good Chats · happening now</div>
           <div className="display text-4xl">{session.name}</div>
         </div>
+
+        {wasRemoved && (
+          <div className="mb-4 rounded-md p-4 border-2" style={{ background: 'rgba(220, 38, 38, 0.05)', borderColor: '#dc2626' }}>
+            <div className="text-xs uppercase tracking-widest font-bold mb-1" style={{ color: '#dc2626' }}>* removed from session *</div>
+            <p className="text-sm text-neutral-700">the host removed you from this session. if you think this was a mistake, you can rejoin below.</p>
+          </div>
+        )}
 
         <form onSubmit={handleJoin} className="sticker bg-white rounded-md p-6 mb-6">
 

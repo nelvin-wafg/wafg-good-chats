@@ -127,6 +127,10 @@ export default function RoomExperience({ session: initialSession }) {
   // left people stuck on "connecting…" with no video and dead mic/cam buttons.
   const opChainRef = useRef(Promise.resolve());
   const joinedNameRef = useRef(null);
+  // intentionalLeaveRef tracks whether the next 'left-meeting' is one WE caused
+  // (room switch / unmount) vs one caused by the host kicking us. when false at
+  // the moment 'left-meeting' fires, we treat it as an eject and bounce.
+  const intentionalLeaveRef = useRef(false);
 
   // create the call object exactly once, reuse it for the whole session.
   useEffect(() => {
@@ -139,6 +143,8 @@ export default function RoomExperience({ session: initialSession }) {
     }
     if (co) setCallObject(co);
     return () => {
+      // we're going away · any 'left-meeting' that fires here is ours, not a kick.
+      intentionalLeaveRef.current = true;
       joinedNameRef.current = null;
       if (co) {
         try { co.leave(); } catch {}
@@ -146,6 +152,21 @@ export default function RoomExperience({ session: initialSession }) {
       }
     };
   }, []);
+
+  // detect involuntary disconnect (host eject). on Daily's 'left-meeting' event,
+  // if intentionalLeaveRef is false we know we didn't cause this · bounce back to
+  // the branded join page with a ?removed=1 hint so the form can explain.
+  useEffect(() => {
+    if (!callObject) return;
+    const handler = () => {
+      if (intentionalLeaveRef.current) return;
+      if (typeof window !== 'undefined') {
+        window.location.href = `/r/${initialSession.code}?removed=1`;
+      }
+    };
+    callObject.on('left-meeting', handler);
+    return () => { callObject.off('left-meeting', handler); };
+  }, [callObject, initialSession.code]);
 
   // join / switch / leave rooms as targetRoom changes. operations are serialized
   // through a promise chain so two transitions never run on the call object at
@@ -161,6 +182,7 @@ export default function RoomExperience({ session: initialSession }) {
       // no room wanted (ended/draft) · leave if we're in one
       if (!target) {
         if (joinedNameRef.current) {
+          intentionalLeaveRef.current = true;
           await callObject.leave().catch(() => {});
           joinedNameRef.current = null;
           setCurrentRoom(null);
@@ -185,12 +207,16 @@ export default function RoomExperience({ session: initialSession }) {
       // leave the current room first · daily can only join from new/left state.
       const state = callObject.meetingState();
       if (state !== 'new' && state !== 'left-meeting') {
+        intentionalLeaveRef.current = true;
         await callObject.leave().catch(() => {});
       }
       joinedNameRef.current = null;
       if (cancelled) return;
 
       await callObject.join({ url, token });
+      // we're back in a room · any future left-meeting that's NOT followed by a
+      // matching intentional flag is a real kick.
+      intentionalLeaveRef.current = false;
       if (cancelled) return;
 
       // explicitly enable local media after join · browsers don't reliably honor
@@ -238,6 +264,7 @@ export default function RoomExperience({ session: initialSession }) {
       } catch {}
       // tear down daily so the camera/mic stop publishing immediately
       if (callObject) {
+        intentionalLeaveRef.current = true; // page is closing · ours, not a kick
         try { callObject.leave(); } catch {}
         try { callObject.destroy(); } catch {}
       }
