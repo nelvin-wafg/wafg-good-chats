@@ -99,21 +99,67 @@ export async function POST(request, { params }) {
     profileId = created.id;
   }
 
-  // create the session-specific participant row
-  const { data: participant, error: pErr } = await admin
-    .from('participants')
-    .insert({
-      session_id: session.id,
-      profile_id: profileId,
-      name,
-      is_present: true,
-      metadata: { join_ip: getClientIp(request) },
-    })
-    .select('id')
-    .single();
-  if (pErr) {
-    console.error('participant create error', pErr);
-    return new NextResponse('could not join session', { status: 500 });
+  // create OR reuse the session-specific participant row.
+  // if the same profile already has a row in this session (because they
+  // disconnected and rejoined, or the host kicked them and they came back),
+  // reactivate that row instead of inserting a duplicate · otherwise they'd
+  // show twice in every list and their captures would get split across two
+  // identities. any older duplicate rows from before this fix are marked absent.
+  let participant = null;
+  if (profileId) {
+    const { data: existingRows } = await admin
+      .from('participants')
+      .select('id')
+      .eq('session_id', session.id)
+      .eq('profile_id', profileId)
+      .order('joined_at', { ascending: false });
+    if (existingRows && existingRows.length > 0) {
+      const primaryId = existingRows[0].id;
+      const { data: updated, error: uErr } = await admin
+        .from('participants')
+        .update({
+          name,
+          is_present: true,
+          last_seen: now,
+          left_at: null,
+          metadata: { join_ip: getClientIp(request) },
+        })
+        .eq('id', primaryId)
+        .select('id')
+        .single();
+      if (uErr) {
+        console.error('participant reactivate error', uErr);
+        return new NextResponse('could not rejoin session', { status: 500 });
+      }
+      participant = updated;
+      // legacy: mark any older duplicate rows for this profile as absent so
+      // they stop appearing in "in main room" / pairings / counts.
+      const oldDupes = existingRows.slice(1).map((r) => r.id);
+      if (oldDupes.length > 0) {
+        await admin
+          .from('participants')
+          .update({ is_present: false, current_room_name: null })
+          .in('id', oldDupes);
+      }
+    }
+  }
+  if (!participant) {
+    const { data: created, error: pErr } = await admin
+      .from('participants')
+      .insert({
+        session_id: session.id,
+        profile_id: profileId,
+        name,
+        is_present: true,
+        metadata: { join_ip: getClientIp(request) },
+      })
+      .select('id')
+      .single();
+    if (pErr) {
+      console.error('participant create error', pErr);
+      return new NextResponse('could not join session', { status: 500 });
+    }
+    participant = created;
   }
 
   // sync to Kit if opted in (fire-and-forget; don't block the join on Kit availability)

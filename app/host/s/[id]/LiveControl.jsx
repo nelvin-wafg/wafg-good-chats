@@ -210,37 +210,60 @@ export default function LiveControl({ session: initialSession }) {
     return acc;
   }, {});
 
-  // security: eject daily participants who've genuinely gone away.
-  // matches by daily user_id (= our participant id · unique, names can collide)
-  // and only ejects when their heartbeat (last_seen) is stale by >12s.
-  // a browser refresh updates last_seen within ~2s, so refreshes never trigger eject.
+  // security + cleanup: eject participants who've genuinely gone away.
+  // a stale row is one whose heartbeat (last_seen) is older than STALE_MS · a
+  // browser refresh updates last_seen within ~2s so refreshes never trigger.
+  //
+  // we do TWO things for each stale row:
+  //  1. mark them absent in the db via the same /kick endpoint manual kicks use
+  //     · this is what stops phantom names from sticking in "in main room" when
+  //     a participant's tab dies without firing pagehide (mobile especially).
+  //  2. if they're still in the Daily participants list, eject them from the
+  //     call too so their video tile clears for everyone else.
+  //
+  // a ref guards against re-firing /kick for the same participant repeatedly
+  // while we wait for the next poll to confirm they're absent.
+  const recentlyKickedRef = useRef(new Set());
   useEffect(() => {
     if (!callObject) return;
     const now = Date.now();
     const STALE_MS = 8000;
-    const staleIds = new Set(
-      participants
-        .filter((p) => {
-          const seen = p.last_seen ? new Date(p.last_seen).getTime() : 0;
-          return now - seen > STALE_MS;
-        })
-        .map((p) => p.id)
-    );
-    if (staleIds.size === 0) return;
-    const dailyParticipants = callObject.participants();
-    for (const [sid, p] of Object.entries(dailyParticipants || {})) {
+    const staleParticipants = participants.filter((p) => {
+      if (!p.is_present) return false; // already absent · nothing to do
+      const seen = p.last_seen ? new Date(p.last_seen).getTime() : 0;
+      return now - seen > STALE_MS;
+    });
+    if (staleParticipants.length === 0) return;
+
+    const dailyParticipants = callObject.participants() || {};
+    const dailySessionByUserId = {};
+    for (const [sid, p] of Object.entries(dailyParticipants)) {
       if (sid === 'local') continue;
-      const uid = p?.user_id;
-      if (uid && staleIds.has(uid)) {
-        console.log('[presence] ejecting stale participant:', uid);
-        try {
-          callObject.updateParticipant(sid, { eject: true });
-        } catch (e) {
-          console.warn('[presence] eject failed', e);
-        }
-      }
+      if (p?.user_id) dailySessionByUserId[p.user_id] = sid;
     }
-  }, [callObject, participants]);
+
+    for (const sp of staleParticipants) {
+      if (recentlyKickedRef.current.has(sp.id)) continue;
+      recentlyKickedRef.current.add(sp.id);
+      // clear the guard after 30s so a true reconnect can be detected later
+      setTimeout(() => { recentlyKickedRef.current.delete(sp.id); }, 30000);
+
+      console.log('[presence] marking stale participant absent:', sp.id, sp.name);
+      // 1 · daily eject (only if they're actually still in the call)
+      const sid = dailySessionByUserId[sp.id];
+      if (sid) {
+        try { callObject.updateParticipant(sid, { eject: true }); }
+        catch (e) { console.warn('[presence] eject failed', e); }
+      }
+      // 2 · mark absent in db so host views stop showing them
+      fetch(`/api/sessions/${session.id}/kick`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ participantId: sp.id }),
+      }).catch((e) => console.warn('[presence] kick api failed', e));
+    }
+  }, [callObject, participants, session.id]);
 
   const inner = (
     <LiveControlInner

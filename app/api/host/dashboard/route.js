@@ -98,6 +98,10 @@ export async function GET() {
     const key = p.profile_id || `noprofile-${p.id}`;
     if (!connectorsByProfile[key]) {
       connectorsByProfile[key] = {
+        // profile_id when we have one · null otherwise (noprofile entries can
+        // still be wiped per-participant via participant_id below)
+        profile_id: p.profile_id || null,
+        participant_id: p.profile_id ? null : p.id,
         name: p.name,
         email: p.profile_id ? profileById[p.profile_id]?.email || null : null,
         captures: 0,
