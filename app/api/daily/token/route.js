@@ -98,12 +98,22 @@ export async function POST(request) {
     resolvedUserId = me.participantId;
 
     if (pairingForRoom) {
-      // for pair rooms, only the two participants in that pairing can get a token
-      if (
-        pairingForRoom.participant_a_id !== me.participantId &&
-        pairingForRoom.participant_b_id !== me.participantId
-      ) {
-        return new NextResponse('not in this pairing', { status: 403 });
+      // for pair rooms, normally only the two members of the pairing get a token.
+      // exception: the host can PLACE another participant into this room (orphan
+      // re-pairing, late-join slot-in). that placement is stored as the
+      // participant's current_room_name, so we accept those too.
+      const isPairMember =
+        pairingForRoom.participant_a_id === me.participantId ||
+        pairingForRoom.participant_b_id === me.participantId;
+      if (!isPairMember) {
+        const { data: placed } = await admin
+          .from('participants')
+          .select('current_room_name')
+          .eq('id', me.participantId)
+          .maybeSingle();
+        if (placed?.current_room_name !== roomName) {
+          return new NextResponse('not in this pairing', { status: 403 });
+        }
       }
     }
     // for main room: any verified participant of this session is allowed.

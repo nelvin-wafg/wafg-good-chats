@@ -56,10 +56,34 @@ export default function RoomExperience({ session: initialSession }) {
   const [callObject, setCallObject] = useState(null);
   const [currentRoom, setCurrentRoom] = useState(null); // { name, isPair }
   const [showEdit, setShowEdit] = useState(false);
+  const [directMessage, setDirectMessage] = useState(null);
+  const [broadcast, setBroadcast] = useState(null);
 
   // my linkedin (from the poll's participant row) · used to prefill the edit modal
   const myParticipantRow = participants.find((p) => p.id === participantId) || null;
   const myLinkedin = myParticipantRow?.linkedin_url || null;
+  const isOrphaned = Boolean(session.status === 'running_round' && myAssignment?.orphaned);
+  const orphanedFromName = isOrphaned ? myAssignment?.partnerName : null;
+
+  function dismissDirectMessage() {
+    if (directMessage?.at) dismissedDirectMessagesRef.current.add(directMessage.at);
+    setDirectMessage(null);
+  }
+  async function flagForHelp() {
+    try {
+      const res = await fetch(`/api/sessions/${initialSession.id}/flag`, {
+        method: 'POST',
+        credentials: 'same-origin',
+      });
+      if (res.ok) {
+        showToast("flagged · the host has been notified", 'success');
+      } else {
+        showToast((await res.text()) || "couldn't flag · try again", 'error');
+      }
+    } catch {
+      showToast('connection issue · try again', 'error');
+    }
+  }
 
   // load participant name (UI only). authoritative identity is HttpOnly cookie.
   useEffect(() => {
@@ -86,6 +110,23 @@ export default function RoomExperience({ session: initialSession }) {
         setSession((s) => ({ ...s, ...data.session }));
         setMyAssignment(data.assignment || null);
         setParticipants(data.participants || []);
+        // direct message from host · keep showing until participant dismisses.
+        // we track dismissed timestamps locally so a redelivery from the next
+        // poll doesn't re-pop a message the participant already closed.
+        const dm = data.directMessage;
+        if (dm?.text && dm?.at) {
+          if (!dismissedDirectMessagesRef.current.has(dm.at)) {
+            setDirectMessage((cur) => (cur?.at === dm.at ? cur : dm));
+          }
+        } else {
+          setDirectMessage(null);
+        }
+        // broadcast: server only returns it within ~15s of send, so it self-clears.
+        if (data.broadcast?.text && data.broadcast?.at) {
+          setBroadcast((cur) => (cur?.at === data.broadcast.at ? cur : data.broadcast));
+        } else {
+          setBroadcast(null);
+        }
         if (data.me?.participantId) {
           setParticipantId(data.me.participantId);
           consecutiveUnauthed = 0;
@@ -133,6 +174,9 @@ export default function RoomExperience({ session: initialSession }) {
   // (room switch / unmount) vs one caused by the host kicking us. when false at
   // the moment 'left-meeting' fires, we treat it as an eject and bounce.
   const intentionalLeaveRef = useRef(false);
+  // remember which direct-message timestamps the participant has dismissed, so
+  // they don't re-pop on every state poll.
+  const dismissedDirectMessagesRef = useRef(new Set());
 
   // create the call object exactly once, reuse it for the whole session.
   useEffect(() => {
@@ -297,10 +341,13 @@ export default function RoomExperience({ session: initialSession }) {
           transition={transition}
           transitionCountdown={transitionCountdown}
           onEditProfile={() => setShowEdit(true)}
+          onFlag={flagForHelp}
         />
         {/* renders hidden <audio> elements for remote participants · without this,
             mics capture but nobody can hear anyone (custom call-object UI). */}
         <DailyAudio />
+        {broadcast && <BroadcastBanner text={broadcast.text} />}
+        {directMessage && <DirectMessageBanner text={directMessage.text} onClose={dismissDirectMessage} />}
         {showEdit && (
           <EditProfileModal
             session={session}
@@ -338,12 +385,17 @@ export default function RoomExperience({ session: initialSession }) {
           myId={participantId}
           isLateJoiner={isLateJoiner}
           isWithHost={isWithHost}
+          isOrphaned={isOrphaned}
+          orphanedFromName={orphanedFromName}
           withHostAssignment={isWithHost ? myAssignment : null}
           withVideo
           onEditProfile={() => setShowEdit(true)}
+          onFlag={flagForHelp}
         />
         {/* hidden audio elements for everyone in the main room */}
         <DailyAudio />
+        {broadcast && <BroadcastBanner text={broadcast.text} />}
+        {directMessage && <DirectMessageBanner text={directMessage.text} onClose={dismissDirectMessage} />}
         {showEdit && (
           <EditProfileModal
             session={session}
@@ -362,6 +414,9 @@ export default function RoomExperience({ session: initialSession }) {
 
   // fallback: static main room (joining/loading or draft)
   return (
+    <>
+      {broadcast && <BroadcastBanner text={broadcast.text} />}
+      {directMessage && <DirectMessageBanner text={directMessage.text} onClose={dismissDirectMessage} />}
     <MainRoomView
       session={session}
       participants={participants}
@@ -370,16 +425,19 @@ export default function RoomExperience({ session: initialSession }) {
       myId={participantId}
       isLateJoiner={isLateJoiner}
       isWithHost={isWithHost}
+      isOrphaned={isOrphaned}
+      orphanedFromName={orphanedFromName}
       withHostAssignment={isWithHost ? myAssignment : null}
       withVideo={false}
     />
+    </>
   );
 }
 
 // ============================================================================
 // MAIN ROOM VIEW · works both with and without daily video
 // ============================================================================
-function MainRoomView({ session, participants, participantsByName, myName, myId, isLateJoiner, isWithHost, withHostAssignment, withVideo, onEditProfile }) {
+function MainRoomView({ session, participants, participantsByName, myName, myId, isLateJoiner, isWithHost, isOrphaned, orphanedFromName, withHostAssignment, withVideo, onEditProfile, onFlag }) {
   const liveCount = participants.filter((p) => p.is_present).length;
   const isPreSession = session.status === 'live' || session.status === 'draft';
   const isClosing = session.status === 'closing';
@@ -420,6 +478,12 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
       {isLateJoiner && (
         <div className="px-6 py-2 text-center text-[11px] uppercase tracking-widest font-bold text-black" style={{ background: '#01ecf3' }}>
           * rounds in progress · you'll be folded in at the next reshuffle *
+        </div>
+      )}
+
+      {isOrphaned && (
+        <div className="px-6 py-2 text-center text-[11px] uppercase tracking-widest font-bold text-black" style={{ background: '#fbbf24' }}>
+          * {orphanedFromName || 'your partner'} stepped away · hang tight, the host can place you with someone else *
         </div>
       )}
 
@@ -515,7 +579,7 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
 
       </div>
 
-      {withVideo && <ParticipantControlBar sessionCode={session?.code} theme="light" onEditProfile={onEditProfile} />}
+      {withVideo && <ParticipantControlBar sessionCode={session?.code} theme="light" onEditProfile={onEditProfile} onFlag={onFlag} />}
 
       {!withVideo && (
         <footer className="border-t border-neutral-200 bg-white px-6 py-3 flex items-center justify-between">
@@ -603,7 +667,7 @@ function MainRoomStaticGallery({ participants, myId }) {
 // ============================================================================
 // PAIR ROOM VIEW (mostly unchanged from prior version)
 // ============================================================================
-function PairRoomView({ assignment, session, myName, myLinkedin, transition, transitionCountdown, onEditProfile }) {
+function PairRoomView({ assignment, session, myName, myLinkedin, transition, transitionCountdown, onEditProfile, onFlag }) {
   const daily = useDaily();
   const localId = useLocalSessionId();
   const remoteIds = useParticipantIds({ filter: 'remote' });
@@ -694,7 +758,7 @@ function PairRoomView({ assignment, session, myName, myLinkedin, transition, tra
         />
       </div>
 
-      <ParticipantControlBar sessionCode={session?.code} theme="light" onEditProfile={onEditProfile} />
+      <ParticipantControlBar sessionCode={session?.code} theme="light" onEditProfile={onEditProfile} onFlag={onFlag} />
     </main>
   );
 }
@@ -820,7 +884,7 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverri
 // ============================================================================
 // participant control bar (mic / cam / leave) · used wherever there's a daily call
 // ============================================================================
-function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile }) {
+function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile, onFlag }) {
   const daily = useDaily();
   const localId = useLocalSessionId();
   const videoState = useMediaTrack(localId, 'video');
@@ -881,6 +945,15 @@ function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile }) {
           edit info
         </button>
       )}
+      {onFlag && (
+        <button
+          onClick={onFlag}
+          className={`px-4 py-2 rounded-full text-xs font-semibold border ${light ? 'bg-amber-50 border-amber-400 text-amber-700 hover:bg-amber-100' : 'bg-amber-900/30 border-amber-600 text-amber-300 hover:bg-amber-900/50'}`}
+          title="raise a flag · the host will be notified"
+        >
+          🚩 need help
+        </button>
+      )}
       <button
         onClick={() => { if (confirm('leave this session?')) window.location.href = sessionCode ? `/r/${sessionCode}` : '/'; }}
         className={`px-4 py-2 rounded-full text-xs font-semibold border ${leaveClass}`}
@@ -935,6 +1008,43 @@ function SplittingTransition({ partnerName, prompt, roomLabel, count, myName }) 
         </div>
       )}
     </main>
+  );
+}
+
+// ============================================================================
+// host BROADCAST banner · gentle full-width strip at top, auto-fades after 15s
+// (server only returns the broadcast while it's within that window)
+// ============================================================================
+function BroadcastBanner({ text }) {
+  return (
+    <div
+      className="fixed top-0 left-0 right-0 z-40 px-4 py-2 text-center text-sm font-semibold shadow"
+      style={{ background: '#01ecf3', color: '#000' }}
+    >
+      <span className="text-[10px] uppercase tracking-widest font-bold mr-2 opacity-60">host *</span>
+      {text}
+    </div>
+  );
+}
+
+// ============================================================================
+// HOST DIRECT MESSAGE banner · dismissible, distinct from broadcast
+// ============================================================================
+function DirectMessageBanner({ text, onClose }) {
+  return (
+    <div className="fixed top-12 left-1/2 -translate-x-1/2 z-40 max-w-md w-[calc(100%-2rem)] rounded-md p-3 sticker flex items-start gap-3" style={{ background: '#fff7e6', border: '2px solid #d97706', color: '#000' }}>
+      <div className="flex-1 min-w-0">
+        <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#d97706' }}>* a note from the host *</div>
+        <div className="text-sm">{text}</div>
+      </div>
+      <button
+        onClick={onClose}
+        className="text-lg leading-none text-neutral-500 hover:text-black flex-shrink-0"
+        title="dismiss"
+      >
+        ×
+      </button>
+    </div>
   );
 }
 

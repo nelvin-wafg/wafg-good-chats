@@ -53,7 +53,7 @@ export async function GET(request, { params }) {
 
   const { data: rawParticipants = [] } = await admin
     .from('participants')
-    .select('id, name, is_present, current_room_name, joined_at, last_seen, profiles(linkedin_url)')
+    .select('id, name, is_present, current_room_name, joined_at, last_seen, metadata, profiles(linkedin_url)')
     .eq('session_id', session.id)
     .order('joined_at', { ascending: true });
   const participants = (rawParticipants || []).map((p) => ({
@@ -64,6 +64,8 @@ export async function GET(request, { params }) {
     joined_at: p.joined_at,
     last_seen: p.last_seen,
     linkedin_url: p.profiles?.linkedin_url || null,
+    // flag_at surfaced for host view · participant SOS taps land here
+    flag_at: p.metadata?.flag_at || null,
   }));
 
   let assignment = null;
@@ -74,42 +76,120 @@ export async function GET(request, { params }) {
       .eq('session_id', session.id)
       .eq('rounds.round_number', session.current_round);
 
-    const myPairing = pairings.find(
-      (p) => p.participant_a_id === participantId || p.participant_b_id === participantId
-    );
-    if (myPairing) {
-      const startedAt = new Date(myPairing.rounds.started_at).getTime();
-      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      const secondsRemaining = Math.max(0, session.round_seconds - elapsed);
+    const me = participants.find((p) => p.id === participantId);
+    const myCurrentRoom = me?.current_room_name;
 
-      if (myPairing.room_name && myPairing.participant_b_id) {
-        // standard pair room
-        const partnerId = myPairing.participant_a_id === participantId
-          ? myPairing.participant_b_id
-          : myPairing.participant_a_id;
-        const partner = participants.find((p) => p.id === partnerId);
+    function secondsRemainingFor(pairing) {
+      const startedAt = new Date(pairing.rounds.started_at).getTime();
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      return Math.max(0, session.round_seconds - elapsed);
+    }
+
+    // PRIORITY 1: if the host PLACED us in a specific room (current_room_name),
+    // honor that even if it's not our original pairing · we may have been moved
+    // into another pair after our partner dropped or as a late-join slot-in.
+    if (myCurrentRoom) {
+      const placedPairing = pairings.find((p) => p.room_name === myCurrentRoom);
+      if (placedPairing) {
+        const otherIds = [placedPairing.participant_a_id, placedPairing.participant_b_id]
+          .filter((id) => id && id !== participantId);
+        const others = otherIds
+          .map((id) => participants.find((p) => p.id === id))
+          .filter(Boolean);
+        const isOriginalMember =
+          placedPairing.participant_a_id === participantId ||
+          placedPairing.participant_b_id === participantId;
         assignment = {
-          pairingId: myPairing.id,
-          roomName: myPairing.room_name,
-          roomLabel: myPairing.room_label,
-          partnerName: partner?.name || 'your match',
-          partnerLinkedinUrl: partner?.linkedin_url || null,
-          prompt: myPairing.rounds.prompt_text,
-          secondsRemaining,
+          pairingId: placedPairing.id,
+          roomName: placedPairing.room_name,
+          roomLabel: placedPairing.room_label,
+          partnerName: others.map((p) => p.name).join(' and ') || 'your match',
+          partnerLinkedinUrl: others.length === 1 ? others[0]?.linkedin_url || null : null,
+          prompt: placedPairing.rounds.prompt_text,
+          secondsRemaining: secondsRemainingFor(placedPairing),
           isWithHost: false,
-        };
-      } else if (!myPairing.participant_b_id) {
-        // sit-out: this participant is paired with the host in the main room
-        assignment = {
-          pairingId: myPairing.id,
-          roomName: null,
-          roomLabel: myPairing.room_label || 'with the host',
-          partnerName: 'the host',
-          prompt: myPairing.rounds.prompt_text,
-          secondsRemaining,
-          isWithHost: true,
+          isJoined: !isOriginalMember, // host dropped us into someone else's room
         };
       }
+    }
+
+    // PRIORITY 2: our own pairing for this round (the normal path)
+    if (!assignment) {
+      const myPairing = pairings.find(
+        (p) => p.participant_a_id === participantId || p.participant_b_id === participantId
+      );
+      if (myPairing) {
+        if (myPairing.room_name && myPairing.participant_b_id) {
+          // standard pair room
+          const partnerId = myPairing.participant_a_id === participantId
+            ? myPairing.participant_b_id
+            : myPairing.participant_a_id;
+          const partner = participants.find((p) => p.id === partnerId);
+
+          if (partner && !partner.is_present) {
+            // ORPHANED · partner dropped mid-round. clear our room assignment so
+            // we go back to main, and return an orphaned flag so the UI can show
+            // a "your partner stepped away" banner. the host can drop us into
+            // another room from the rail.
+            if (me?.current_room_name) {
+              await admin
+                .from('participants')
+                .update({ current_room_name: null })
+                .eq('id', participantId);
+            }
+            assignment = {
+              pairingId: myPairing.id,
+              roomName: null,
+              partnerName: partner.name || 'your partner',
+              prompt: myPairing.rounds.prompt_text,
+              secondsRemaining: secondsRemainingFor(myPairing),
+              isWithHost: false,
+              orphaned: true,
+            };
+          } else {
+            assignment = {
+              pairingId: myPairing.id,
+              roomName: myPairing.room_name,
+              roomLabel: myPairing.room_label,
+              partnerName: partner?.name || 'your match',
+              partnerLinkedinUrl: partner?.linkedin_url || null,
+              prompt: myPairing.rounds.prompt_text,
+              secondsRemaining: secondsRemainingFor(myPairing),
+              isWithHost: false,
+            };
+          }
+        } else if (!myPairing.participant_b_id) {
+          // sit-out: this participant is paired with the host in the main room
+          assignment = {
+            pairingId: myPairing.id,
+            roomName: null,
+            roomLabel: myPairing.room_label || 'with the host',
+            partnerName: 'the host',
+            prompt: myPairing.rounds.prompt_text,
+            secondsRemaining: secondsRemainingFor(myPairing),
+            isWithHost: true,
+          };
+        }
+      }
+    }
+  }
+
+  // surface participant-facing extras for the caller: their own host-direct
+  // message (if any) and the session-wide broadcast (if active within last 15s).
+  let directMessage = null;
+  let broadcast = null;
+  if (participantId) {
+    const meRow = rawParticipants.find((p) => p.id === participantId);
+    const dm = meRow?.metadata?.host_message;
+    if (dm?.text && dm?.at) {
+      directMessage = { text: dm.text, at: dm.at };
+    }
+  }
+  const sessionBroadcast = session?.metadata?.broadcast;
+  if (sessionBroadcast?.text && sessionBroadcast?.at) {
+    const ageMs = Date.now() - new Date(sessionBroadcast.at).getTime();
+    if (ageMs >= 0 && ageMs < 15000) {
+      broadcast = { text: sessionBroadcast.text, at: sessionBroadcast.at };
     }
   }
 
@@ -171,6 +251,8 @@ export async function GET(request, { params }) {
     assignment,
     pairings,
     pairingsHistory,
+    directMessage,
+    broadcast,
     me: participantId ? { participantId } : null,
   });
 }

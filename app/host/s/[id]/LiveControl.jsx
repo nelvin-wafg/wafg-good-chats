@@ -21,6 +21,9 @@ export default function LiveControl({ session: initialSession }) {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [busy, setBusy] = useState(false);
   const [callObject, setCallObject] = useState(null);
+  const [messageTarget, setMessageTarget] = useState(null); // { id, name } or null
+  const [broadcastText, setBroadcastText] = useState('');
+  const [broadcastBusy, setBroadcastBusy] = useState(false);
 
   // poll session state
   useEffect(() => {
@@ -186,6 +189,114 @@ export default function LiveControl({ session: initialSession }) {
     }
   }
 
+  // soft two-tone chime · played when a participant raises a new flag.
+  // built with Web Audio so no external file or asset is needed.
+  function playFlagChime() {
+    try {
+      if (typeof window === 'undefined') return;
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const now = ctx.currentTime;
+      [880, 660].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, now + i * 0.18);
+        gain.gain.linearRampToValueAtTime(0.2, now + i * 0.18 + 0.02);
+        gain.gain.linearRampToValueAtTime(0, now + i * 0.18 + 0.16);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.18);
+        osc.stop(now + i * 0.18 + 0.2);
+      });
+    } catch {}
+  }
+
+  // detect new flags. each time the poll lands, compare the current set of
+  // (participantId + flag_at) signatures to the previous. any new ones trigger
+  // a chime. silenced on the very first render so we don't beep on existing
+  // flags when the host opens the page.
+  const knownFlagsRef = useRef(null);
+  useEffect(() => {
+    const current = new Set(
+      participants.filter((p) => p.flag_at).map((p) => `${p.id}:${p.flag_at}`)
+    );
+    if (knownFlagsRef.current === null) {
+      knownFlagsRef.current = current;
+      return;
+    }
+    let isNew = false;
+    for (const sig of current) {
+      if (!knownFlagsRef.current.has(sig)) { isNew = true; break; }
+    }
+    knownFlagsRef.current = current;
+    if (isNew) playFlagChime();
+  }, [participants]);
+
+  async function placeParticipant(participantId, roomName) {
+    try {
+      const res = await fetch(`/api/sessions/${session.id}/place`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ participantId, roomName }),
+      });
+      if (!res.ok) {
+        showToast((await res.text()) || "couldn't place", 'error');
+      } else {
+        showToast('placed', 'success');
+      }
+    } catch (e) {
+      showToast('connection issue · try again', 'error');
+    }
+  }
+
+  async function sendDirectMessage(participantId, text) {
+    try {
+      const res = await fetch(`/api/sessions/${session.id}/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ participantId, text }),
+      });
+      if (!res.ok) {
+        showToast((await res.text()) || "couldn't send", 'error');
+        return false;
+      }
+      showToast('sent', 'success');
+      return true;
+    } catch {
+      showToast('connection issue · try again', 'error');
+      return false;
+    }
+  }
+
+  async function sendBroadcast() {
+    const text = broadcastText.trim();
+    if (!text || broadcastBusy) return;
+    setBroadcastBusy(true);
+    try {
+      const res = await fetch(`/api/sessions/${session.id}/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) {
+        showToast((await res.text()) || "couldn't broadcast", 'error');
+      } else {
+        showToast('sent to all rooms', 'success');
+        setBroadcastText('');
+      }
+    } catch {
+      showToast('connection issue · try again', 'error');
+    } finally {
+      setBroadcastBusy(false);
+    }
+  }
+
   async function action(path, body) {
     setBusy(true);
     try {
@@ -268,18 +379,36 @@ export default function LiveControl({ session: initialSession }) {
   }, [callObject, participants, session.id]);
 
   const inner = (
-    <LiveControlInner
-      session={session}
-      participants={participants}
-      participantsByName={participantsByName}
-      pairings={pairings}
-      pairingsHistory={pairingsHistory}
-      secondsLeft={secondsLeft}
-      busy={busy}
-      action={action}
-      hasCall={Boolean(callObject)}
-      onKick={kickParticipant}
-    />
+    <>
+      <LiveControlInner
+        session={session}
+        participants={participants}
+        participantsByName={participantsByName}
+        pairings={pairings}
+        pairingsHistory={pairingsHistory}
+        secondsLeft={secondsLeft}
+        busy={busy}
+        action={action}
+        hasCall={Boolean(callObject)}
+        onKick={kickParticipant}
+        onPlace={placeParticipant}
+        onOpenMessage={(p) => setMessageTarget({ id: p.id, name: p.name })}
+        broadcastText={broadcastText}
+        setBroadcastText={setBroadcastText}
+        sendBroadcast={sendBroadcast}
+        broadcastBusy={broadcastBusy}
+      />
+      {messageTarget && (
+        <MessageComposerModal
+          target={messageTarget}
+          onClose={() => setMessageTarget(null)}
+          onSend={async (text) => {
+            const ok = await sendDirectMessage(messageTarget.id, text);
+            if (ok) setMessageTarget(null);
+          }}
+        />
+      )}
+    </>
   );
 
   if (callObject) {
@@ -297,7 +426,7 @@ export default function LiveControl({ session: initialSession }) {
 // ============================================================================
 // inner component (uses daily hooks if wrapped in DailyProvider)
 // ============================================================================
-function LiveControlInner({ session, participants, participantsByName, pairings, pairingsHistory, secondsLeft, busy, action, hasCall, onKick }) {
+function LiveControlInner({ session, participants, participantsByName, pairings, pairingsHistory, secondsLeft, busy, action, hasCall, onKick, onPlace, onOpenMessage, broadcastText, setBroadcastText, sendBroadcast, broadcastBusy }) {
   const isPre = session.status === 'draft' || session.status === 'live';
   const isRunning = session.status === 'running_round';
   const isBetween = session.status === 'between_rounds';
@@ -473,6 +602,35 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
 
         {/* right rail */}
         <aside className="bg-black border-l border-neutral-800 p-6 overflow-y-auto flex flex-col gap-5">
+          {/* broadcast composer · sends a gentle banner to every room */}
+          {hasCall && (
+            <div className="rounded-md border border-neutral-800 bg-neutral-900 p-3">
+              <div className="text-[10px] uppercase tracking-widest font-bold mb-2 text-neutral-500">broadcast to everyone</div>
+              <form
+                onSubmit={(e) => { e.preventDefault(); sendBroadcast?.(); }}
+                className="flex gap-2"
+              >
+                <input
+                  type="text"
+                  value={broadcastText || ''}
+                  onChange={(e) => setBroadcastText?.(e.target.value)}
+                  placeholder="e.g. wrapping in 2 minutes..."
+                  maxLength={200}
+                  className="flex-1 bg-neutral-800 rounded px-2.5 py-1.5 text-sm text-white border border-neutral-700 focus:outline-none focus:border-cyan-400"
+                />
+                <button
+                  type="submit"
+                  disabled={broadcastBusy || !(broadcastText || '').trim()}
+                  className="px-3 py-1.5 rounded text-xs font-bold disabled:opacity-50"
+                  style={{ background: '#01ecf3', color: '#000' }}
+                >
+                  {broadcastBusy ? '...' : 'send'}
+                </button>
+              </form>
+              <p className="text-[10px] text-neutral-600 mt-1.5">[shows briefly at the top of every room]</p>
+            </div>
+          )}
+
           <div>
             <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">
               in main room ({participants.filter((p) => p.is_present && !p.current_room_name).length})
@@ -480,18 +638,41 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
             <div className="grid grid-cols-4 gap-2">
               {participants.filter((p) => p.is_present && !p.current_room_name).map((p) => (
                 <div key={p.id} className="text-center relative group">
-                  <div className="w-12 h-12 mx-auto rounded-full display flex items-center justify-center text-black text-base" style={{ background: colorForName(p.name) }}>
-                    {initials(p.name)}
+                  <div className="relative w-12 h-12 mx-auto">
+                    <div className="w-12 h-12 rounded-full display flex items-center justify-center text-black text-base" style={{ background: colorForName(p.name) }}>
+                      {initials(p.name)}
+                    </div>
+                    {p.flag_at && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenMessage?.(p)}
+                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-400 text-black text-xs font-bold flex items-center justify-center leading-none animate-pulse"
+                        title={`${p.name} raised a flag · click to send a private message`}
+                      >
+                        !
+                      </button>
+                    )}
                   </div>
                   <div className="text-[10px] mt-1 text-neutral-400 truncate">{p.name?.split(' ')[0]}</div>
-                  <button
-                    type="button"
-                    onClick={() => onKick?.(p.id, p.name)}
-                    className="absolute -top-1 right-1 w-5 h-5 rounded-full bg-red-600 text-white text-xs font-bold hidden group-hover:flex items-center justify-center leading-none"
-                    title={`remove ${p.name} from the session`}
-                  >
-                    ×
-                  </button>
+                  <div className="flex items-center justify-center gap-1 mt-1">
+                    <PlacePicker participant={p} pairings={pairings} onPlace={onPlace} />
+                    <button
+                      type="button"
+                      onClick={() => onOpenMessage?.(p)}
+                      className="w-5 h-5 rounded-full bg-neutral-700 hover:bg-neutral-600 text-white text-[10px] font-bold flex items-center justify-center leading-none"
+                      title={`send ${p.name} a private message`}
+                    >
+                      ✉
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onKick?.(p.id, p.name)}
+                      className="w-5 h-5 rounded-full bg-red-600/60 hover:bg-red-600 text-white text-[10px] font-bold flex items-center justify-center leading-none"
+                      title={`remove ${p.name} from the session`}
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
               ))}
               {participants.filter((p) => p.is_present && !p.current_room_name).length === 0 && (
@@ -525,6 +706,16 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="font-medium truncate">{pa.participant_a_name}</span>
+                          {participants.find((p) => p.id === pa.participant_a_id)?.flag_at && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenMessage?.({ id: pa.participant_a_id, name: pa.participant_a_name })}
+                              className="w-4 h-4 rounded-full bg-amber-400 text-black text-[10px] font-bold flex items-center justify-center leading-none flex-shrink-0 animate-pulse"
+                              title={`${pa.participant_a_name} raised a flag · click to message`}
+                            >
+                              !
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => onKick?.(pa.participant_a_id, pa.participant_a_name)}
@@ -537,6 +728,16 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                           <span className={`font-medium truncate ${isWithHost ? '' : ''}`} style={isWithHost ? { color: '#01ecf3' } : {}}>
                             {isWithHost ? 'you (host)' : pa.participant_b_name}
                           </span>
+                          {!isWithHost && pa.participant_b_id && participants.find((p) => p.id === pa.participant_b_id)?.flag_at && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenMessage?.({ id: pa.participant_b_id, name: pa.participant_b_name })}
+                              className="w-4 h-4 rounded-full bg-amber-400 text-black text-[10px] font-bold flex items-center justify-center leading-none flex-shrink-0 animate-pulse"
+                              title={`${pa.participant_b_name} raised a flag · click to message`}
+                            >
+                              !
+                            </button>
+                          )}
                           {!isWithHost && pa.participant_b_id && (
                             <button
                               type="button"
@@ -960,6 +1161,92 @@ function HostRecapPanel({ sessionId }) {
       </div>
 
       <a href="/host" className="inline-block text-sm underline text-neutral-400 hover:text-white">back to dashboard →</a>
+    </div>
+  );
+}
+
+// small picker that lets the host drop a participant into a specific live pair room.
+// shows a tiny → button; clicking opens a dropdown of room labels.
+function PlacePicker({ participant, pairings, onPlace }) {
+  const [open, setOpen] = useState(false);
+  const rooms = (pairings || []).filter((p) => p.room_name);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={rooms.length === 0}
+        className="w-5 h-5 rounded-full bg-cyan-500/40 hover:bg-cyan-500 text-white text-[10px] font-bold flex items-center justify-center leading-none disabled:opacity-30"
+        title={rooms.length === 0 ? 'no live rooms yet' : `place ${participant.name} into a room`}
+      >
+        →
+      </button>
+      {open && (
+        <>
+          <button type="button" onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default" aria-label="close menu" />
+          <div className="absolute z-50 mt-1 right-0 bg-neutral-900 border border-neutral-700 rounded shadow-lg p-1 min-w-[180px]">
+            <div className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 text-neutral-500">place into</div>
+            {rooms.length === 0 && (
+              <div className="px-2 py-1 text-xs italic text-neutral-500">[no live rooms]</div>
+            )}
+            {rooms.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => { onPlace?.(participant.id, r.room_name); setOpen(false); }}
+                className="block w-full text-left px-2 py-1.5 text-xs text-white rounded hover:bg-neutral-800"
+              >
+                <span style={{ color: '#01ecf3' }}>* </span>{r.room_label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// modal to send a private message to one participant. opens when the host
+// clicks a flag badge or the ✉ button next to someone's name.
+function MessageComposerModal({ target, onClose, onSend }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!text.trim() || busy) return;
+    setBusy(true);
+    await onSend(text.trim());
+    setBusy(false);
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-md p-5 max-w-md w-full sticker" style={{ color: '#000' }}>
+        <div className="flex items-center justify-between mb-1">
+          <div className="display text-xl">message {target.name}</div>
+          <button onClick={onClose} className="text-xl text-neutral-500 hover:text-black leading-none">×</button>
+        </div>
+        <p className="text-xs text-neutral-500 mb-3">[only they see this · sending also clears their flag]</p>
+        <form onSubmit={submit} className="space-y-3">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="quick note..."
+            rows={3}
+            maxLength={500}
+            autoFocus
+            className="w-full border-2 border-black rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-wafg-cyan resize-none"
+          />
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} disabled={busy} className="px-3 py-1.5 text-sm underline text-neutral-600 hover:text-black">cancel</button>
+            <button type="submit" disabled={busy || !text.trim()} className="btn-cyan px-4 py-1.5 rounded-md text-sm font-bold disabled:opacity-50">{busy ? 'sending...' : 'send *'}</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
