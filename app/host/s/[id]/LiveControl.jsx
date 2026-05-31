@@ -1,10 +1,12 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { DailyProvider, DailyAudio, useDaily, useParticipantIds, useLocalSessionId, useMediaTrack, useParticipantProperty } from '@daily-co/daily-react';
+import { DailyProvider, DailyAudio, useDaily, useParticipantIds, useLocalSessionId, useMediaTrack, useParticipantProperty, useActiveSpeakerId } from '@daily-co/daily-react';
 import DailyIframe from '@daily-co/daily-js';
 import { colorForName, initials } from '@/lib/brand';
 import CopyLink from '@/components/CopyLink';
 import ChatPanel from '@/components/ChatPanel';
+import DeviceMenu from '@/components/DeviceMenu';
+import ViewModeToggle from '@/components/ViewModeToggle';
 import { showToast } from '@/components/Toast';
 
 // host's command center · runs the session AND shows up on camera in the main room.
@@ -301,6 +303,19 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
   const isBetween = session.status === 'between_rounds';
   const isEnded = session.status === 'ended';
 
+  // host video view mode · persisted in localStorage so it sticks across sessions
+  const [viewMode, setViewMode] = useState('gallery');
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('gc:hostViewMode');
+      if (saved === 'gallery' || saved === 'speaker' || saved === 'large') setViewMode(saved);
+    } catch {}
+  }, []);
+  function updateViewMode(m) {
+    setViewMode(m);
+    try { window.localStorage.setItem('gc:hostViewMode', m); } catch {}
+  }
+
   const promptIdx = (session.current_round || 1) - 1;
   const currentPrompt = session.prompts?.[promptIdx]?.text;
   const nextPrompt = session.prompts?.[(session.current_round || 0)]?.text;
@@ -435,8 +450,13 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
           </div>
 
           {/* video gallery · everyone in the main daily room */}
-          <div className="flex-1 overflow-y-auto p-4">
-            {hasCall ? <HostVideoGallery participantsByName={participantsByName} /> : (
+          <div className="flex-1 overflow-y-auto p-4 flex flex-col min-h-0">
+            {hasCall && (
+              <div className="flex items-center justify-end mb-2 flex-shrink-0">
+                <ViewModeToggle mode={viewMode} onChange={updateViewMode} theme="dark" />
+              </div>
+            )}
+            {hasCall ? <HostVideoGallery participantsByName={participantsByName} mode={viewMode} /> : (
               <div className="h-full flex items-center justify-center text-neutral-600 text-sm text-center px-6">
                 {isEnded
                   ? '[session has ended]'
@@ -555,18 +575,53 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
 
 // ============================================================================
 // host video gallery · all daily participants in the main room
+// supports three layouts driven by `mode`: gallery (default), speaker, large
 // ============================================================================
-function HostVideoGallery({ participantsByName }) {
+function HostVideoGallery({ participantsByName, mode = 'gallery' }) {
   const localId = useLocalSessionId();
   const remoteIds = useParticipantIds({ filter: 'remote' });
+  const activeSpeakerId = useActiveSpeakerId();
   const ids = [localId, ...remoteIds].filter(Boolean);
 
   if (ids.length === 0) {
     return <div className="h-full flex items-center justify-center text-neutral-600 text-sm">[joining main room...]</div>;
   }
 
+  if (mode === 'speaker') {
+    let featured = activeSpeakerId && ids.includes(activeSpeakerId) ? activeSpeakerId : null;
+    if (!featured) featured = localId || ids[0];
+    const others = ids.filter((id) => id !== featured);
+    return (
+      <div className="flex flex-col gap-3 flex-1 min-h-0">
+        <div className="flex-1 min-h-0">
+          <DailyVideoTile
+            key={featured}
+            sessionId={featured}
+            isLocal={featured === localId}
+            participantsByName={participantsByName}
+            tileClassName="w-full h-full"
+          />
+        </div>
+        {others.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-1 flex-shrink-0">
+            {others.map((id) => (
+              <div key={id} className="w-40 flex-shrink-0">
+                <DailyVideoTile
+                  sessionId={id}
+                  isLocal={id === localId}
+                  participantsByName={participantsByName}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const minTile = mode === 'large' ? '280px' : '160px';
   return (
-    <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(160px, 1fr))` }}>
+    <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${minTile}, 1fr))` }}>
       {ids.map((id) => (
         <DailyVideoTile key={id} sessionId={id} isLocal={id === localId} participantsByName={participantsByName} />
       ))}
@@ -574,7 +629,7 @@ function HostVideoGallery({ participantsByName }) {
   );
 }
 
-function DailyVideoTile({ sessionId, isLocal, participantsByName }) {
+function DailyVideoTile({ sessionId, isLocal, participantsByName, tileClassName }) {
   const ref = useRef();
   const videoState = useMediaTrack(sessionId, 'video');
   const userName = useParticipantProperty(sessionId, 'user_name');
@@ -598,7 +653,7 @@ function DailyVideoTile({ sessionId, isLocal, participantsByName }) {
 
   return (
     <div
-      className="relative rounded-md overflow-hidden bg-neutral-900 aspect-video"
+      className={`relative rounded-md overflow-hidden bg-neutral-900 ${tileClassName || 'aspect-video'}`}
       style={isHostTile ? { border: '2px solid #01ecf3' } : { border: '1px solid #333' }}
     >
       <video
@@ -619,7 +674,7 @@ function DailyVideoTile({ sessionId, isLocal, participantsByName }) {
           </div>
         </div>
       )}
-      <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur px-2 py-0.5 rounded text-xs font-medium flex items-center gap-2">
+      <div className="absolute bottom-2 left-2 bg-black px-2.5 py-1.5 rounded-md text-sm font-bold text-white flex items-center gap-2">
         <span>{displayName}</span>
         {linkedinUrl && (
           <a
@@ -663,8 +718,14 @@ function HostControlBar() {
 
   return (
     <div className="border-t border-neutral-800 px-6 py-3 flex items-center justify-center gap-3 bg-black">
-      <CtrlBtn on={audioOn} onClick={toggleAudio} label={audioOn ? 'mic on' : 'mic off'} />
-      <CtrlBtn on={videoOn} onClick={toggleVideo} label={videoOn ? 'cam on' : 'cam off'} />
+      <div className="flex items-center gap-1">
+        <CtrlBtn on={audioOn} onClick={toggleAudio} label={audioOn ? 'mic on' : 'mic off'} />
+        <DeviceMenu kind="audio" daily={daily} theme="dark" />
+      </div>
+      <div className="flex items-center gap-1">
+        <CtrlBtn on={videoOn} onClick={toggleVideo} label={videoOn ? 'cam on' : 'cam off'} />
+        <DeviceMenu kind="video" daily={daily} theme="dark" />
+      </div>
     </div>
   );
 }

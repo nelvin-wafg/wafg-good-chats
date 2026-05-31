@@ -1,10 +1,12 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { DailyProvider, DailyAudio, useDaily, useParticipantIds, useLocalSessionId, useMediaTrack, useParticipantProperty } from '@daily-co/daily-react';
+import { DailyProvider, DailyAudio, useDaily, useParticipantIds, useLocalSessionId, useMediaTrack, useParticipantProperty, useActiveSpeakerId } from '@daily-co/daily-react';
 import DailyIframe from '@daily-co/daily-js';
 import { colorForName, initials } from '@/lib/brand';
 import { showToast } from '@/components/Toast';
 import ChatPanel from '@/components/ChatPanel';
+import DeviceMenu from '@/components/DeviceMenu';
+import ViewModeToggle from '@/components/ViewModeToggle';
 
 // iOS Safari blocks remote audio playback until the user has interacted with the
 // page in a way that unlocks the audio context. DailyAudio handles autoplay on
@@ -291,6 +293,7 @@ export default function RoomExperience({ session: initialSession }) {
           assignment={myAssignment}
           session={session}
           myName={participantName}
+          myLinkedin={myLinkedin}
           transition={transition}
           transitionCountdown={transitionCountdown}
           onEditProfile={() => setShowEdit(true)}
@@ -381,6 +384,19 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
   const isPreSession = session.status === 'live' || session.status === 'draft';
   const isClosing = session.status === 'closing';
 
+  // view mode (participant main room) · persisted across sessions in localStorage
+  const [viewMode, setViewMode] = useState('gallery');
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('gc:viewMode');
+      if (saved === 'gallery' || saved === 'speaker' || saved === 'large') setViewMode(saved);
+    } catch {}
+  }, []);
+  function updateViewMode(m) {
+    setViewMode(m);
+    try { window.localStorage.setItem('gc:viewMode', m); } catch {}
+  }
+
   // when paired with the host, count down the round timer locally
   const [hostSecondsLeft, setHostSecondsLeft] = useState(withHostAssignment?.secondsRemaining || 0);
   useEffect(() => {
@@ -424,9 +440,12 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr,360px] overflow-hidden">
 
         {/* gallery (video or static) */}
-        <div className="p-6 overflow-y-auto">
-          <div className="text-xs uppercase tracking-widest text-neutral-500 mb-2 font-semibold">
-            main room · everyone together
+        <div className="p-6 overflow-y-auto flex flex-col min-h-0">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="text-xs uppercase tracking-widest text-neutral-500 font-semibold">
+              main room · everyone together
+            </div>
+            {withVideo && <ViewModeToggle mode={viewMode} onChange={updateViewMode} theme="light" />}
           </div>
           <div className="display text-3xl mb-6">
             {isPreSession
@@ -441,7 +460,7 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
           </div>
 
           {withVideo
-            ? <MainRoomVideoGallery participantsByName={participantsByName} />
+            ? <MainRoomVideoGallery participantsByName={participantsByName} mode={viewMode} />
             : <MainRoomStaticGallery participants={participants} myId={myId} />}
         </div>
 
@@ -513,18 +532,53 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
   );
 }
 
-// daily-aware video gallery for main room
-function MainRoomVideoGallery({ participantsByName }) {
+// daily-aware video gallery for main room · supports three layouts driven by `mode`
+function MainRoomVideoGallery({ participantsByName, mode = 'gallery' }) {
   const localId = useLocalSessionId();
   const remoteIds = useParticipantIds({ filter: 'remote' });
+  const activeSpeakerId = useActiveSpeakerId();
   const ids = [localId, ...remoteIds].filter(Boolean);
 
   if (ids.length === 0) {
     return <div className="text-neutral-500 italic text-sm">[connecting to the main room...]</div>;
   }
 
+  if (mode === 'speaker') {
+    // featured = active speaker if known and present, else local, else first remote
+    let featured = activeSpeakerId && ids.includes(activeSpeakerId) ? activeSpeakerId : null;
+    if (!featured) featured = localId || ids[0];
+    const others = ids.filter((id) => id !== featured);
+    return (
+      <div className="flex flex-col gap-3 flex-1 min-h-0">
+        <div className="flex-1 min-h-0">
+          <DailyVideoTile
+            key={featured}
+            sessionId={featured}
+            isLocal={featured === localId}
+            participantsByName={participantsByName}
+            tileClassName="w-full h-full"
+          />
+        </div>
+        {others.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-1 flex-shrink-0">
+            {others.map((id) => (
+              <div key={id} className="w-40 flex-shrink-0">
+                <DailyVideoTile
+                  sessionId={id}
+                  isLocal={id === localId}
+                  participantsByName={participantsByName}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const minTile = mode === 'large' ? '280px' : '160px';
   return (
-    <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+    <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${minTile}, 1fr))` }}>
       {ids.map((id) => (
         <DailyVideoTile key={id} sessionId={id} isLocal={id === localId} participantsByName={participantsByName} />
       ))}
@@ -549,7 +603,7 @@ function MainRoomStaticGallery({ participants, myId }) {
 // ============================================================================
 // PAIR ROOM VIEW (mostly unchanged from prior version)
 // ============================================================================
-function PairRoomView({ assignment, session, myName, transition, transitionCountdown, onEditProfile }) {
+function PairRoomView({ assignment, session, myName, myLinkedin, transition, transitionCountdown, onEditProfile }) {
   const daily = useDaily();
   const localId = useLocalSessionId();
   const remoteIds = useParticipantIds({ filter: 'remote' });
@@ -618,7 +672,7 @@ function PairRoomView({ assignment, session, myName, transition, transitionCount
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr,300px] overflow-hidden">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 overflow-hidden">
-          <DailyVideoTile sessionId={localId} isLocal nameOverride={myName} />
+          <DailyVideoTile sessionId={localId} isLocal nameOverride={myName} linkedinOverride={myLinkedin} />
           {remoteIds.length > 0 ? (
             <DailyVideoTile sessionId={remoteIds[0]} cyan nameOverride={assignment.partnerName} linkedinOverride={assignment.partnerLinkedinUrl} />
           ) : (
@@ -689,7 +743,7 @@ function CaptureControl({ captured, partnerName, partnerLinkedinUrl, onCapture }
 // ============================================================================
 // shared video tile component used by both pair room and main room
 // ============================================================================
-function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverride, participantsByName }) {
+function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverride, participantsByName, tileClassName }) {
   const ref = useRef();
   const videoState = useMediaTrack(sessionId, 'video');
   const userName = useParticipantProperty(sessionId, 'user_name');
@@ -720,7 +774,7 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverri
     : name;
 
   return (
-    <div className="relative rounded-md overflow-hidden bg-neutral-900 aspect-video" style={borderStyle}>
+    <div className={`relative rounded-md overflow-hidden bg-neutral-900 ${tileClassName || 'aspect-video'}`} style={borderStyle}>
       <video
         ref={ref}
         autoPlay
@@ -739,14 +793,14 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverri
           </div>
         </div>
       )}
-      <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur px-2 py-1 rounded text-xs font-semibold flex items-center gap-2">
+      <div className="absolute bottom-2 left-2 bg-black px-2.5 py-1.5 rounded-md text-sm font-bold text-white flex items-center gap-2">
         <span>{displayName}</span>
-        {linkedinUrl && !isLocal && (
+        {linkedinUrl && (
           <a
             href={linkedinUrl}
             target="_blank"
             rel="noopener noreferrer"
-            title="open linkedin"
+            title={isLocal ? 'your linkedin (what others see)' : 'open linkedin'}
             className="inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold no-underline"
             style={{ background: '#0a66c2', color: '#fff' }}
           >
@@ -799,19 +853,25 @@ function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile }) {
 
   return (
     <footer className={`border-t px-6 py-3 flex items-center justify-center gap-3 flex-wrap ${footerClass}`}>
-      <button
-        onClick={toggleAudio}
-        className={`px-4 py-2 rounded-full text-xs font-semibold border ${audioOn ? onClass : offClass}`}
-      >
-        {audioOn ? 'mic on' : (audioBlocked ? 'mic blocked · check browser settings' : 'mic off · tap to unmute')}
-      </button>
-      <button
-        onClick={toggleVideo}
-        className={`px-4 py-2 rounded-full text-xs font-semibold border ${videoOn ? onClass : offClass}`}
-        style={!videoOn ? { background: '#01ecf3', color: '#000', borderColor: '#01ecf3' } : {}}
-      >
-        {videoOn ? 'cam on' : (videoBlocked ? 'camera blocked · check browser settings' : 'tap to turn on camera')}
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={toggleAudio}
+          className={`px-4 py-2 rounded-full text-xs font-semibold border ${audioOn ? onClass : offClass}`}
+        >
+          {audioOn ? 'mic on' : (audioBlocked ? 'mic blocked · check browser settings' : 'mic off · tap to unmute')}
+        </button>
+        <DeviceMenu kind="audio" daily={daily} theme={theme} />
+      </div>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={toggleVideo}
+          className={`px-4 py-2 rounded-full text-xs font-semibold border ${videoOn ? onClass : offClass}`}
+          style={!videoOn ? { background: '#01ecf3', color: '#000', borderColor: '#01ecf3' } : {}}
+        >
+          {videoOn ? 'cam on' : (videoBlocked ? 'camera blocked · check browser settings' : 'tap to turn on camera')}
+        </button>
+        <DeviceMenu kind="video" daily={daily} theme={theme} />
+      </div>
       {onEditProfile && (
         <button
           onClick={onEditProfile}
