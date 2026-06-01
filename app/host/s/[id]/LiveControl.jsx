@@ -273,6 +273,25 @@ export default function LiveControl({ session: initialSession }) {
     }
   }
 
+  async function admitParticipants({ participantId, all }) {
+    try {
+      const res = await fetch(`/api/sessions/${session.id}/admit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(all ? { all: true } : { participantId }),
+      });
+      if (!res.ok) {
+        showToast((await res.text()) || "couldn't admit", 'error');
+      } else {
+        const data = await res.json();
+        showToast(all ? `let ${data.admitted} in` : 'let them in', 'success');
+      }
+    } catch {
+      showToast('connection issue · try again', 'error');
+    }
+  }
+
   async function sendBroadcast() {
     const text = broadcastText.trim();
     if (!text || broadcastBusy) return;
@@ -393,6 +412,7 @@ export default function LiveControl({ session: initialSession }) {
         onKick={kickParticipant}
         onPlace={placeParticipant}
         onOpenMessage={(p) => setMessageTarget({ id: p.id, name: p.name })}
+        onAdmit={admitParticipants}
         broadcastText={broadcastText}
         setBroadcastText={setBroadcastText}
         sendBroadcast={sendBroadcast}
@@ -426,7 +446,12 @@ export default function LiveControl({ session: initialSession }) {
 // ============================================================================
 // inner component (uses daily hooks if wrapped in DailyProvider)
 // ============================================================================
-function LiveControlInner({ session, participants, participantsByName, pairings, pairingsHistory, secondsLeft, busy, action, hasCall, onKick, onPlace, onOpenMessage, broadcastText, setBroadcastText, sendBroadcast, broadcastBusy }) {
+function LiveControlInner({ session, participants, participantsByName, pairings, pairingsHistory, secondsLeft, busy, action, hasCall, onKick, onPlace, onOpenMessage, onAdmit, broadcastText, setBroadcastText, sendBroadcast, broadcastBusy }) {
+  // waiting list: people in the session whose admitted_at is null while the
+  // session is in 'live' status (host has opened but hasn't kicked off yet).
+  const waitingList = (session.status === 'live' || session.status === 'draft')
+    ? participants.filter((p) => p.is_present && !p.admitted_at)
+    : [];
   const isPre = session.status === 'draft' || session.status === 'live';
   const isRunning = session.status === 'running_round';
   const isBetween = session.status === 'between_rounds';
@@ -602,6 +627,57 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
 
         {/* right rail */}
         <aside className="bg-black border-l border-neutral-800 p-6 overflow-y-auto flex flex-col gap-5">
+
+          {/* waiting room · only relevant before the host kicks off */}
+          {waitingList.length > 0 && (
+            <div className="rounded-md border-2 p-3" style={{ borderColor: '#01ecf3', background: 'rgba(1,236,243,0.06)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#01ecf3' }}>
+                  waiting ({waitingList.length})
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onAdmit?.({ all: true })}
+                  className="text-[10px] uppercase tracking-widest font-bold px-2.5 py-1 rounded"
+                  style={{ background: '#01ecf3', color: '#000' }}
+                  title="let everyone in"
+                >
+                  let everyone in *
+                </button>
+              </div>
+              <ul className="space-y-1.5">
+                {waitingList.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between gap-2 text-sm bg-neutral-900 rounded px-2 py-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-6 h-6 rounded-full display flex items-center justify-center text-black text-[10px] flex-shrink-0" style={{ background: colorForName(p.name) }}>
+                        {initials(p.name)}
+                      </div>
+                      <span className="font-medium truncate">{p.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => onAdmit?.({ participantId: p.id })}
+                        className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded text-black"
+                        style={{ background: '#01ecf3' }}
+                      >
+                        let in
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onKick?.(p.id, p.name)}
+                        className="w-5 h-5 rounded-full bg-red-600/40 hover:bg-red-600 text-white text-[10px] font-bold flex items-center justify-center leading-none"
+                        title={`remove ${p.name}`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* broadcast composer · sends a gentle banner to every room */}
           {hasCall && (
             <div className="rounded-md border border-neutral-800 bg-neutral-900 p-3">

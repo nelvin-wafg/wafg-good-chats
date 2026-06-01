@@ -58,6 +58,9 @@ export default function RoomExperience({ session: initialSession }) {
   const [showEdit, setShowEdit] = useState(false);
   const [directMessage, setDirectMessage] = useState(null);
   const [broadcast, setBroadcast] = useState(null);
+  // admission gates the waiting room. undefined = we don't know yet (first poll
+  // hasn't landed); false = waiting; true = host has admitted us OR rounds started.
+  const [admitted, setAdmitted] = useState(undefined);
 
   // my linkedin (from the poll's participant row) · used to prefill the edit modal
   const myParticipantRow = participants.find((p) => p.id === participantId) || null;
@@ -129,6 +132,7 @@ export default function RoomExperience({ session: initialSession }) {
         }
         if (data.me?.participantId) {
           setParticipantId(data.me.participantId);
+          setAdmitted(Boolean(data.me.admitted));
           consecutiveUnauthed = 0;
         } else {
           consecutiveUnauthed++;
@@ -149,6 +153,9 @@ export default function RoomExperience({ session: initialSession }) {
   // - no room when ended/draft
   const targetRoom = (() => {
     if (!participantName) return null;
+    // waiting room: don't join Daily until the host admits us. once admitted
+    // becomes true the next render picks up the right room and joins.
+    if (admitted === false) return null;
     if (session.status === 'ended' || session.status === 'draft') return null;
     if (myAssignment?.roomName) {
       return { name: myAssignment.roomName, isPair: true, label: myAssignment.roomLabel };
@@ -327,6 +334,17 @@ export default function RoomExperience({ session: initialSession }) {
 
   if (session.status === 'ended') {
     return <EndedView session={session} />;
+  }
+
+  // waiting room: host opened the session but hasn't let me in yet
+  if (admitted === false && participantName) {
+    return (
+      <>
+        {broadcast && <BroadcastBanner text={broadcast.text} />}
+        {directMessage && <DirectMessageBanner text={directMessage.text} onClose={dismissDirectMessage} />}
+        <WaitingRoomView session={session} myName={participantName} />
+      </>
+    );
   }
 
   // pair room
@@ -1007,6 +1025,37 @@ function SplittingTransition({ partnerName, prompt, roomLabel, count, myName }) 
           <div className="display text-base">{prompt}</div>
         </div>
       )}
+    </main>
+  );
+}
+
+// ============================================================================
+// WAITING ROOM · shown before the host has admitted the participant
+// no daily call · we keep polling state so the moment admitted_at flips, the
+// participant transitions out of this view and into the main room.
+// ============================================================================
+function WaitingRoomView({ session, myName }) {
+  return (
+    <main className="min-h-screen flex flex-col items-center justify-center p-6 relative" style={{ background: '#f4f4f1', color: '#000' }}>
+      <div className="max-w-md w-full text-center">
+        <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-2">
+          Good Chats · {session.name}
+        </div>
+        <div className="display text-5xl md:text-6xl mb-6">
+          hang tight <span style={{ color: '#01ecf3' }}>*</span>
+        </div>
+        <p className="text-lg text-neutral-700 mb-2">
+          the host is getting things ready.
+        </p>
+        <p className="text-sm text-neutral-500 mb-8">
+          {myName ? `we'll call you ${myName.split(' ')[0]}.` : "we've got your info."}{' '}
+          you'll be let in shortly. keep this tab open.
+        </p>
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full" style={{ background: 'rgba(1,236,243,0.18)' }}>
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#01ecf3' }}></span>
+          <span className="text-xs uppercase tracking-widest font-bold text-neutral-700">waiting for the host</span>
+        </div>
+      </div>
     </main>
   );
 }

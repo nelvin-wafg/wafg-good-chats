@@ -116,6 +116,19 @@ export async function POST(request) {
         }
       }
     }
+    // waiting room gate: during status='live' (host opened the room but rounds
+    // haven't started), refuse the token unless the host has admitted them.
+    // once status moves to running_round, this check is moot · everyone flows in.
+    if (sessionRow.status === 'live' || sessionRow.status === 'draft') {
+      const { data: meRow } = await admin
+        .from('participants')
+        .select('metadata')
+        .eq('id', me.participantId)
+        .maybeSingle();
+      if (!meRow?.metadata?.admitted_at) {
+        return new NextResponse('waiting for host', { status: 403 });
+      }
+    }
     // for main room: any verified participant of this session is allowed.
   }
 

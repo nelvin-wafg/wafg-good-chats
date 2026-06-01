@@ -66,6 +66,9 @@ export async function GET(request, { params }) {
     linkedin_url: p.profiles?.linkedin_url || null,
     // flag_at surfaced for host view · participant SOS taps land here
     flag_at: p.metadata?.flag_at || null,
+    // admission state · null = still in waiting room. only meaningful while
+    // session.status is 'live' or 'draft'; gets ignored once rounds start.
+    admitted_at: p.metadata?.admitted_at || null,
   }));
 
   let assignment = null;
@@ -253,6 +256,17 @@ export async function GET(request, { params }) {
     pairingsHistory,
     directMessage,
     broadcast,
-    me: participantId ? { participantId } : null,
+    me: participantId
+      ? {
+          participantId,
+          // admitted=true if the session has moved past the waiting-room phase
+          // OR if the host has explicitly let this participant in.
+          admitted:
+            !(session.status === 'live' || session.status === 'draft') ||
+            Boolean(
+              rawParticipants.find((p) => p.id === participantId)?.metadata?.admitted_at
+            ),
+        }
+      : null,
   });
 }

@@ -52,6 +52,18 @@ export async function POST(request, { params }) {
   if (!session) return new NextResponse('session not found', { status: 404 });
   if (session.status === 'ended') return new NextResponse('this session already ended', { status: 400 });
 
+  // waiting room semantics:
+  // - status='live' (host has opened the room but rounds haven't started yet)
+  //   → new arrivals land in the waiting room. they get a participant row, but
+  //     metadata.admitted_at stays null until the host explicitly lets them in
+  //     (or hits "kick it off", which auto-admits everyone via the round route).
+  // - any other live state (running_round / between_rounds / closing) → auto-admit
+  //   so latecomers slide straight into the main room.
+  // - status='draft' is rare here (the link normally isn't shared yet) · treat
+  //   like 'live' to be safe: join, sit in waiting until the host opens up.
+  const needsAdmission = session.status === 'live' || session.status === 'draft';
+  const admissionStamp = needsAdmission ? null : new Date().toISOString();
+
   // session capacity check
   const { count } = await admin
     .from('participants')
@@ -109,12 +121,16 @@ export async function POST(request, { params }) {
   if (profileId) {
     const { data: existingRows } = await admin
       .from('participants')
-      .select('id')
+      .select('id, metadata')
       .eq('session_id', session.id)
       .eq('profile_id', profileId)
       .order('joined_at', { ascending: false });
     if (existingRows && existingRows.length > 0) {
       const primaryId = existingRows[0].id;
+      const prevMeta = existingRows[0].metadata || {};
+      // returning user: if they were already admitted earlier in this session,
+      // keep that admission (don't re-bench them just because they refreshed).
+      const preservedAdmittedAt = prevMeta.admitted_at || admissionStamp;
       const { data: updated, error: uErr } = await admin
         .from('participants')
         .update({
@@ -122,7 +138,7 @@ export async function POST(request, { params }) {
           is_present: true,
           last_seen: now,
           left_at: null,
-          metadata: { join_ip: getClientIp(request) },
+          metadata: { join_ip: getClientIp(request), admitted_at: preservedAdmittedAt },
         })
         .eq('id', primaryId)
         .select('id')
@@ -151,7 +167,7 @@ export async function POST(request, { params }) {
         profile_id: profileId,
         name,
         is_present: true,
-        metadata: { join_ip: getClientIp(request) },
+        metadata: { join_ip: getClientIp(request), admitted_at: admissionStamp },
       })
       .select('id')
       .single();
