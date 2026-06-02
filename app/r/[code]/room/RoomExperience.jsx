@@ -58,6 +58,7 @@ export default function RoomExperience({ session: initialSession }) {
   const [showEdit, setShowEdit] = useState(false);
   const [directMessage, setDirectMessage] = useState(null);
   const [broadcast, setBroadcast] = useState(null);
+  const [showFlagComposer, setShowFlagComposer] = useState(false);
   // admission gates the waiting room. undefined = we don't know yet (first poll
   // hasn't landed); false = waiting; true = host has admitted us OR rounds started.
   const [admitted, setAdmitted] = useState(undefined);
@@ -72,19 +73,25 @@ export default function RoomExperience({ session: initialSession }) {
     if (directMessage?.at) dismissedDirectMessagesRef.current.add(directMessage.at);
     setDirectMessage(null);
   }
-  async function flagForHelp() {
+  // submit a flag · optional `text` is the participant's note to the host
+  // (used both for initial flags and for replies to a host message).
+  async function sendFlag(text) {
     try {
       const res = await fetch(`/api/sessions/${initialSession.id}/flag`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
+        body: JSON.stringify({ text: text || null }),
       });
       if (res.ok) {
-        showToast("flagged · the host has been notified", 'success');
-      } else {
-        showToast((await res.text()) || "couldn't flag · try again", 'error');
+        showToast('sent · the host will see it', 'success');
+        return true;
       }
+      showToast((await res.text()) || "couldn't send · try again", 'error');
+      return false;
     } catch {
       showToast('connection issue · try again', 'error');
+      return false;
     }
   }
 
@@ -341,8 +348,20 @@ export default function RoomExperience({ session: initialSession }) {
     return (
       <>
         {broadcast && <BroadcastBanner text={broadcast.text} />}
-        {directMessage && <DirectMessageBanner text={directMessage.text} onClose={dismissDirectMessage} />}
-        <WaitingRoomView session={session} myName={participantName} />
+        {directMessage && (
+          <DirectMessageBanner
+            text={directMessage.text}
+            onClose={dismissDirectMessage}
+            onReply={() => setShowFlagComposer(true)}
+          />
+        )}
+        <WaitingRoomView session={session} myName={participantName} onFlag={() => setShowFlagComposer(true)} />
+        {showFlagComposer && (
+          <FlagComposerModal
+            onClose={() => setShowFlagComposer(false)}
+            onSend={sendFlag}
+          />
+        )}
       </>
     );
   }
@@ -359,13 +378,25 @@ export default function RoomExperience({ session: initialSession }) {
           transition={transition}
           transitionCountdown={transitionCountdown}
           onEditProfile={() => setShowEdit(true)}
-          onFlag={flagForHelp}
+          onFlag={() => setShowFlagComposer(true)}
         />
         {/* renders hidden <audio> elements for remote participants · without this,
             mics capture but nobody can hear anyone (custom call-object UI). */}
         <DailyAudio />
         {broadcast && <BroadcastBanner text={broadcast.text} />}
-        {directMessage && <DirectMessageBanner text={directMessage.text} onClose={dismissDirectMessage} />}
+        {directMessage && (
+          <DirectMessageBanner
+            text={directMessage.text}
+            onClose={dismissDirectMessage}
+            onReply={() => setShowFlagComposer(true)}
+          />
+        )}
+        {showFlagComposer && (
+          <FlagComposerModal
+            onClose={() => setShowFlagComposer(false)}
+            onSend={sendFlag}
+          />
+        )}
         {showEdit && (
           <EditProfileModal
             session={session}
@@ -408,12 +439,24 @@ export default function RoomExperience({ session: initialSession }) {
           withHostAssignment={isWithHost ? myAssignment : null}
           withVideo
           onEditProfile={() => setShowEdit(true)}
-          onFlag={flagForHelp}
+          onFlag={() => setShowFlagComposer(true)}
         />
         {/* hidden audio elements for everyone in the main room */}
         <DailyAudio />
         {broadcast && <BroadcastBanner text={broadcast.text} />}
-        {directMessage && <DirectMessageBanner text={directMessage.text} onClose={dismissDirectMessage} />}
+        {directMessage && (
+          <DirectMessageBanner
+            text={directMessage.text}
+            onClose={dismissDirectMessage}
+            onReply={() => setShowFlagComposer(true)}
+          />
+        )}
+        {showFlagComposer && (
+          <FlagComposerModal
+            onClose={() => setShowFlagComposer(false)}
+            onSend={sendFlag}
+          />
+        )}
         {showEdit && (
           <EditProfileModal
             session={session}
@@ -434,7 +477,13 @@ export default function RoomExperience({ session: initialSession }) {
   return (
     <>
       {broadcast && <BroadcastBanner text={broadcast.text} />}
-      {directMessage && <DirectMessageBanner text={directMessage.text} onClose={dismissDirectMessage} />}
+      {directMessage && (
+        <DirectMessageBanner
+          text={directMessage.text}
+          onClose={dismissDirectMessage}
+          onReply={() => setShowFlagComposer(true)}
+        />
+      )}
     <MainRoomView
       session={session}
       participants={participants}
@@ -448,6 +497,12 @@ export default function RoomExperience({ session: initialSession }) {
       withHostAssignment={isWithHost ? myAssignment : null}
       withVideo={false}
     />
+    {showFlagComposer && (
+      <FlagComposerModal
+        onClose={() => setShowFlagComposer(false)}
+        onSend={sendFlag}
+      />
+    )}
     </>
   );
 }
@@ -1034,7 +1089,7 @@ function SplittingTransition({ partnerName, prompt, roomLabel, count, myName }) 
 // no daily call · we keep polling state so the moment admitted_at flips, the
 // participant transitions out of this view and into the main room.
 // ============================================================================
-function WaitingRoomView({ session, myName }) {
+function WaitingRoomView({ session, myName, onFlag }) {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-6 relative" style={{ background: '#f4f4f1', color: '#000' }}>
       <div className="max-w-md w-full text-center">
@@ -1055,6 +1110,16 @@ function WaitingRoomView({ session, myName }) {
           <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#01ecf3' }}></span>
           <span className="text-xs uppercase tracking-widest font-bold text-neutral-700">waiting for the host</span>
         </div>
+        {onFlag && (
+          <div className="mt-8">
+            <button
+              onClick={onFlag}
+              className="text-sm underline text-neutral-600 hover:text-black"
+            >
+              need to tell the host something? send a note →
+            </button>
+          </div>
+        )}
       </div>
     </main>
   );
@@ -1077,22 +1142,90 @@ function BroadcastBanner({ text }) {
 }
 
 // ============================================================================
-// HOST DIRECT MESSAGE banner · dismissible, distinct from broadcast
+// HOST DIRECT MESSAGE banner · dismissible, with optional reply button
 // ============================================================================
-function DirectMessageBanner({ text, onClose }) {
+function DirectMessageBanner({ text, onClose, onReply }) {
   return (
-    <div className="fixed top-12 left-1/2 -translate-x-1/2 z-40 max-w-md w-[calc(100%-2rem)] rounded-md p-3 sticker flex items-start gap-3" style={{ background: '#fff7e6', border: '2px solid #d97706', color: '#000' }}>
-      <div className="flex-1 min-w-0">
-        <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#d97706' }}>* a note from the host *</div>
-        <div className="text-sm">{text}</div>
+    <div className="fixed top-12 left-1/2 -translate-x-1/2 z-40 max-w-md w-[calc(100%-2rem)] rounded-md p-3 sticker" style={{ background: '#fff7e6', border: '2px solid #d97706', color: '#000' }}>
+      <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#d97706' }}>* a note from the host *</div>
+          <div className="text-sm">{text}</div>
+        </div>
+        <button
+          onClick={onClose}
+          className="text-lg leading-none text-neutral-500 hover:text-black flex-shrink-0"
+          title="dismiss"
+        >
+          ×
+        </button>
       </div>
-      <button
-        onClick={onClose}
-        className="text-lg leading-none text-neutral-500 hover:text-black flex-shrink-0"
-        title="dismiss"
-      >
-        ×
-      </button>
+      {onReply && (
+        <div className="flex justify-end mt-2 pt-2 border-t" style={{ borderColor: 'rgba(217, 119, 6, 0.3)' }}>
+          <button
+            onClick={onReply}
+            className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded"
+            style={{ background: '#d97706', color: '#fff' }}
+          >
+            reply →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// FLAG COMPOSER modal · participant types a short note for the host. used both
+// for the initial "need help" tap and for replying to a host message.
+// ============================================================================
+function FlagComposerModal({ onClose, onSend }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    const ok = await onSend(text.trim() || null);
+    setBusy(false);
+    if (ok) onClose();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-md p-5 max-w-md w-full sticker" style={{ color: '#000' }}>
+        <div className="flex items-center justify-between mb-1">
+          <div className="display text-xl">message the host</div>
+          <button onClick={onClose} className="text-xl text-neutral-500 hover:text-black leading-none">×</button>
+        </div>
+        <p className="text-xs text-neutral-500 mb-3">[only the host sees this · optional text]</p>
+        <form onSubmit={submit} className="space-y-3">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="what do you need? (you can leave this blank · the host will see your flag)"
+            rows={3}
+            maxLength={500}
+            autoFocus
+            className="w-full border-2 border-black rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-wafg-cyan resize-none"
+          />
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} disabled={busy} className="px-3 py-1.5 text-sm underline text-neutral-600 hover:text-black">cancel</button>
+            <button
+              type="submit"
+              disabled={busy}
+              className="px-4 py-1.5 rounded-md text-sm font-bold disabled:opacity-50"
+              style={{ background: '#d97706', color: '#fff' }}
+            >
+              {busy ? 'sending...' : '🚩 send flag'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

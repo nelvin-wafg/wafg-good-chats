@@ -64,8 +64,10 @@ export async function GET(request, { params }) {
     joined_at: p.joined_at,
     last_seen: p.last_seen,
     linkedin_url: p.profiles?.linkedin_url || null,
-    // flag_at surfaced for host view · participant SOS taps land here
+    // flag_at + flag_text surfaced for host view · participant SOS taps land
+    // here with the optional note they typed
     flag_at: p.metadata?.flag_at || null,
+    flag_text: p.metadata?.flag_text || null,
     // admission state · null = still in waiting room. only meaningful while
     // session.status is 'live' or 'draft'; gets ignored once rounds start.
     admitted_at: p.metadata?.admitted_at || null,

@@ -21,6 +21,17 @@ export async function POST(request, { params }) {
     return new NextResponse('bad request', { status: 400 });
   }
 
+  // optional text body · participant can include a short note with their flag
+  // so the host knows what they need without having to ask.
+  let text = null;
+  try {
+    const body = await request.json().catch(() => null);
+    if (body?.text) {
+      text = String(body.text).trim().slice(0, 500);
+      if (!text) text = null;
+    }
+  } catch {}
+
   const cookieStore = cookies();
   const me = getParticipantFromCookies(cookieStore, sessionId);
   if (!me?.participantId) return new NextResponse('not joined', { status: 401 });
@@ -32,7 +43,11 @@ export async function POST(request, { params }) {
     .select('metadata')
     .eq('id', me.participantId)
     .maybeSingle();
-  const metadata = { ...(existing?.metadata || {}), flag_at: new Date().toISOString() };
+  const metadata = {
+    ...(existing?.metadata || {}),
+    flag_at: new Date().toISOString(),
+    flag_text: text || null,
+  };
 
   const { error } = await admin
     .from('participants')

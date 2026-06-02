@@ -411,7 +411,7 @@ export default function LiveControl({ session: initialSession }) {
         hasCall={Boolean(callObject)}
         onKick={kickParticipant}
         onPlace={placeParticipant}
-        onOpenMessage={(p) => setMessageTarget({ id: p.id, name: p.name })}
+        onOpenMessage={(p) => setMessageTarget({ id: p.id, name: p.name, flagText: p.flag_text || null })}
         onAdmit={admitParticipants}
         broadcastText={broadcastText}
         setBroadcastText={setBroadcastText}
@@ -785,7 +785,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                           {participants.find((p) => p.id === pa.participant_a_id)?.flag_at && (
                             <button
                               type="button"
-                              onClick={() => onOpenMessage?.({ id: pa.participant_a_id, name: pa.participant_a_name })}
+                              onClick={() => onOpenMessage?.({ id: pa.participant_a_id, name: pa.participant_a_name, flag_text: participants.find((p) => p.id === pa.participant_a_id)?.flag_text || null })}
                               className="w-4 h-4 rounded-full bg-amber-400 text-black text-[10px] font-bold flex items-center justify-center leading-none flex-shrink-0 animate-pulse"
                               title={`${pa.participant_a_name} raised a flag · click to message`}
                             >
@@ -807,7 +807,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                           {!isWithHost && pa.participant_b_id && participants.find((p) => p.id === pa.participant_b_id)?.flag_at && (
                             <button
                               type="button"
-                              onClick={() => onOpenMessage?.({ id: pa.participant_b_id, name: pa.participant_b_name })}
+                              onClick={() => onOpenMessage?.({ id: pa.participant_b_id, name: pa.participant_b_name, flag_text: participants.find((p) => p.id === pa.participant_b_id)?.flag_text || null })}
                               className="w-4 h-4 rounded-full bg-amber-400 text-black text-[10px] font-bold flex items-center justify-center leading-none flex-shrink-0 animate-pulse"
                               title={`${pa.participant_b_name} raised a flag · click to message`}
                             >
@@ -1307,6 +1307,12 @@ function MessageComposerModal({ target, onClose, onSend }) {
           <button onClick={onClose} className="text-xl text-neutral-500 hover:text-black leading-none">×</button>
         </div>
         <p className="text-xs text-neutral-500 mb-3">[only they see this · sending also clears their flag]</p>
+        {target.flagText && (
+          <div className="mb-3 p-3 rounded border-l-4" style={{ background: '#fff7e6', borderColor: '#d97706' }}>
+            <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#d97706' }}>they said</div>
+            <div className="text-sm italic text-neutral-700">"{target.flagText}"</div>
+          </div>
+        )}
         <form onSubmit={submit} className="space-y-3">
           <textarea
             value={text}
