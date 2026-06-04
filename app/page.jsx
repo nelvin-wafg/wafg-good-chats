@@ -94,18 +94,14 @@ export default function Landing() {
             We open the room, you join, we kick it off together.
           </HowStep>
           <HowStep n="3" title="Get auto-paired">
-            Into seven-minute conversations, one after another. Everyone meets everyone, no one gets left out.
+            Into seven-minute conversations, one after another. No one gets left out.
           </HowStep>
         </ol>
-
-        <p className="text-center text-neutral-600 mt-10 mb-10 max-w-xl mx-auto">
-          No networking energy. No elevator pitches. Just seven minutes at a time with one good person, then the next.
-        </p>
 
         {/* wide rectangular reward banner · spans the full width of the 3-step
             grid above it. two-column on desktop (heading left, body right) so
             it reads horizontal, not square */}
-        <div className="rounded-md px-5 py-4 md:px-7 md:py-5 bg-black text-white grid md:grid-cols-[1fr,1.5fr] gap-3 md:gap-6 items-center">
+        <div className="mt-10 rounded-md px-5 py-4 md:px-7 md:py-5 bg-black text-white grid md:grid-cols-[1fr,1.5fr] gap-3 md:gap-6 items-center">
           <div className="text-center">
             <div className="display text-2xl md:text-3xl leading-tight">
               Easy to stay
