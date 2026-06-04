@@ -94,16 +94,22 @@ export default function Landing() {
           </HowStep>
         </ol>
 
+        <p className="text-center text-neutral-600 mt-10 mb-10 max-w-xl mx-auto">
+          No networking energy. No elevator pitches. Just seven minutes at a time with one good person, then the next.
+        </p>
+
         {/* wide rectangular reward banner · spans the full width of the 3-step
             grid above it. two-column on desktop (heading left, body right) so
             it reads horizontal, not square */}
-        <div className="mt-5 rounded-md p-6 md:p-8 bg-black text-white grid md:grid-cols-[1fr,1.5fr] gap-6 md:gap-10 items-center">
+        <div className="rounded-md p-6 md:p-8 bg-black text-white grid md:grid-cols-[1fr,1.5fr] gap-6 md:gap-10 items-center">
           <div>
             <div className="text-[10px] uppercase tracking-widest font-bold mb-3" style={{ color: '#01ecf3' }}>
               And then it keeps going
             </div>
             <div className="display text-3xl md:text-4xl leading-tight">
-              Easy to stay in touch.
+              Easy to stay
+              <br />
+              in touch.
             </div>
           </div>
           <div>
@@ -115,10 +121,6 @@ export default function Landing() {
             </p>
           </div>
         </div>
-
-        <p className="text-center text-neutral-600 mt-10 max-w-xl mx-auto">
-          No networking energy. No elevator pitches. Just seven minutes at a time with one good person, then the next.
-        </p>
       </section>
 
       {/* notify form */}
