@@ -72,7 +72,9 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* how it works · three steps */}
+      {/* how it works · three steps + a wide "what comes next" reward banner
+          tucked inside the same section so it reads as the continuation of the
+          steps, not a separate chapter */}
       <section className="px-6 md:px-12 py-12 md:py-16 max-w-4xl mx-auto">
         <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-3 text-center">
           How it works
@@ -91,28 +93,32 @@ export default function Landing() {
             Into seven-minute conversations, one after another. Everyone meets everyone, no one gets left out.
           </HowStep>
         </ol>
+
+        {/* wide rectangular reward banner · spans the full width of the 3-step
+            grid above it. two-column on desktop (heading left, body right) so
+            it reads horizontal, not square */}
+        <div className="mt-5 rounded-md p-6 md:p-8 bg-black text-white grid md:grid-cols-[1fr,1.5fr] gap-6 md:gap-10 items-center">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest font-bold mb-3" style={{ color: '#01ecf3' }}>
+              And then it keeps going
+            </div>
+            <div className="display text-3xl md:text-4xl leading-tight">
+              Easy to stay in touch.
+            </div>
+          </div>
+          <div>
+            <p className="text-base md:text-lg text-neutral-300 mb-4">
+              Tap to capture the people you want to stay in touch with. After the session, your follow-up list lands in your inbox. Names, LinkedIn URLs, emails. The conversation keeps going long after the call ends.
+            </p>
+            <p className="script text-2xl md:text-3xl" style={{ color: '#01ecf3' }}>
+              what starts here, ripples →
+            </p>
+          </div>
+        </div>
+
         <p className="text-center text-neutral-600 mt-10 max-w-xl mx-auto">
           No networking energy. No elevator pitches. Just seven minutes at a time with one good person, then the next.
         </p>
-      </section>
-
-      {/* the reward · what comes AFTER a session · framed differently from the
-          steps so it reads as "and there's more" rather than a fourth chore */}
-      <section className="px-6 md:px-12 py-12 md:py-16 max-w-2xl mx-auto">
-        <div className="rounded-md p-8 md:p-10 bg-black text-white text-center">
-          <div className="text-[10px] uppercase tracking-widest font-bold mb-3" style={{ color: '#01ecf3' }}>
-            And then it keeps going
-          </div>
-          <div className="display text-3xl md:text-4xl mb-4">
-            Easy to stay in touch.
-          </div>
-          <p className="text-base md:text-lg text-neutral-300">
-            Tap to capture the people you want to stay in touch with. After the session, your follow-up list lands in your inbox. Names, LinkedIn URLs, emails. The conversation keeps going long after the call ends.
-          </p>
-          <p className="script text-3xl md:text-4xl mt-6" style={{ color: '#01ecf3' }}>
-            what starts here, ripples →
-          </p>
-        </div>
       </section>
 
       {/* notify form */}
