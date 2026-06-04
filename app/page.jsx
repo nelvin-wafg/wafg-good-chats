@@ -28,16 +28,19 @@ export default function Landing() {
   return (
     <main className="min-h-screen" style={{ background: '#f4f4f1', color: '#000' }}>
 
-      {/* hero */}
-      <section className="px-6 md:px-12 pt-16 md:pt-24 pb-12 md:pb-16 max-w-4xl mx-auto text-center">
-        <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-3">
-          A We Are For Good thing
+      {/* hero · fills the viewport · centered so it's the first and almost only
+          thing visible above the fold */}
+      <section className="min-h-screen flex flex-col items-center justify-center px-6 md:px-12 text-center">
+        <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-4">
+          We Are For Good
         </div>
-        <h1 className="display text-6xl md:text-8xl leading-none mb-6">
+        <h1 className="display text-7xl md:text-9xl leading-none mb-6">
           Good<span style={{ color: '#01ecf3' }}>*</span>Chats
         </h1>
-        <p className="text-xl md:text-2xl text-neutral-700 max-w-2xl mx-auto">
-          Seven-minute conversations, on purpose. One good person at a time.
+        <p className="text-xl md:text-2xl text-neutral-700">
+          Seven-minute conversations, on purpose.
+          <br />
+          One good person at a time.
         </p>
       </section>
 
@@ -49,7 +52,7 @@ export default function Landing() {
       )}
 
       {/* why */}
-      <section className="px-6 md:px-12 py-12 md:py-16 max-w-3xl mx-auto">
+      <section className="px-6 md:px-12 py-12 md:py-16 max-w-3xl mx-auto text-center">
         <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-3">
           Why this exists
         </div>
@@ -58,7 +61,7 @@ export default function Landing() {
         </div>
         <div className="space-y-4 text-lg text-neutral-700">
           <p>
-            Good Chats is built on a simple bet — that the right seven-minute conversation, with the right person, at the right moment, can ripple further than a year of trying to set up the meeting.
+            Good Chats is built on a simple bet. The right seven-minute conversation, with the right person, at the right moment, can ripple further than a year of trying to set up the meeting.
           </p>
           <p>
             The We Are For Good community is full of people doing real work in their own corner of the world. Nonprofit leaders. Community builders. Impact storytellers. Funders. Founders. Designers. The kind of folks you keep meaning to introduce yourself to but never quite do.
@@ -69,15 +72,15 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* how it works */}
+      {/* how it works · three steps */}
       <section className="px-6 md:px-12 py-12 md:py-16 max-w-4xl mx-auto">
         <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-3 text-center">
           How it works
         </div>
         <div className="display text-3xl md:text-4xl mb-10 text-center">
-          Four steps. One small commitment.
+          Three steps. One small commitment.
         </div>
-        <ol className="grid md:grid-cols-2 gap-5">
+        <ol className="grid md:grid-cols-3 gap-5">
           <HowStep n="1" title="Drop your email">
             We'll tell you when the next session is happening.
           </HowStep>
@@ -87,13 +90,29 @@ export default function Landing() {
           <HowStep n="3" title="Get auto-paired">
             Into seven-minute conversations, one after another. Everyone meets everyone, no one gets left out.
           </HowStep>
-          <HowStep n="4" title="Keep what landed">
-            Tap to mark the connections that mattered. Your follow-up list arrives in your inbox after.
-          </HowStep>
         </ol>
         <p className="text-center text-neutral-600 mt-10 max-w-xl mx-auto">
           No networking energy. No elevator pitches. Just seven minutes at a time with one good person, then the next.
         </p>
+      </section>
+
+      {/* the reward · what comes AFTER a session · framed differently from the
+          steps so it reads as "and there's more" rather than a fourth chore */}
+      <section className="px-6 md:px-12 py-12 md:py-16 max-w-2xl mx-auto">
+        <div className="rounded-md p-8 md:p-10 bg-black text-white text-center">
+          <div className="text-[10px] uppercase tracking-widest font-bold mb-3" style={{ color: '#01ecf3' }}>
+            And then it keeps going
+          </div>
+          <div className="display text-3xl md:text-4xl mb-4">
+            Easy to stay in touch.
+          </div>
+          <p className="text-base md:text-lg text-neutral-300">
+            Tap to capture the people you want to stay in touch with. After the session, your follow-up list lands in your inbox. Names, LinkedIn URLs, emails. The conversation keeps going long after the call ends.
+          </p>
+          <p className="script text-3xl md:text-4xl mt-6" style={{ color: '#01ecf3' }}>
+            what starts here, ripples →
+          </p>
+        </div>
       </section>
 
       {/* notify form */}
@@ -106,10 +125,10 @@ export default function Landing() {
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
           <div className="max-w-xl">
             <div className="display text-lg mb-1">
-              A We Are For Good thing <span style={{ color: '#01ecf3' }}>*</span>
+              We Are For Good <span style={{ color: '#01ecf3' }}>*</span>
             </div>
             <p className="text-sm text-neutral-600">
-              We Are For Good is a community for nonprofit, impact, and good-business folks who want to do work that matters.
+              We Are For Good is a community for nonprofit and social impact changemakers who want to do work that matters.
             </p>
           </div>
           <div className="flex items-center gap-4 text-xs text-neutral-500">
