@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import CopyLink from '@/components/CopyLink';
 import Sparkline from '@/components/Sparkline';
+import StoryModal from '@/components/StoryModal';
 import { showToast } from '@/components/Toast';
 
 export default function HostDashboard() {
@@ -12,6 +13,7 @@ export default function HostDashboard() {
   const [activeStat, setActiveStat] = useState(null);
   const [details, setDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [showStory, setShowStory] = useState(false);
 
   useEffect(() => {
     if (!activeStat) { setDetails(null); return; }
@@ -118,6 +120,15 @@ export default function HostDashboard() {
           </div>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0 text-sm">
+          <button
+            type="button"
+            onClick={() => setShowStory(true)}
+            className="underline text-neutral-600 hover:text-black"
+            title="how this project has evolved"
+          >
+            the story →
+          </button>
+          <span className="text-neutral-400">·</span>
           <Link href="/host/analytics" className="underline text-neutral-600 hover:text-black">analytics →</Link>
           <span className="text-neutral-400">·</span>
           <a
@@ -323,6 +334,8 @@ export default function HostDashboard() {
           onClose={() => setActiveStat(null)}
         />
       )}
+
+      {showStory && <StoryModal onClose={() => setShowStory(false)} />}
     </main>
   );
 }
