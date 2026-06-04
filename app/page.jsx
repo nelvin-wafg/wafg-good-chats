@@ -101,22 +101,22 @@ export default function Landing() {
         {/* wide rectangular reward banner · spans the full width of the 3-step
             grid above it. two-column on desktop (heading left, body right) so
             it reads horizontal, not square */}
-        <div className="rounded-md p-6 md:p-8 bg-black text-white grid md:grid-cols-[1fr,1.5fr] gap-6 md:gap-10 items-center">
+        <div className="rounded-md px-6 py-5 md:px-8 md:py-6 bg-black text-white grid md:grid-cols-[1fr,1.5fr] gap-4 md:gap-8 items-center">
           <div>
-            <div className="text-[10px] uppercase tracking-widest font-bold mb-3" style={{ color: '#01ecf3' }}>
+            <div className="text-[10px] uppercase tracking-widest font-bold mb-2" style={{ color: '#01ecf3' }}>
               And then it keeps going
             </div>
-            <div className="display text-3xl md:text-4xl leading-tight">
+            <div className="display text-2xl md:text-3xl leading-tight">
               Easy to stay
               <br />
               in touch.
             </div>
           </div>
           <div>
-            <p className="text-base md:text-lg text-neutral-300 mb-4">
-              Tap to capture the people you want to stay in touch with. Your follow-up list is right there at the end of the session. Names, LinkedIn URLs, emails. Yours to take with you and follow up on this week.
+            <p className="text-sm md:text-base text-neutral-300 mb-3">
+              Tap to capture the people you want to stay in touch with. Your follow-up list is right there at the end of the session. Names, LinkedIn URLs, emails. Yours to take and follow up with!
             </p>
-            <p className="script text-2xl md:text-3xl" style={{ color: '#01ecf3' }}>
+            <p className="script text-xl md:text-2xl" style={{ color: '#01ecf3' }}>
               what starts here, ripples →
             </p>
           </div>
