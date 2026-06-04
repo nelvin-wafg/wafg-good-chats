@@ -114,7 +114,7 @@ export default function Landing() {
           </div>
           <div>
             <p className="text-base md:text-lg text-neutral-300 mb-4">
-              Tap to capture the people you want to stay in touch with. After the session, your follow-up list lands in your inbox. Names, LinkedIn URLs, emails. The conversation keeps going long after the call ends.
+              Tap to capture the people you want to stay in touch with. Your follow-up list is right there at the end of the session. Names, LinkedIn URLs, emails. Yours to take with you and follow up on this week.
             </p>
             <p className="script text-2xl md:text-3xl" style={{ color: '#01ecf3' }}>
               what starts here, ripples →
