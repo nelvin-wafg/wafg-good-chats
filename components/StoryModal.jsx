@@ -91,7 +91,7 @@ export default function StoryModal({ onClose }) {
 function StoryCard({ version, isLast }) {
   const { accent, current } = version;
 
-  let containerClass = 'rounded-md p-5 md:p-6 flex flex-col flex-1';
+  let containerClass = 'rounded-md p-5 md:p-6 flex flex-col flex-1 overflow-y-auto';
   let containerStyle = { background: '#fff' };
   let labelColor = '#000';
 
