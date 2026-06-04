@@ -136,7 +136,9 @@ export default function Landing() {
               We Are For Good <span style={{ color: '#01ecf3' }}>*</span>
             </div>
             <p className="text-sm text-neutral-600">
-              We Are For Good is a community for nonprofit and social impact changemakers who want to do work that matters.
+              We Are For Good is a community for nonprofit and social impact
+              <br />
+              changemakers who want to do work that matters.
             </p>
           </div>
           <div className="flex items-center gap-4 text-xs text-neutral-500">
