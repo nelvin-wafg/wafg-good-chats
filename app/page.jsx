@@ -105,11 +105,8 @@ export default function Landing() {
         {/* wide rectangular reward banner · spans the full width of the 3-step
             grid above it. two-column on desktop (heading left, body right) so
             it reads horizontal, not square */}
-        <div className="rounded-md px-6 py-5 md:px-8 md:py-6 bg-black text-white grid md:grid-cols-[1fr,1.5fr] gap-4 md:gap-8 items-center">
-          <div>
-            <div className="text-[10px] uppercase tracking-widest font-bold mb-2" style={{ color: '#01ecf3' }}>
-              And then it keeps going
-            </div>
+        <div className="rounded-md px-5 py-4 md:px-7 md:py-5 bg-black text-white grid md:grid-cols-[1fr,1.5fr] gap-3 md:gap-6 items-center">
+          <div className="text-center">
             <div className="display text-2xl md:text-3xl leading-tight">
               Easy to stay
               <br />
@@ -117,7 +114,7 @@ export default function Landing() {
             </div>
           </div>
           <div>
-            <p className="text-sm md:text-base text-neutral-300 mb-3">
+            <p className="text-sm md:text-base text-neutral-300 mb-2">
               Tap to capture the people you want to stay in touch with. Your follow-up list is right there at the end of the session. Names, LinkedIn URLs, emails. Yours to take and follow up with!
             </p>
             <p className="script text-xl md:text-2xl" style={{ color: '#01ecf3' }}>
