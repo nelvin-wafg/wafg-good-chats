@@ -262,8 +262,7 @@ function NotifyForm() {
       <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-2">
         Tell me when the next one's happening
       </div>
-      <div className="display text-2xl md:text-3xl mb-2">Count me in <span style={{ color: '#01ecf3' }}>*</span></div>
-      <p className="text-sm text-neutral-600 mb-5">We don't email much. Just when it matters.</p>
+      <div className="display text-2xl md:text-3xl mb-5">Count me in <span style={{ color: '#01ecf3' }}>*</span></div>
 
       <form onSubmit={submit} className="space-y-4">
         <label className="block">
