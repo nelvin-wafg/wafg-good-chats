@@ -21,6 +21,9 @@ export async function POST(request) {
     email = validateEmail(body?.email);
     firstName = validateParticipantName(body?.firstName);
     linkedinUrl = validateLinkedinUrl(body?.linkedinUrl);
+    if (!linkedinUrl) {
+      return new NextResponse('LinkedIn is required', { status: 400 });
+    }
     source = body?.source ? String(body.source).trim().slice(0, 500) : null;
     if (!source) source = null;
   } catch (err) {

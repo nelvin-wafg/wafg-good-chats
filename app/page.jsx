@@ -291,13 +291,12 @@ function NotifyForm() {
         </label>
 
         <label className="block">
-          <div className="text-sm font-semibold mb-1">
-            LinkedIn <span className="text-neutral-500 font-normal">(optional)</span>
-          </div>
+          <div className="text-sm font-semibold mb-1">LinkedIn</div>
           <input
             type="text"
             value={linkedinUrl}
             onChange={(e) => setLinkedinUrl(e.target.value)}
+            required
             placeholder="linkedin.com/in/your-profile"
             maxLength={200}
             className="w-full border-2 border-black rounded px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-wafg-cyan"
@@ -322,7 +321,7 @@ function NotifyForm() {
 
         <button
           type="submit"
-          disabled={submitting || !email.trim() || !firstName.trim()}
+          disabled={submitting || !email.trim() || !firstName.trim() || !linkedinUrl.trim()}
           className="w-full btn-cyan py-4 text-xl rounded-md disabled:opacity-50"
         >
           {submitting ? 'Sending...' : 'Count me in *'}
