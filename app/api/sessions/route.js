@@ -27,7 +27,7 @@ export async function POST(request) {
   if (!host?.is_approved) return new NextResponse('host not approved', { status: 403 });
 
   // validate inputs
-  let name, code, roundsTotal, roundSeconds, prompts, startNow;
+  let name, code, roundsTotal, roundSeconds, prompts, startNow, isPublished, startsAt;
   try {
     const body = await request.json();
     name = validateSessionName(body?.name);
@@ -36,6 +36,15 @@ export async function POST(request) {
     roundSeconds = validateRoundSeconds(body?.round_seconds);
     prompts = validatePrompts(body?.prompts);
     startNow = Boolean(body?.start_now);
+    // publish-to-landing-page metadata · lives on session.metadata so no
+    // schema migration is needed. is_published defaults true (per the user's
+    // pref). starts_at is optional · stored as ISO string if present.
+    isPublished = body?.is_published === false ? false : true;
+    startsAt = null;
+    if (body?.starts_at) {
+      const ts = new Date(body.starts_at);
+      if (!Number.isNaN(ts.getTime())) startsAt = ts.toISOString();
+    }
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
     return new NextResponse('bad request', { status: 400 });
@@ -53,6 +62,7 @@ export async function POST(request) {
       round_seconds: roundSeconds,
       prompts,
       status: 'draft',
+      metadata: { is_published: isPublished, starts_at: startsAt },
     })
     .select('id, code')
     .single();

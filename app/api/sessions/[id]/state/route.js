@@ -251,6 +251,9 @@ export async function GET(request, { params }) {
       round_seconds: session.round_seconds,
       prompts: session.prompts,
       main_room_name: session.main_room_name,
+      // landing-page publish controls (lifted out of metadata for the wizard)
+      is_published: session.metadata?.is_published === true,
+      starts_at: session.metadata?.starts_at || null,
     },
     participants,
     assignment,

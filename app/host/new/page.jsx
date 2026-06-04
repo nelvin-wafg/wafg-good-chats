@@ -43,6 +43,10 @@ function NewSessionInner() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [loadingDraft, setLoadingDraft] = useState(isEditing);
+  // landing-page publish controls · default ON per host preference. starts_at
+  // is the optional event datetime (HTML datetime-local format, browser tz).
+  const [isPublished, setIsPublished] = useState(true);
+  const [startsAt, setStartsAt] = useState('');
 
   // load an existing draft's config when editing
   useEffect(() => {
@@ -58,6 +62,17 @@ function NewSessionInner() {
           setRounds(d.session.rounds_total || 8);
           setPerRound(Math.round((d.session.round_seconds || 420) / 60));
           setSelected((d.session.prompts || []).map((p) => p.text).filter(Boolean));
+          // publish controls (loaded from session.metadata if present)
+          if (typeof d.session.is_published === 'boolean') setIsPublished(d.session.is_published);
+          if (d.session.starts_at) {
+            // datetime-local needs YYYY-MM-DDTHH:mm (no seconds, no tz suffix)
+            const dt = new Date(d.session.starts_at);
+            if (!Number.isNaN(dt.getTime())) {
+              const pad = (n) => String(n).padStart(2, '0');
+              const local = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+              setStartsAt(local);
+            }
+          }
         } else {
           showToast("couldn't load that draft", 'error');
         }
@@ -107,6 +122,10 @@ function NewSessionInner() {
           round_seconds: perRound * 60,
           prompts: selected.map((text, i) => ({ id: i, text })),
           start_now: startNow,
+          is_published: isPublished,
+          // datetime-local is treated as the browser's local time · the server
+          // converts to ISO. send empty string as null so PATCH can clear it.
+          starts_at: startsAt ? new Date(startsAt).toISOString() : null,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -154,6 +173,32 @@ function NewSessionInner() {
                 </div>
                 <p className="text-xs text-neutral-500 mt-2">[this is the link you'll share on the event page]</p>
               </Field>
+
+              <Field label="when does it start? (optional)">
+                <input
+                  type="datetime-local"
+                  value={startsAt}
+                  onChange={(e) => setStartsAt(e.target.value)}
+                  className="border-2 border-black rounded px-4 py-3 text-base"
+                />
+                <p className="text-xs text-neutral-500 mt-2">[shown on the public landing page if you publish below · leave blank for "TBD"]</p>
+              </Field>
+
+              <Field label="show this on the public landing page">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPublished}
+                    onChange={(e) => setIsPublished(e.target.checked)}
+                    className="mt-1 w-5 h-5 accent-wafg-cyan"
+                  />
+                  <span className="text-sm">
+                    <strong>publish to the landing page</strong>{' '}
+                    <span className="text-neutral-500">— anyone visiting goodchats.org will see this session and can click through to join. uncheck for invite-only.</span>
+                  </span>
+                </label>
+              </Field>
+
               <div className="flex justify-end mt-4">
                 <button onClick={() => setStep(2)} disabled={!name || !code} className="btn-cyan px-6 py-3 rounded-md disabled:opacity-50">next: rhythm →</button>
               </div>

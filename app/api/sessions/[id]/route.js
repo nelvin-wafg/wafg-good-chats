@@ -17,7 +17,7 @@ export async function PATCH(request, { params }) {
   const auth = await getApprovedHost();
   if (!auth) return new NextResponse('not an approved host', { status: 403 });
 
-  let name, code, roundsTotal, roundSeconds, prompts, startNow;
+  let name, code, roundsTotal, roundSeconds, prompts, startNow, isPublished, startsAt, hasPublishedKey, hasStartsAtKey;
   try {
     const body = await request.json();
     name = validateSessionName(body?.name);
@@ -26,6 +26,19 @@ export async function PATCH(request, { params }) {
     roundSeconds = validateRoundSeconds(body?.round_seconds);
     prompts = validatePrompts(body?.prompts);
     startNow = Boolean(body?.start_now);
+    // only overwrite the metadata keys the body sends · leaves other keys
+    // (broadcast, etc.) intact.
+    hasPublishedKey = Object.prototype.hasOwnProperty.call(body || {}, 'is_published');
+    hasStartsAtKey = Object.prototype.hasOwnProperty.call(body || {}, 'starts_at');
+    isPublished = hasPublishedKey ? Boolean(body.is_published) : undefined;
+    if (hasStartsAtKey) {
+      if (!body.starts_at) {
+        startsAt = null;
+      } else {
+        const ts = new Date(body.starts_at);
+        startsAt = Number.isNaN(ts.getTime()) ? null : ts.toISOString();
+      }
+    }
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
     return new NextResponse('bad request', { status: 400 });
@@ -34,7 +47,7 @@ export async function PATCH(request, { params }) {
   const admin = adminClient();
   const { data: session } = await admin
     .from('sessions')
-    .select('id, status, main_room_name')
+    .select('id, status, main_room_name, metadata')
     .eq('id', params.id)
     .maybeSingle();
   if (!session) return new NextResponse('session not found', { status: 404 });
@@ -42,12 +55,18 @@ export async function PATCH(request, { params }) {
     return new NextResponse('this session has already started · can only edit drafts', { status: 400 });
   }
 
+  // merge metadata so we don't clobber broadcast / other server-side keys
+  const newMetadata = { ...(session.metadata || {}) };
+  if (hasPublishedKey) newMetadata.is_published = isPublished;
+  if (hasStartsAtKey) newMetadata.starts_at = startsAt;
+
   const updates = {
     name,
     code,
     rounds_total: roundsTotal,
     round_seconds: roundSeconds,
     prompts,
+    metadata: newMetadata,
   };
 
   // going live from a draft · provision the daily room
