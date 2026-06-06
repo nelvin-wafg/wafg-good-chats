@@ -44,6 +44,22 @@ export default function Landing() {
         </p>
       </section>
 
+      {/* between hero and why · clickable scroll cue that takes the visitor
+          down to the "the world gets better" heading */}
+      <section className="py-10 md:py-14 text-center">
+        <button
+          type="button"
+          onClick={() => {
+            const el = document.getElementById('why-this-exists');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }}
+          className="inline-flex flex-col items-center gap-2 text-sm uppercase tracking-widest font-bold text-neutral-500 hover:text-black transition-colors"
+        >
+          <span>Why this exists</span>
+          <span className="text-2xl leading-none animate-bounce" aria-hidden="true">↓</span>
+        </button>
+      </section>
+
       {/* next session card · only renders when there is one to surface */}
       {loadedNext && nextSession && (
         <section className="px-6 md:px-12 pb-12 max-w-3xl mx-auto">
@@ -52,10 +68,7 @@ export default function Landing() {
       )}
 
       {/* why */}
-      <section className="px-6 md:px-12 py-12 md:py-16 max-w-3xl mx-auto text-center">
-        <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-3">
-          Why this exists
-        </div>
+      <section id="why-this-exists" className="scroll-mt-8 px-6 md:px-12 py-12 md:py-16 max-w-3xl mx-auto text-center">
         <div className="display text-3xl md:text-5xl mb-6 leading-tight">
           The world gets better when good people find each other.
         </div>
@@ -94,7 +107,7 @@ export default function Landing() {
             We open the room, you join, we kick it off together.
           </HowStep>
           <HowStep n="3" title="Get auto-paired">
-            Into seven-minute conversations, one after another. No one gets left out.
+            Into seven-minute conversations, one good human at a time.
           </HowStep>
         </ol>
 
