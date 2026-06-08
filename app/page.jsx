@@ -76,11 +76,7 @@ export default function Landing() {
           </div>
           <div className="space-y-4 text-lg text-neutral-700">
             <p>
-              Good Chats is built on a simple bet. The right seven-minute conversation,
-              <br />
-              with the right person, at the right moment, can ripple further
-              <br />
-              than a year of 30 minute zoom calls.
+              Good Chats is built on a simple bet. The right seven-minute conversation, 1:1 with the right person, at the right moment, can ripple further than a year of random networking events.
             </p>
             <p>
               The We Are For Good community is full of people doing real work in their own corner of the world. Nonprofit leaders. Community builders. Impact storytellers. Funders. Founders. Designers. The kind of folks you keep meaning to introduce yourself to but never quite do.
