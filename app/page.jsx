@@ -67,32 +67,48 @@ export default function Landing() {
         </section>
       )}
 
-      {/* why */}
-      <section id="why-this-exists" className="scroll-mt-8 px-6 md:px-12 py-12 md:py-16 max-w-3xl mx-auto text-center">
-        <div className="display text-3xl md:text-5xl mb-6 leading-tight">
-          The world gets better when good people find each other.
+      {/* why · same min-h-screen pattern as the hero · content centered, scroll
+          cue pinned to the bottom of the viewport pointing into "how it works" */}
+      <section id="why-this-exists" className="scroll-mt-8 min-h-screen flex flex-col px-6 md:px-12 text-center">
+        <div className="flex-1 flex flex-col items-center justify-center max-w-3xl mx-auto">
+          <div className="display text-3xl md:text-5xl mb-6 leading-tight">
+            The world gets better when good people find each other.
+          </div>
+          <div className="space-y-4 text-lg text-neutral-700">
+            <p>
+              Good Chats is built on a simple bet. The right seven-minute conversation,
+              <br />
+              with the right person, at the right moment, can ripple further
+              <br />
+              than a year of 30 minute zoom calls.
+            </p>
+            <p>
+              The We Are For Good community is full of people doing real work in their own corner of the world. Nonprofit leaders. Community builders. Impact storytellers. Funders. Founders. Designers. The kind of folks you keep meaning to introduce yourself to but never quite do.
+            </p>
+            <p className="display text-2xl md:text-3xl pt-2" style={{ color: '#000' }}>
+              Good Chats is the introduction.
+            </p>
+          </div>
         </div>
-        <div className="space-y-4 text-lg text-neutral-700">
-          <p>
-            Good Chats is built on a simple bet. The right seven-minute conversation,
-            <br />
-            with the right person, at the right moment, can ripple further
-            <br />
-            than a year of 30 minute zoom calls.
-          </p>
-          <p>
-            The We Are For Good community is full of people doing real work in their own corner of the world. Nonprofit leaders. Community builders. Impact storytellers. Funders. Founders. Designers. The kind of folks you keep meaning to introduce yourself to but never quite do.
-          </p>
-          <p className="display text-2xl md:text-3xl pt-2" style={{ color: '#000' }}>
-            Good Chats is the introduction.
-          </p>
+        <div className="pb-10 md:pb-14">
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById('how-it-works');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+            className="inline-flex flex-col items-center gap-2 text-sm uppercase tracking-widest font-bold text-neutral-500 hover:text-black transition-colors"
+          >
+            <span>How it works</span>
+            <span className="text-2xl leading-none animate-bounce" aria-hidden="true">↓</span>
+          </button>
         </div>
       </section>
 
       {/* how it works · three steps + a wide "what comes next" reward banner
           tucked inside the same section so it reads as the continuation of the
           steps, not a separate chapter */}
-      <section className="px-6 md:px-12 py-12 md:py-16 max-w-4xl mx-auto">
+      <section id="how-it-works" className="scroll-mt-8 px-6 md:px-12 py-12 md:py-16 max-w-4xl mx-auto">
         <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-3 text-center">
           How it works
         </div>
