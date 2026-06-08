@@ -160,7 +160,7 @@ export default function Landing() {
             <p className="text-sm text-neutral-600">
               We Are For Good is a community for nonprofit and social impact
               <br />
-              changemakers who want to do work that matters.
+              professionals who are changing the world.
             </p>
           </div>
           <div className="flex items-center gap-4 text-xs text-neutral-500">
