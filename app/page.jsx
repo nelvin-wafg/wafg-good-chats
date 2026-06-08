@@ -28,36 +28,36 @@ export default function Landing() {
   return (
     <main className="min-h-screen" style={{ background: '#f4f4f1', color: '#000' }}>
 
-      {/* hero · fills the viewport · centered so it's the first and almost only
-          thing visible above the fold */}
-      <section className="min-h-screen flex flex-col items-center justify-center px-6 md:px-12 text-center">
-        <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-4">
-          We Are For Good
+      {/* hero · fills the viewport · brand content centered, scroll cue pinned
+          to the bottom of the viewport so it lands right at the fold without a
+          separate gap-y'd section below it */}
+      <section className="min-h-screen flex flex-col px-6 md:px-12 text-center">
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-4">
+            We Are For Good
+          </div>
+          <h1 className="display text-7xl md:text-9xl leading-none mb-6">
+            Good<span style={{ color: '#01ecf3' }}>*</span>Chats
+          </h1>
+          <p className="text-xl md:text-2xl text-neutral-700">
+            Seven-minute conversations, on purpose.
+            <br />
+            One good person at a time.
+          </p>
         </div>
-        <h1 className="display text-7xl md:text-9xl leading-none mb-6">
-          Good<span style={{ color: '#01ecf3' }}>*</span>Chats
-        </h1>
-        <p className="text-xl md:text-2xl text-neutral-700">
-          Seven-minute conversations, on purpose.
-          <br />
-          One good person at a time.
-        </p>
-      </section>
-
-      {/* between hero and why · clickable scroll cue that takes the visitor
-          down to the "the world gets better" heading */}
-      <section className="py-10 md:py-14 text-center">
-        <button
-          type="button"
-          onClick={() => {
-            const el = document.getElementById('why-this-exists');
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }}
-          className="inline-flex flex-col items-center gap-2 text-sm uppercase tracking-widest font-bold text-neutral-500 hover:text-black transition-colors"
-        >
-          <span>Why this exists</span>
-          <span className="text-2xl leading-none animate-bounce" aria-hidden="true">↓</span>
-        </button>
+        <div className="pb-10 md:pb-14">
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById('why-this-exists');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+            className="inline-flex flex-col items-center gap-2 text-sm uppercase tracking-widest font-bold text-neutral-500 hover:text-black transition-colors"
+          >
+            <span>Why this exists</span>
+            <span className="text-2xl leading-none animate-bounce" aria-hidden="true">↓</span>
+          </button>
+        </div>
       </section>
 
       {/* next session card · only renders when there is one to surface */}
