@@ -105,9 +105,6 @@ export default function Landing() {
           tucked inside the same section so it reads as the continuation of the
           steps, not a separate chapter */}
       <section id="how-it-works" className="scroll-mt-8 px-6 md:px-12 py-12 md:py-16 max-w-4xl mx-auto">
-        <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-3 text-center">
-          How it works
-        </div>
         <div className="display text-3xl md:text-4xl mb-10 text-center">
           Three steps. One small commitment.
         </div>
