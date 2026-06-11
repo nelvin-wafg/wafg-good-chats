@@ -8,7 +8,7 @@ This document exists so a fresh Claude session (new account, new laptop, new con
 
 **Good Chats** is a WAFG-branded speed networking web app built for the We Are For Good community. It replaces a 10-cap Zoom + randomizer setup. Standalone (not a Zoom integration). Auto-rotating seven-minute video pairings with prompts each round, a capture-the-connection feature, post-event recap, and now a public landing page with a notify-list signup.
 
-**Live URL:** https://wafg-good-chats.vercel.app
+**Live URL:** https://goodchats.weareforgood.com (also at https://wafg-good-chats.vercel.app)
 **Public landing:** the root `/` (public; explains the project + notify form)
 **Host login:** small link in the landing footer
 **Participant flow:** `/r/{session-code}` (open with the link)
@@ -110,7 +110,7 @@ The web editor at github.com/nelvin-wafg/wafg-good-chats is a fallback if Deskto
 
 ## External services to remember
 
-- **Vercel:** Build automatically on push to main. Owner: nelvin-wafg. Custom domain: TBD.
+- **Vercel:** Build automatically on push to main. Owner: nelvin-wafg. Custom domain: goodchats.weareforgood.com.
 - **Supabase:** Project paused on free tier if inactive. If anything mysteriously stops working, check that the project is still running.
 - **Daily.co:** Free tier is ~10,000 participant-minutes/month. Heavy testing chews through this. ~11 events of 20 people × 45 min before the cap.
 - **Kit:** Sequence subscription tagged "good-chats-lead" for notify-list signups. LinkedIn maps to custom field `linkedin`. Source notes map to `source`.
