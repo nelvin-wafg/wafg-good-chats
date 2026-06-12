@@ -60,11 +60,9 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* next session card · only renders when there is one to surface */}
+      {/* next session pill · fixed top-right · subtle indicator, not a hero */}
       {loadedNext && nextSession && (
-        <section className="px-6 md:px-12 pb-12 max-w-3xl mx-auto">
-          <NextSessionCard session={nextSession} />
-        </section>
+        <NextSessionPill session={nextSession} />
       )}
 
       {/* why · same min-h-screen pattern as the hero · content centered, scroll
@@ -172,14 +170,13 @@ export default function Landing() {
 }
 
 // ============================================================================
-// "Next session" card · pulled from /api/landing when the host has published one
+// Next session pill · fixed top-right corner · subtle indicator
 // ============================================================================
-function NextSessionCard({ session }) {
+function NextSessionPill({ session }) {
   const isLive = session.status === 'running_round' || session.status === 'between_rounds' || session.status === 'closing' || session.status === 'live';
   const startsAt = session.startsAt ? new Date(session.startsAt) : null;
   const startsLabel = startsAt && !Number.isNaN(startsAt.getTime())
     ? startsAt.toLocaleString(undefined, {
-        weekday: 'long',
         month: 'short',
         day: 'numeric',
         hour: 'numeric',
@@ -188,28 +185,47 @@ function NextSessionCard({ session }) {
       })
     : null;
 
+  const label = isLive
+    ? 'happening now'
+    : startsLabel
+      ? startsLabel
+      : 'session coming up';
+
   return (
-    <div className="sticker rounded-md p-6 md:p-8" style={{ background: '#01ecf3', color: '#000' }}>
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-[10px] uppercase tracking-widest font-bold opacity-70">
-          {isLive ? 'Happening right now' : 'Next session'}
-        </span>
-        {isLive && <span className="w-2 h-2 rounded-full bg-black animate-pulse" />}
-      </div>
-      <div className="display text-3xl md:text-5xl mb-3">{session.name}</div>
-      {startsLabel && (
-        <div className="text-base md:text-lg font-semibold mb-5">{startsLabel}</div>
-      )}
-      {!startsLabel && !isLive && (
-        <div className="text-base md:text-lg font-semibold mb-5 opacity-70">Date coming soon · drop your email below to be the first to know</div>
-      )}
-      <Link
-        href={`/r/${session.code}`}
-        className="inline-block bg-black text-white px-6 py-3 rounded-md font-bold no-underline hover:bg-neutral-800"
-      >
-        {isLive ? 'Join now →' : 'Save your spot *'}
-      </Link>
-    </div>
+    <Link
+      href={`/r/${session.code}`}
+      className="no-underline"
+      style={{
+        position: 'fixed',
+        top: '1.25rem',
+        right: '1.25rem',
+        zIndex: 50,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.4rem',
+        background: '#fff',
+        border: '1.5px solid #e5e5e5',
+        borderRadius: '9999px',
+        padding: '0.35rem 0.85rem',
+        fontSize: '0.75rem',
+        fontWeight: 600,
+        color: '#000',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <span
+        style={{
+          width: '7px',
+          height: '7px',
+          borderRadius: '50%',
+          background: '#01ecf3',
+          flexShrink: 0,
+          animation: isLive ? 'pulse 1.5s ease-in-out infinite' : 'none',
+        }}
+      />
+      <span>{label} →</span>
+    </Link>
   );
 }
 
