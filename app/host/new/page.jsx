@@ -194,7 +194,7 @@ function NewSessionInner() {
                   />
                   <span className="text-sm">
                     <strong>publish to the landing page</strong>{' '}
-                    <span className="text-neutral-500">— anyone visiting goodchats.org will see this session and can click through to join. uncheck for invite-only.</span>
+                    <span className="text-neutral-500">— anyone visiting goodchats.weareforgood.com will see this session and can click through to join. uncheck for invite-only.</span>
                   </span>
                 </label>
               </Field>
@@ -278,7 +278,7 @@ function NewSessionInner() {
                 <button onClick={() => setStep(2)} className="text-sm underline">← back</button>
                 <div className="flex gap-3">
                   <button onClick={() => handlePublish(false)} disabled={submitting || selected.length < rounds} className="px-6 py-3 rounded-md border-2 border-black bg-white disabled:opacity-50 font-semibold">
-                    {isEditing ? 'save changes' : 'save as draft'}
+                    {isEditing ? 'save changes' : isPublished ? 'save + publish *' : 'save as draft'}
                   </button>
                   <button onClick={() => handlePublish(true)} disabled={submitting || selected.length < rounds} className="btn-cyan px-6 py-3 rounded-md disabled:opacity-50">
                     {submitting ? 'working...' : 'go live now *'}
