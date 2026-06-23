@@ -181,7 +181,7 @@ function NewSessionInner() {
                   onChange={(e) => setStartsAt(e.target.value)}
                   className="border-2 border-black rounded px-4 py-3 text-base"
                 />
-                <p className="text-xs text-neutral-500 mt-2">[shown on the public landing page if you publish below · leave blank for "TBD"]</p>
+                <p className="text-xs text-neutral-500 mt-2">[your local time · {Intl.DateTimeFormat().resolvedOptions().timeZone} · shown on the public landing page if you publish below · leave blank for "TBD"]</p>
               </Field>
 
               <Field label="show this on the public landing page">
