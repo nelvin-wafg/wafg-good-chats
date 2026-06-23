@@ -105,7 +105,7 @@ export async function GET(_request, { params }) {
   // participant view: only their own captures + who captured them
   const { data: theirCaptures } = await admin
     .from('captures')
-    .select('id, captured_name, captured_email, captured_linkedin_url, created_at')
+    .select('id, captured_name, captured_linkedin_url, created_at')
     .eq('session_id', sessionId)
     .eq('capturer_id', participantId)
     .order('created_at', { ascending: true });

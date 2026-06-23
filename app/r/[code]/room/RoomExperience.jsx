@@ -1379,7 +1379,6 @@ function EndedView({ session }) {
                     <li key={c.id} className="py-3 flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="font-semibold truncate">{c.captured_name}</div>
-                        {c.captured_email && <div className="text-xs text-neutral-500 truncate">{c.captured_email}</div>}
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {c.captured_linkedin_url && (
@@ -1393,21 +1392,12 @@ function EndedView({ session }) {
                             <span>linkedin</span><span>→</span>
                           </a>
                         )}
-                        {c.captured_email && (
-                          <a
-                            href={`mailto:${c.captured_email}?subject=Great chatting at Good Chats`}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-bold no-underline border-2 border-black"
-                            style={{ background: '#fff', color: '#000' }}
-                          >
-                            <span>email</span><span>→</span>
-                          </a>
-                        )}
                       </div>
                     </li>
                   ))}
                 </ul>
                 <p className="text-xs text-neutral-500 mt-4">
-                  [screenshot or save this list · the page closes when you navigate away]
+                  [a recap email is on its way to you · names + linkedin links included]
                 </p>
               </div>
             ) : (
