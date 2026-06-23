@@ -252,6 +252,7 @@ function NotifyForm() {
   const [firstName, setFirstName] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [source, setSource] = useState('');
+  const [subscribeToWeekly, setSubscribeToWeekly] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState(null);
@@ -270,6 +271,7 @@ function NotifyForm() {
           firstName: firstName.trim(),
           linkedinUrl: linkedinUrl.trim() || null,
           source: source.trim() || null,
+          subscribeToWeekly,
         }),
       });
       if (!res.ok) {
@@ -353,6 +355,18 @@ function NotifyForm() {
             rows={2}
             className="w-full border-2 border-black rounded px-4 py-3 text-base resize-none focus:outline-none focus:ring-2 focus:ring-wafg-cyan"
           />
+        </label>
+
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={subscribeToWeekly}
+            onChange={(e) => setSubscribeToWeekly(e.target.checked)}
+            className="mt-1 w-5 h-5 accent-wafg-cyan flex-shrink-0"
+          />
+          <span className="text-sm text-neutral-700">
+            Add me to <strong>The Weekly</strong> — fresh ideas, free tools + community connection, every Monday.
+          </span>
         </label>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
