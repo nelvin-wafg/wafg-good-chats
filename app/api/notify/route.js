@@ -39,7 +39,7 @@ export async function POST(request) {
     firstName,
     linkedinUrl,
     sourceNote: source,
-    tag: 'good-chats-lead',
+    tagId: process.env.KIT_NOTIFY_TAG_ID,
   });
 
   // log misconfiguration so it's visible in vercel logs without breaking UX
