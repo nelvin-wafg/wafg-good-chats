@@ -47,5 +47,22 @@ export async function POST(request) {
     console.warn('[notify] kit subscribe not ok', result.reason);
   }
 
+  // ping host via email · non-blocking, never surfaces errors to visitor
+  const resendKey = process.env.RESEND_API_KEY;
+  const notifyTo = process.env.NOTIFY_EMAIL;
+  if (resendKey && notifyTo) {
+    const linkedinLine = linkedinUrl ? `<br><a href="${linkedinUrl}">${linkedinUrl}</a>` : '';
+    fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM || 'Good Chats <goodchats@weareforgood.com>',
+        to: [notifyTo],
+        subject: `✦ ${firstName} just signed up for Good Chats`,
+        html: `<p><strong>${firstName}</strong> (${email}) signed up for notifications.${linkedinLine}</p>`,
+      }),
+    }).catch((e) => console.warn('[notify] host email failed', e?.message));
+  }
+
   return NextResponse.json({ ok: true });
 }
