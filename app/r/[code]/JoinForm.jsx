@@ -199,7 +199,7 @@ export default function JoinForm({ session, knownProfile }) {
           </label>
 
           <label className="block mb-4">
-            <div className="text-sm font-semibold mb-1">linkedin <span className="text-neutral-500 font-normal">(optional)</span></div>
+            <div className="text-sm font-semibold mb-1">linkedin</div>
             <input
               type="text"
               value={linkedinUrl}
@@ -207,6 +207,7 @@ export default function JoinForm({ session, knownProfile }) {
               placeholder="linkedin.com/in/your-profile"
               className="w-full border-2 border-black rounded px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-wafg-cyan"
               maxLength={200}
+              required
             />
             <p className="text-xs text-neutral-500 mt-1.5">[shown to people you're paired with so they can connect]</p>
           </label>
@@ -223,7 +224,7 @@ export default function JoinForm({ session, knownProfile }) {
 
           <button
             type="submit"
-            disabled={submitting || !name.trim() || !email.trim()}
+            disabled={submitting || !name.trim() || !email.trim() || !linkedinUrl.trim()}
             className="w-full btn-cyan py-4 text-xl rounded-md disabled:opacity-50"
           >
             {submitting ? 'warming things up...' : "i'm in *"}

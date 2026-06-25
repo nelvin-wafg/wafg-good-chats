@@ -1293,13 +1293,14 @@ function EditProfileModal({ session, initialName, initialLinkedin, callObject, o
             />
           </label>
           <label className="block">
-            <div className="text-sm font-semibold mb-1">linkedin <span className="text-neutral-500 font-normal">(optional)</span></div>
+            <div className="text-sm font-semibold mb-1">linkedin</div>
             <input
               type="text"
               value={linkedin}
               onChange={(e) => setLinkedin(e.target.value)}
               placeholder="linkedin.com/in/your-profile"
               maxLength={200}
+              required
               className="w-full border-2 border-black rounded px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-wafg-cyan"
             />
           </label>
@@ -1315,7 +1316,7 @@ function EditProfileModal({ session, initialName, initialLinkedin, callObject, o
             </button>
             <button
               type="submit"
-              disabled={busy || !name.trim()}
+              disabled={busy || !name.trim() || !linkedin.trim()}
               className="btn-cyan px-5 py-2 rounded-md text-sm font-bold disabled:opacity-50"
             >
               {busy ? 'saving...' : 'save *'}
