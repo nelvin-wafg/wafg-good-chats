@@ -8,7 +8,7 @@ const caveat = Caveat({ weight: ['500', '700'], subsets: ['latin'], variable: '-
 
 export const metadata = {
   title: 'Good Chats · We Are For Good',
-  description: 'Good Chats. five minutes at a time.',
+  description: 'Good Chats. seven minutes at a time.',
 };
 
 export const viewport = {
