@@ -1193,20 +1193,17 @@ function HostRecapPanel({ sessionId }) {
       {recap.captures.length > 0 && (
         <div className="bg-neutral-900 border border-neutral-800 rounded-md p-4 mb-5 max-w-2xl">
           <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">connections captured</div>
-          <ul className="divide-y divide-neutral-800 max-h-64 overflow-y-auto">
+          <ul className="divide-y divide-neutral-800">
             {recap.captures.map((c) => (
-              <li key={c.id} className="py-2 text-sm flex items-center justify-between gap-2">
+              <li key={c.id} className="py-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <span className="font-medium">{c.capturer_name}</span>
-                  <span className="text-neutral-500"> wanted to stay in touch with </span>
-                  <span className="font-medium">{c.captured_name}</span>
+                  <span className="font-semibold text-base">{c.capturer_name}</span>
+                  <span className="text-neutral-400 text-sm"> → </span>
+                  <span className="font-semibold text-base">{c.captured_name}</span>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {c.captured_linkedin_url && (
-                    <a href={c.captured_linkedin_url} target="_blank" rel="noopener noreferrer" className="text-[10px] px-2 py-0.5 rounded font-bold" style={{ background: '#0a66c2', color: '#fff' }}>in</a>
-                  )}
-                  {c.captured_email && (
-                    <span className="text-[10px] text-neutral-500 font-mono">{c.captured_email}</span>
+                    <a href={c.captured_linkedin_url} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-1 rounded font-bold" style={{ background: '#0a66c2', color: '#fff' }}>LinkedIn →</a>
                   )}
                 </div>
               </li>
@@ -1218,17 +1215,17 @@ function HostRecapPanel({ sessionId }) {
       {/* participants list */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-md p-4 mb-5 max-w-2xl">
         <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">all participants</div>
-        <ul className="divide-y divide-neutral-800 max-h-64 overflow-y-auto">
+        <ul className="divide-y divide-neutral-800">
           {recap.participants.map((p) => (
-            <li key={p.id} className="py-2 text-sm flex items-center justify-between gap-2">
+            <li key={p.id} className="py-3 flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <span className="font-medium">{p.name}</span>
-                {p.email && <span className="text-neutral-500 ml-2 font-mono text-xs">{p.email}</span>}
+                <span className="font-semibold text-base">{p.name}</span>
+                {p.email && <span className="text-neutral-400 ml-2 text-sm font-mono">{p.email}</span>}
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0 text-xs text-neutral-500">
+              <div className="flex items-center gap-3 flex-shrink-0 text-sm text-neutral-400">
                 <span>{capturerCounts[p.name] || 0} captures</span>
                 {p.linkedin_url && (
-                  <a href={p.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-[10px] px-2 py-0.5 rounded font-bold" style={{ background: '#0a66c2', color: '#fff' }}>in</a>
+                  <a href={p.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-1 rounded font-bold" style={{ background: '#0a66c2', color: '#fff' }}>LinkedIn →</a>
                 )}
               </div>
             </li>

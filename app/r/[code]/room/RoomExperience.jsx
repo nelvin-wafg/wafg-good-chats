@@ -49,6 +49,7 @@ export default function RoomExperience({ session: initialSession }) {
   const [participantId, setParticipantId] = useState(null);
   const [participantName, setParticipantName] = useState(null);
   const [session, setSession] = useState(initialSession);
+  const sessionRef = useRef(initialSession);
   const [myAssignment, setMyAssignment] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [transition, setTransition] = useState(null); // null | "splitting"
@@ -117,7 +118,9 @@ export default function RoomExperience({ session: initialSession }) {
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
-        setSession((s) => ({ ...s, ...data.session }));
+        const updated = { ...sessionRef.current, ...data.session };
+        sessionRef.current = updated;
+        setSession(updated);
         setMyAssignment(data.assignment || null);
         setParticipants(data.participants || []);
         // direct message from host · keep showing until participant dismisses.
@@ -220,6 +223,9 @@ export default function RoomExperience({ session: initialSession }) {
     if (!callObject) return;
     const handler = () => {
       if (intentionalLeaveRef.current) return;
+      // if the session just ended, the room deletion booted us — not a kick.
+      // the poll will render EndedView shortly; don't redirect to ?removed=1.
+      if (sessionRef.current.status === 'ended') return;
       if (typeof window !== 'undefined') {
         window.location.href = `/r/${initialSession.code}?removed=1`;
       }

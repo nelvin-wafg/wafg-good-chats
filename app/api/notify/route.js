@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { addSubscriberToKit } from '@/lib/kit';
 import { validateEmail, validateParticipantName, validateLinkedinUrl, ValidationError } from '@/lib/validate';
 import { rateLimitByIp } from '@/lib/rate-limit';
+import { adminClient } from '@/lib/supabase-server';
 
 // POST /api/notify
 // body: { email, firstName, linkedinUrl?, source? }
@@ -30,6 +31,20 @@ export async function POST(request) {
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
     return new NextResponse('Bad request', { status: 400 });
+  }
+
+  // always save to supabase regardless of Kit opt-in
+  try {
+    const admin = adminClient();
+    await admin.from('notify_signups').insert({
+      email,
+      first_name: firstName,
+      linkedin_url: linkedinUrl,
+      source,
+      subscribed_to_weekly: subscribeToWeekly,
+    });
+  } catch (e) {
+    console.warn('[notify] supabase insert failed', e?.message);
   }
 
   // only push to Kit if they checked "add me to The Weekly"
