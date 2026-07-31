@@ -24,6 +24,10 @@ export default function LiveControl({ session: initialSession }) {
   const [messageTarget, setMessageTarget] = useState(null); // { id, name } or null
   const [broadcastText, setBroadcastText] = useState('');
   const [broadcastBusy, setBroadcastBusy] = useState(false);
+  // reactive mute state: dailySessionId → boolean (true = muted/off)
+  const [muteStates, setMuteStates] = useState({});
+  // maps DB participant UUID → Daily session ID (for mute button + badge)
+  const [dailySessionByUserId, setDailySessionByUserId] = useState({});
 
   // poll session state
   useEffect(() => {
@@ -155,6 +159,34 @@ export default function LiveControl({ session: initialSession }) {
     };
   }, [callObject]);
 
+  // subscribe to Daily participant events to track mute state reactively.
+  // p.tracks.audio.state === 'off' means they muted themselves.
+  // also rebuilds the userId→sessionId map whenever the participant list changes.
+  useEffect(() => {
+    if (!callObject) return;
+    function updateStates() {
+      const mutes = {};
+      const byUserId = {};
+      const dps = callObject.participants() || {};
+      for (const [sid, p] of Object.entries(dps)) {
+        if (sid === 'local') continue;
+        if (p?.user_id) byUserId[p.user_id] = sid;
+        mutes[sid] = p?.tracks?.audio?.state === 'off';
+      }
+      setMuteStates(mutes);
+      setDailySessionByUserId(byUserId);
+    }
+    updateStates();
+    callObject.on('participant-updated', updateStates);
+    callObject.on('participant-joined', updateStates);
+    callObject.on('participant-left', updateStates);
+    return () => {
+      callObject.off('participant-updated', updateStates);
+      callObject.off('participant-joined', updateStates);
+      callObject.off('participant-left', updateStates);
+    };
+  }, [callObject]);
+
   // kick a participant: eject them from the daily call (their tab gets a
   // 'left-meeting' event and disconnects) AND mark them absent in the db so
   // the host views update immediately. they could still rejoin via the link.
@@ -186,6 +218,27 @@ export default function LiveControl({ session: initialSession }) {
       });
     } catch (e) {
       showToast("couldn't fully remove · refresh host view", 'error');
+    }
+  }
+
+  // mute a participant: host-initiated. only works for participants in the MAIN
+  // daily room since the host's call object is only connected there.
+  function muteParticipant(participantId, participantName) {
+    if (!callObject) return;
+    try {
+      const dps = callObject.participants() || {};
+      for (const [sid, p] of Object.entries(dps)) {
+        if (sid === 'local') continue;
+        if (p?.user_id === participantId) {
+          callObject.updateParticipant(sid, { setAudio: false });
+          // optimistic update so the UI reflects immediately
+          setMuteStates((prev) => ({ ...prev, [sid]: true }));
+          showToast(`muted ${participantName || 'participant'}`, 'success');
+          break;
+        }
+      }
+    } catch (e) {
+      console.warn('[mute] failed', e);
     }
   }
 
@@ -410,6 +463,7 @@ export default function LiveControl({ session: initialSession }) {
         action={action}
         hasCall={Boolean(callObject)}
         onKick={kickParticipant}
+        onMute={muteParticipant}
         onPlace={placeParticipant}
         onOpenMessage={(p) => setMessageTarget({ id: p.id, name: p.name, flagText: p.flag_text || null })}
         onAdmit={admitParticipants}
@@ -417,6 +471,8 @@ export default function LiveControl({ session: initialSession }) {
         setBroadcastText={setBroadcastText}
         sendBroadcast={sendBroadcast}
         broadcastBusy={broadcastBusy}
+        muteStates={muteStates}
+        dailySessionByUserId={dailySessionByUserId}
       />
       {messageTarget && (
         <MessageComposerModal
@@ -446,7 +502,7 @@ export default function LiveControl({ session: initialSession }) {
 // ============================================================================
 // inner component (uses daily hooks if wrapped in DailyProvider)
 // ============================================================================
-function LiveControlInner({ session, participants, participantsByName, pairings, pairingsHistory, secondsLeft, busy, action, hasCall, onKick, onPlace, onOpenMessage, onAdmit, broadcastText, setBroadcastText, sendBroadcast, broadcastBusy }) {
+function LiveControlInner({ session, participants, participantsByName, pairings, pairingsHistory, secondsLeft, busy, action, hasCall, onKick, onMute, onPlace, onOpenMessage, onAdmit, broadcastText, setBroadcastText, sendBroadcast, broadcastBusy, muteStates = {}, dailySessionByUserId = {} }) {
   // waiting list: people in the session whose admitted_at is null while the
   // session is in 'live' status (host has opened but hasn't kicked off yet).
   const waitingList = (session.status === 'live' || session.status === 'draft')
@@ -565,10 +621,13 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                   const withHostPairing = pairings.find((p) => !p.participant_b_name);
                   if (!withHostPairing) return null;
                   return (
-                    <div className="mt-3 px-4 py-2 rounded text-sm" style={{ background: 'rgba(1,236,243,0.15)', color: '#01ecf3' }}>
-                      <span className="font-bold uppercase tracking-widest text-[10px] mr-2">your conversation this round:</span>
-                      <span className="font-semibold">{withHostPairing.participant_a_name}</span>
-                      <span className="text-neutral-400 ml-2">· they're with you in main room</span>
+                    <div className="mt-3 px-5 py-4 rounded-md border-2 flex items-center justify-between gap-4" style={{ background: 'rgba(1,236,243,0.12)', borderColor: '#01ecf3' }}>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-widest font-bold mb-1 opacity-70" style={{ color: '#01ecf3' }}>your conversation this round</div>
+                        <div className="display text-xl font-bold" style={{ color: '#01ecf3' }}>{withHostPairing.participant_a_name}</div>
+                        <div className="text-xs text-neutral-400 mt-1">they're in the main room with you · say hi 👋</div>
+                      </div>
+                      <div className="text-3xl animate-pulse">🗨️</div>
                     </div>
                   );
                 })()}
@@ -625,8 +684,8 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
           {hasCall && <HostControlBar />}
         </div>
 
-        {/* right rail */}
-        <aside className="bg-black border-l border-neutral-800 p-6 overflow-y-auto flex flex-col gap-5">
+        {/* right rail · relative z-10 ensures dropdowns here stack above the video panel on the left */}
+        <aside className="bg-black border-l border-neutral-800 p-6 overflow-y-auto flex flex-col gap-5 relative z-10">
 
           {/* waiting room · only relevant before the host kicks off */}
           {waitingList.length > 0 && (
@@ -712,12 +771,24 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
               in main room ({participants.filter((p) => p.is_present && !p.current_room_name).length})
             </div>
             <div className="grid grid-cols-4 gap-2">
-              {participants.filter((p) => p.is_present && !p.current_room_name).map((p) => (
+              {participants.filter((p) => p.is_present && !p.current_room_name).map((p) => {
+                const dSid = dailySessionByUserId[p.id];
+                const isMuted = dSid ? Boolean(muteStates[dSid]) : false;
+                return (
                 <div key={p.id} className="text-center relative group">
                   <div className="relative w-12 h-12 mx-auto">
                     <div className="w-12 h-12 rounded-full display flex items-center justify-center text-black text-base" style={{ background: colorForName(p.name) }}>
                       {initials(p.name)}
                     </div>
+                    {/* mute badge: red dot in corner when participant is muted */}
+                    {isMuted && dSid && (
+                      <div
+                        className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-600 text-white flex items-center justify-center text-[8px]"
+                        title={`${p.name} is muted`}
+                      >
+                        🔇
+                      </div>
+                    )}
                     {p.flag_at && (
                       <button
                         type="button"
@@ -732,6 +803,17 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                   <div className="text-[10px] mt-1 text-neutral-400 truncate">{p.name?.split(' ')[0]}</div>
                   <div className="flex items-center justify-center gap-1 mt-1">
                     <PlacePicker participant={p} pairings={pairings} onPlace={onPlace} />
+                    {/* mute button: only shown when participant has a live Daily session */}
+                    {dSid && (
+                      <button
+                        type="button"
+                        onClick={() => !isMuted && onMute?.(p.id, p.name)}
+                        className={`w-5 h-5 rounded-full text-white text-[9px] flex items-center justify-center leading-none ${isMuted ? 'bg-red-800/70 cursor-default' : 'bg-neutral-700 hover:bg-orange-600 cursor-pointer'}`}
+                        title={isMuted ? `${p.name} is muted` : `mute ${p.name}`}
+                      >
+                        {isMuted ? '🔇' : '🎤'}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => onOpenMessage?.(p)}
@@ -750,7 +832,8 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
               {participants.filter((p) => p.is_present && !p.current_room_name).length === 0 && (
                 <div className="col-span-4 text-xs text-neutral-600 italic">[no one here yet]</div>
               )}
@@ -1239,15 +1322,27 @@ function HostRecapPanel({ sessionId }) {
 }
 
 // small picker that lets the host drop a participant into a specific live pair room.
-// shows a tiny → button; clicking opens a dropdown of room labels.
+// uses position:fixed for the dropdown so it's never clipped by overflow:auto parents.
 function PlacePicker({ participant, pairings, onPlace }) {
   const [open, setOpen] = useState(false);
+  const [dropPos, setDropPos] = useState({ top: 0, right: 0 });
+  const btnRef = useRef(null);
   const rooms = (pairings || []).filter((p) => p.room_name);
+
+  function handleOpen() {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+    }
+    setOpen((v) => !v);
+  }
+
   return (
-    <div className="relative">
+    <div>
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleOpen}
         disabled={rooms.length === 0}
         className="w-5 h-5 rounded-full bg-cyan-500/40 hover:bg-cyan-500 text-white text-[10px] font-bold flex items-center justify-center leading-none disabled:opacity-30"
         title={rooms.length === 0 ? 'no live rooms yet' : `place ${participant.name} into a room`}
@@ -1256,8 +1351,11 @@ function PlacePicker({ participant, pairings, onPlace }) {
       </button>
       {open && (
         <>
-          <button type="button" onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default" aria-label="close menu" />
-          <div className="absolute z-50 mt-1 right-0 bg-neutral-900 border border-neutral-700 rounded shadow-lg p-1 min-w-[180px]">
+          <button type="button" onClick={() => setOpen(false)} className="fixed inset-0 z-[190] cursor-default" aria-label="close menu" />
+          <div
+            className="fixed z-[200] bg-neutral-900 border border-neutral-700 rounded shadow-xl p-1 min-w-[180px]"
+            style={{ top: dropPos.top, right: dropPos.right }}
+          >
             <div className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 text-neutral-500">place into</div>
             {rooms.length === 0 && (
               <div className="px-2 py-1 text-xs italic text-neutral-500">[no live rooms]</div>

@@ -567,15 +567,19 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
       )}
 
       {isWithHost && (
-        <div className="px-6 py-3 flex items-center justify-between gap-4 border-b border-neutral-200" style={{ background: 'rgba(1,236,243,0.18)' }}>
-          <div>
-            <div className="text-[10px] uppercase tracking-widest font-bold mb-1 text-neutral-600">* you're with the host this round *</div>
+        <div className="px-6 py-4 flex items-center justify-between gap-4 border-b-2" style={{ background: '#01ecf3', borderColor: '#00c8cf', color: '#000' }}>
+          <div className="flex-1">
+            <div className="text-[10px] uppercase tracking-widest font-black mb-1">✨ host time this round ✨</div>
+            <div className="display text-xl font-bold">you've got the host's full attention.</div>
             {withHostAssignment?.prompt && (
-              <div className="display text-base">{withHostAssignment.prompt}</div>
+              <div className="text-sm mt-1.5 font-medium opacity-80">{withHostAssignment.prompt}</div>
             )}
           </div>
-          <div className="display text-3xl" style={{ color: hostSecondsLeft <= 30 ? '#d97706' : '#000' }}>
-            {fmtTime(hostSecondsLeft)}
+          <div className="flex flex-col items-center gap-1 flex-shrink-0">
+            <div className="display text-4xl font-black" style={{ color: hostSecondsLeft <= 30 ? '#92400e' : '#000' }}>
+              {fmtTime(hostSecondsLeft)}
+            </div>
+            <div className="text-[9px] uppercase tracking-widest font-bold opacity-60">remaining</div>
           </div>
         </div>
       )}
@@ -594,7 +598,7 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
             {isPreSession
               ? <>welcome in.<br/>we'll start together.</>
               : isWithHost
-                ? <>you're with<br/>the host this round.</>
+                ? <>host time.<br/>this one's for you.</>
                 : isLateJoiner
                   ? <>hang tight.<br/>next round picks you up.</>
                   : isClosing
@@ -626,7 +630,7 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
             </div>
             <p className="text-sm">
               {isWithHost
-                ? '[odd number this round · you get the host\'s full attention]'
+                ? '[you\'re chatting directly with the host this round · no breakout needed 🎉]'
                 : isLateJoiner
                   ? '[others are paired up in breakouts · you\'ll join the next shuffle]'
                   : isClosing
@@ -995,51 +999,108 @@ function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile, onF
     : 'border-red-500 text-red-400 hover:bg-red-500 hover:text-white';
 
   return (
-    <footer className={`border-t px-6 py-3 flex items-center justify-center gap-3 flex-wrap ${footerClass}`}>
-      <div className="flex items-center gap-1">
+    <>
+      {audioBlocked && <MicBlockedOverlay daily={daily} />}
+      <footer className={`border-t px-6 py-3 flex items-center justify-center gap-3 flex-wrap ${footerClass}`}>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleAudio}
+            className={`px-4 py-2 rounded-full text-xs font-semibold border ${audioOn ? onClass : offClass}`}
+          >
+            {audioOn ? 'mic on' : (audioBlocked ? '🔇 mic blocked · fix it ↑' : 'mic off · tap to unmute')}
+          </button>
+          <DeviceMenu kind="audio" daily={daily} theme={theme} />
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleVideo}
+            className={`px-4 py-2 rounded-full text-xs font-semibold border ${videoOn ? onClass : offClass}`}
+            style={!videoOn ? { background: '#01ecf3', color: '#000', borderColor: '#01ecf3' } : {}}
+          >
+            {videoOn ? 'cam on' : (videoBlocked ? 'camera blocked · check browser settings' : 'tap to turn on camera')}
+          </button>
+          <DeviceMenu kind="video" daily={daily} theme={theme} />
+        </div>
+        {onEditProfile && (
+          <button
+            onClick={onEditProfile}
+            className={`px-4 py-2 rounded-full text-xs font-semibold border ${onClass}`}
+            title="update your name or linkedin"
+          >
+            edit info
+          </button>
+        )}
+        {onFlag && (
+          <button
+            onClick={onFlag}
+            className={`px-4 py-2 rounded-full text-xs font-semibold border ${light ? 'bg-amber-50 border-amber-400 text-amber-700 hover:bg-amber-100' : 'bg-amber-900/30 border-amber-600 text-amber-300 hover:bg-amber-900/50'}`}
+            title="raise a flag · the host will be notified"
+          >
+            🚩 need help
+          </button>
+        )}
         <button
-          onClick={toggleAudio}
-          className={`px-4 py-2 rounded-full text-xs font-semibold border ${audioOn ? onClass : offClass}`}
+          onClick={() => { if (confirm('leave this session?')) window.location.href = sessionCode ? `/r/${sessionCode}` : '/'; }}
+          className={`px-4 py-2 rounded-full text-xs font-semibold border ${leaveClass}`}
         >
-          {audioOn ? 'mic on' : (audioBlocked ? 'mic blocked · check browser settings' : 'mic off · tap to unmute')}
+          leave
         </button>
-        <DeviceMenu kind="audio" daily={daily} theme={theme} />
+      </footer>
+    </>
+  );
+}
+
+// ============================================================================
+// MIC BLOCKED OVERLAY · shown as a full-screen modal when the browser has denied
+// microphone access. guides the participant through fixing permissions + retrying.
+// ============================================================================
+function MicBlockedOverlay({ daily }) {
+  const [retrying, setRetrying] = useState(false);
+
+  async function retry() {
+    if (retrying || !daily) return;
+    setRetrying(true);
+    try {
+      // disable noise cancellation first — Krisp can interfere on desktop
+      try { await daily.updateInputSettings({ audio: { processor: { type: 'none' } } }); } catch {}
+      // re-request mic access
+      await daily.setLocalAudio(true);
+    } catch (e) {
+      console.warn('[mic retry]', e);
+    }
+    // keep spinner going for 2s so the state poll has time to reflect new status
+    setTimeout(() => setRetrying(false), 2000);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.88)' }}>
+      <div className="bg-white text-black rounded-xl p-6 max-w-sm w-full shadow-2xl" style={{ border: '3px solid #01ecf3' }}>
+        <div className="text-center mb-4">
+          <div className="text-4xl mb-2">🎤</div>
+          <div className="display text-2xl mb-1">microphone blocked</div>
+          <p className="text-sm text-neutral-600">
+            your browser isn't letting Good Chats use your mic.
+          </p>
+        </div>
+        <div className="rounded-lg p-4 mb-4 text-sm space-y-2.5" style={{ background: '#f4f4f1' }}>
+          <p className="font-bold text-neutral-800">how to fix it:</p>
+          <p>① click the <strong>🔒 lock</strong> or <strong>ⓘ info</strong> icon in your address bar</p>
+          <p>② find <strong>Microphone</strong> and set it to <strong>Allow</strong></p>
+          <p>③ hit the button below — no page refresh needed</p>
+        </div>
+        <p className="text-[11px] text-neutral-500 mb-4 text-center">
+          still stuck? use the <strong>▾</strong> button next to the mic to switch devices,<br/>or try joining from your <strong>phone</strong>.
+        </p>
+        <button
+          onClick={retry}
+          disabled={retrying}
+          className="w-full py-3 rounded-md font-bold text-sm disabled:opacity-60 transition"
+          style={{ background: '#01ecf3', color: '#000' }}
+        >
+          {retrying ? 'checking...' : 'i fixed it · try again →'}
+        </button>
       </div>
-      <div className="flex items-center gap-1">
-        <button
-          onClick={toggleVideo}
-          className={`px-4 py-2 rounded-full text-xs font-semibold border ${videoOn ? onClass : offClass}`}
-          style={!videoOn ? { background: '#01ecf3', color: '#000', borderColor: '#01ecf3' } : {}}
-        >
-          {videoOn ? 'cam on' : (videoBlocked ? 'camera blocked · check browser settings' : 'tap to turn on camera')}
-        </button>
-        <DeviceMenu kind="video" daily={daily} theme={theme} />
-      </div>
-      {onEditProfile && (
-        <button
-          onClick={onEditProfile}
-          className={`px-4 py-2 rounded-full text-xs font-semibold border ${onClass}`}
-          title="update your name or linkedin"
-        >
-          edit info
-        </button>
-      )}
-      {onFlag && (
-        <button
-          onClick={onFlag}
-          className={`px-4 py-2 rounded-full text-xs font-semibold border ${light ? 'bg-amber-50 border-amber-400 text-amber-700 hover:bg-amber-100' : 'bg-amber-900/30 border-amber-600 text-amber-300 hover:bg-amber-900/50'}`}
-          title="raise a flag · the host will be notified"
-        >
-          🚩 need help
-        </button>
-      )}
-      <button
-        onClick={() => { if (confirm('leave this session?')) window.location.href = sessionCode ? `/r/${sessionCode}` : '/'; }}
-        className={`px-4 py-2 rounded-full text-xs font-semibold border ${leaveClass}`}
-      >
-        leave
-      </button>
-    </footer>
+    </div>
   );
 }
 
