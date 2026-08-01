@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { adminClient } from '@/lib/supabase-server';
 import { getParticipantFromCookies } from '@/lib/participant-token';
+import { rateLimitByIp } from '@/lib/rate-limit';
 import {
   validateParticipantName,
   validateLinkedinUrl,
@@ -18,6 +19,9 @@ import {
 // the change) AND the current session's participant row (so this session's name
 // in lists/pairings updates immediately).
 export async function PATCH(request) {
+  const allowed = await rateLimitByIp(request, 'profiles-me', { limit: 10, windowSeconds: 300 });
+  if (!allowed) return new NextResponse('too many requests', { status: 429 });
+
   let sessionId, name, linkedinUrl;
   try {
     const body = await request.json();

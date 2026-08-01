@@ -37,7 +37,11 @@ export async function POST(request, { params }) {
     name = validateParticipantName(body?.name);
     email = validateEmail(body?.email);
     linkedinUrl = validateLinkedinUrl(body?.linkedinUrl);
-    newsletterOptIn = validateBoolean(body?.newsletterOptIn ?? true, 'newsletterOptIn');
+    // default false: affirmative opt-in only, matching the consent model in
+    // docs/SECURITY.md §13 ("unchecked by default"). the real join form always
+    // sends an explicit boolean; this default only matters for malformed/forged
+    // requests, where it should never silently subscribe someone.
+    newsletterOptIn = validateBoolean(body?.newsletterOptIn ?? false, 'newsletterOptIn');
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
     return new NextResponse('bad request', { status: 400 });

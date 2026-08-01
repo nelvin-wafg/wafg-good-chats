@@ -41,6 +41,35 @@ export async function GET(request, { params }) {
   const me = getParticipantFromCookies(cookieStore, sessionId);
   const participantId = me?.participantId || null;
 
+  // neither an approved host nor a verified participant of THIS session: withhold
+  // everything except minimal public session status. without this, the roster
+  // (names, linkedin urls, flags) and main_room_name leaked to any unauthenticated
+  // caller — this is the shape the client already expects when `me` is null, so
+  // the existing poll/redirect-to-rejoin logic in RoomExperience keeps working.
+  if (!isHostView && !participantId) {
+    return NextResponse.json({
+      session: {
+        id: session.id,
+        code: session.code,
+        name: session.name,
+        status: session.status,
+        current_round: session.current_round,
+        rounds_total: session.rounds_total,
+        round_seconds: session.round_seconds,
+        prompts: session.prompts,
+        is_published: session.metadata?.is_published === true,
+        starts_at: session.metadata?.starts_at || null,
+      },
+      participants: [],
+      assignment: null,
+      pairings: [],
+      pairingsHistory: [],
+      directMessage: null,
+      broadcast: null,
+      me: null,
+    });
+  }
+
   // heartbeat: each poll from a participant marks them present + bumps last_seen.
   // this is what makes a browser refresh NOT look like a disconnect.
   if (participantId) {
