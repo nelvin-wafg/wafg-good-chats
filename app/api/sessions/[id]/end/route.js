@@ -3,6 +3,7 @@ import { adminClient } from '@/lib/supabase-server';
 import { getApprovedHost } from '@/lib/auth';
 import { deleteRoom } from '@/lib/daily';
 import { sendRecapEmail } from '@/lib/resend';
+import { logAuditEvent } from '@/lib/audit';
 
 // POST /api/sessions/:id/end  — any approved host ends the session
 export async function POST(_request, { params }) {
@@ -28,6 +29,13 @@ export async function POST(_request, { params }) {
     .from('sessions')
     .update({ status: 'ended', ended_at: new Date().toISOString() })
     .eq('id', session.id);
+
+  logAuditEvent({
+    eventType: 'session.ended',
+    actorId: auth.user.id,
+    actorLabel: auth.host.display_name || auth.host.email,
+    sessionId: session.id,
+  });
 
   // fire recap emails to all participants who have a profile email · non-blocking
   try {
