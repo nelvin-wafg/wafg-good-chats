@@ -73,6 +73,13 @@ create table if not exists profiles (
 );
 create index if not exists idx_profiles_email on profiles(email);
 
+-- email verification: null = nobody's confirmed they own this inbox yet.
+-- new profiles (brand-new email at join time) start null and only get set by
+-- clicking the link sent via /api/profiles/verify. this gates recap emails
+-- and the kit newsletter sync — see app/api/sessions/[id]/join/route.js,
+-- app/api/sessions/[id]/end/route.js, and app/api/profiles/verify/route.js.
+alter table profiles add column if not exists email_verified_at timestamptz;
+
 -- ============================================================================
 -- PARTICIPANTS · people who joined a session
 -- linked to a profile when the joiner provided email; no profile for legacy rows
@@ -238,6 +245,16 @@ left join participants p on p.session_id = s.id
 left join pairings pa on pa.session_id = s.id
 left join captures c on c.session_id = s.id
 group by s.id;
+
+-- ============================================================================
+-- EMAIL VERIFICATION BACKFILL · run this ONCE, right after adding the
+-- email_verified_at column above (i.e. the first time this section of the
+-- file is deployed). grandfathers in every profile that already existed as
+-- trusted/verified, since they predate the verification feature entirely.
+-- DO NOT re-run this later — re-running would also mark any genuinely
+-- unverified new signups as verified, defeating the whole point.
+-- ============================================================================
+-- update profiles set email_verified_at = created_at where email_verified_at is null;
 
 -- ============================================================================
 -- APPROVAL · run this AFTER the host signs up via magic link the first time.
