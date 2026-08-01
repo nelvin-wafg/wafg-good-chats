@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { adminClient } from '@/lib/supabase-server';
 import { getParticipantFromCookies } from '@/lib/participant-token';
+import { rateLimitByIp } from '@/lib/rate-limit';
 import { validateParticipantName, validateNote, validateUuid, ValidationError } from '@/lib/validate';
 
 // POST /api/sessions/:id/capture
@@ -10,6 +11,9 @@ import { validateParticipantName, validateNote, validateUuid, ValidationError } 
 // partner is resolved from the pairing (authoritative · names can collide).
 // partnerName is only a fallback for the rare case of a missing pairingId.
 export async function POST(request, { params }) {
+  const allowed = await rateLimitByIp(request, 'capture', { limit: 30, windowSeconds: 300 });
+  if (!allowed) return new NextResponse('too many requests', { status: 429 });
+
   let sessionId;
   let partnerName = null;
   let pairingId = null;
@@ -60,14 +64,31 @@ export async function POST(request, { params }) {
       .maybeSingle();
     partner = data;
   } else if (partnerName) {
-    const { data } = await admin
-      .from('participants')
-      .select('id, name, profiles(email, linkedin_url)')
+    // fallback path (pairingId missing/stale): still require a real pairing
+    // relationship in this session — a bare name match with no pairing check
+    // would let anyone "capture" (and harvest the linkedin_url of) any attendee
+    // they were never actually paired with.
+    const { data: myPairings } = await admin
+      .from('pairings')
+      .select('participant_a_id, participant_b_id')
       .eq('session_id', sessionId)
-      .eq('name', partnerName)
-      .limit(1)
-      .maybeSingle();
-    partner = data;
+      .or(`participant_a_id.eq.${me.participantId},participant_b_id.eq.${me.participantId}`);
+
+    const partnerIds = (myPairings || [])
+      .map((p) => (p.participant_a_id === me.participantId ? p.participant_b_id : p.participant_a_id))
+      .filter(Boolean);
+
+    if (partnerIds.length > 0) {
+      const { data } = await admin
+        .from('participants')
+        .select('id, name, profiles(email, linkedin_url)')
+        .eq('session_id', sessionId)
+        .eq('name', partnerName)
+        .in('id', partnerIds)
+        .limit(1)
+        .maybeSingle();
+      partner = data;
+    }
   }
 
   if (!partner) return new NextResponse('partner not found', { status: 404 });

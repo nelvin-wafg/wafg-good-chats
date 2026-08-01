@@ -10,15 +10,20 @@ export const dynamic = 'force-dynamic';
 //   2. reap stale sessions · active sessions where everyone's been gone for >1 hour,
 //      or empty sessions created >6 hours ago. ends them + frees daily rooms.
 //
-// protected by CRON_SECRET when set. vercel cron sends Authorization: Bearer <CRON_SECRET>
-// automatically if the env var exists.
+// protected by CRON_SECRET, which must be set. vercel cron sends
+// Authorization: Bearer <CRON_SECRET> automatically once the env var exists.
+// fails closed: if the var is missing, this endpoint refuses every request
+// rather than becoming silently public (it ends live sessions + destroys
+// daily rooms, so an unauthenticated caller must never be able to trigger it).
 export async function GET(request) {
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${secret}`) {
-      return new NextResponse('unauthorized', { status: 401 });
-    }
+  if (!secret) {
+    console.error('[cron] CRON_SECRET is not set — refusing all requests');
+    return new NextResponse('cron not configured', { status: 503 });
+  }
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${secret}`) {
+    return new NextResponse('unauthorized', { status: 401 });
   }
 
   const admin = adminClient();
