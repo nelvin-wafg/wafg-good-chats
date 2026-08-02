@@ -1011,6 +1011,7 @@ function DailyVideoTile({ sessionId, isLocal, participantsByName, tileClassName 
   const isHostTile = isLocal;
   const displayName = isLocal ? `${name} · you` : name;
   const linkedinUrl = !isHostTile ? participantsByName?.[name]?.linkedin_url : null;
+  const avatarUrl = !isHostTile ? participantsByName?.[name]?.avatar_url : null;
 
   return (
     <div
@@ -1027,12 +1028,16 @@ function DailyVideoTile({ sessionId, isLocal, participantsByName, tileClassName 
       />
       {!hasVideo && (
         <div className="absolute inset-0 flex items-center justify-center" style={{ background: '#1a1a1a' }}>
-          <div
-            className="w-16 h-16 rounded-full display flex items-center justify-center text-black text-xl"
-            style={{ background: colorForName(name || '') }}
-          >
-            {initials(name || '?')}
-          </div>
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-black" />
+          ) : (
+            <div
+              className="w-16 h-16 rounded-full display flex items-center justify-center text-black text-xl"
+              style={{ background: colorForName(name || '') }}
+            >
+              {initials(name || '?')}
+            </div>
+          )}
         </div>
       )}
       <div className="absolute bottom-2 left-2 bg-black px-2.5 py-1.5 rounded-md text-sm font-bold text-white flex items-center gap-2">

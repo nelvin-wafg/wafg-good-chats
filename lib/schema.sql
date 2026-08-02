@@ -73,12 +73,30 @@ create table if not exists profiles (
 );
 create index if not exists idx_profiles_email on profiles(email);
 
+-- self-uploaded profile photo · shown in video tiles instead of the colored
+-- initials circle when present. see app/api/profiles/avatar/route.js.
+alter table profiles add column if not exists avatar_url text;
+
 -- email verification: null = nobody's confirmed they own this inbox yet.
 -- new profiles (brand-new email at join time) start null and only get set by
 -- clicking the link sent via /api/profiles/verify. this gates recap emails
 -- and the kit newsletter sync — see app/api/sessions/[id]/join/route.js,
 -- app/api/sessions/[id]/end/route.js, and app/api/profiles/verify/route.js.
 alter table profiles add column if not exists email_verified_at timestamptz;
+
+-- ============================================================================
+-- STORAGE · avatars bucket for self-uploaded profile photos
+-- public read (photos are shown to other participants during sessions, same
+-- as a LinkedIn photo would be) · all writes go through the server's
+-- service-role client in app/api/profiles/avatar/route.js, never directly
+-- from the browser, so no public storage policies are needed for uploads.
+-- ============================================================================
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 
 -- ============================================================================
 -- PARTICIPANTS · people who joined a session

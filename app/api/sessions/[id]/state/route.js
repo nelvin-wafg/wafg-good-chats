@@ -82,7 +82,7 @@ export async function GET(request, { params }) {
 
   const { data: rawParticipants = [] } = await admin
     .from('participants')
-    .select('id, name, is_present, current_room_name, joined_at, last_seen, metadata, profiles(linkedin_url)')
+    .select('id, name, is_present, current_room_name, joined_at, last_seen, metadata, profiles(linkedin_url, avatar_url)')
     .eq('session_id', session.id)
     .order('joined_at', { ascending: true });
   const participants = (rawParticipants || []).map((p) => ({
@@ -93,6 +93,7 @@ export async function GET(request, { params }) {
     joined_at: p.joined_at,
     last_seen: p.last_seen,
     linkedin_url: p.profiles?.linkedin_url || null,
+    avatar_url: p.profiles?.avatar_url || null,
     // flag_at + flag_text surfaced for host view · participant SOS taps land
     // here with the optional note they typed
     flag_at: p.metadata?.flag_at || null,
@@ -139,6 +140,7 @@ export async function GET(request, { params }) {
           roomLabel: placedPairing.room_label,
           partnerName: others.map((p) => p.name).join(' and ') || 'your match',
           partnerLinkedinUrl: others.length === 1 ? others[0]?.linkedin_url || null : null,
+          partnerAvatarUrl: others.length === 1 ? others[0]?.avatar_url || null : null,
           prompt: placedPairing.rounds.prompt_text,
           secondsRemaining: secondsRemainingFor(placedPairing),
           isWithHost: false,
@@ -187,6 +189,7 @@ export async function GET(request, { params }) {
               roomLabel: myPairing.room_label,
               partnerName: partner?.name || 'your match',
               partnerLinkedinUrl: partner?.linkedin_url || null,
+              partnerAvatarUrl: partner?.avatar_url || null,
               prompt: myPairing.rounds.prompt_text,
               secondsRemaining: secondsRemainingFor(myPairing),
               isWithHost: false,
