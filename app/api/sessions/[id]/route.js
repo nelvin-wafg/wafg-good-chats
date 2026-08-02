@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase-server';
 import { getApprovedHost } from '@/lib/auth';
 import { deleteRoom, createRoom } from '@/lib/daily';
+import { logAuditEvent } from '@/lib/audit';
 import {
   validateSessionName,
   validateCode,
@@ -91,6 +92,16 @@ export async function PATCH(request, { params }) {
     }
     return new NextResponse('could not update session', { status: 500 });
   }
+
+  if (updates.status === 'live') {
+    logAuditEvent({
+      eventType: 'session.started',
+      actorId: auth.user.id,
+      actorLabel: auth.host.display_name || auth.host.email,
+      sessionId: session.id,
+    });
+  }
+
   return NextResponse.json({ id: session.id });
 }
 
@@ -104,7 +115,7 @@ export async function DELETE(_request, { params }) {
   const admin = adminClient();
   const { data: session } = await admin
     .from('sessions')
-    .select('id, host_id, main_room_name')
+    .select('id, code, name, host_id, main_room_name')
     .eq('id', params.id)
     .maybeSingle();
   if (!session) return new NextResponse('session not found', { status: 404 });
@@ -114,6 +125,18 @@ export async function DELETE(_request, { params }) {
   if (session.host_id !== auth.user.id) {
     return new NextResponse('only the primary host can delete this session', { status: 403 });
   }
+
+  // log BEFORE deleting: the FK requires the session to still exist at insert
+  // time, and once it's gone the FK's ON DELETE SET NULL will null out
+  // session_id here too — so the code/name are also kept in metadata, since
+  // that's the only place this deleted session's identity survives.
+  logAuditEvent({
+    eventType: 'session.deleted',
+    actorId: auth.user.id,
+    actorLabel: auth.host.display_name || auth.host.email,
+    sessionId: session.id,
+    metadata: { code: session.code, name: session.name },
+  });
 
   // best-effort daily room cleanup (don't block delete on these)
   if (session.main_room_name) {
@@ -132,5 +155,6 @@ export async function DELETE(_request, { params }) {
   // hard delete · cascades to participants/pairings/rounds/captures
   const { error } = await admin.from('sessions').delete().eq('id', session.id);
   if (error) return new NextResponse(error.message, { status: 500 });
+
   return NextResponse.json({ ok: true });
 }

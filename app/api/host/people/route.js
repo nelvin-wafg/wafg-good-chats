@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase-server';
 import { getApprovedHost } from '@/lib/auth';
 import { validateUuid, ValidationError } from '@/lib/validate';
+import { logAuditEvent } from '@/lib/audit';
 
 // DELETE /api/host/people  body: { profileId } OR { participantId }
 //
@@ -34,6 +35,10 @@ export async function DELETE(request) {
   const admin = adminClient();
 
   if (profileId) {
+    // grab the email before deleting · it's the only thing worth keeping in
+    // the audit trail once this row is gone for good.
+    const { data: profile } = await admin.from('profiles').select('email').eq('id', profileId).maybeSingle();
+
     // delete participant rows FIRST · the FK on participants.profile_id is
     // ON DELETE SET NULL so if we deleted the profile first we'd be left with
     // orphan participant rows holding the person's name in past sessions.
@@ -53,6 +58,15 @@ export async function DELETE(request) {
       console.error('[host/people] delete profile failed', prErr);
       return new NextResponse('could not delete profile', { status: 500 });
     }
+
+    logAuditEvent({
+      eventType: 'person.deleted',
+      actorId: auth.user.id,
+      actorLabel: auth.host.display_name || auth.host.email,
+      targetId: profileId,
+      metadata: { deleted: 'profile', email: profile?.email || null },
+    });
+
     return NextResponse.json({ ok: true, deleted: 'profile' });
   }
 
@@ -65,5 +79,14 @@ export async function DELETE(request) {
     console.error('[host/people] delete participant failed', pErr);
     return new NextResponse('could not delete participant', { status: 500 });
   }
+
+  logAuditEvent({
+    eventType: 'person.deleted',
+    actorId: auth.user.id,
+    actorLabel: auth.host.display_name || auth.host.email,
+    targetId: participantId,
+    metadata: { deleted: 'participant' },
+  });
+
   return NextResponse.json({ ok: true, deleted: 'participant' });
 }
