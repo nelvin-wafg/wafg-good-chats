@@ -770,20 +770,20 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
             <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">
               in main room ({participants.filter((p) => p.is_present && !p.current_room_name).length})
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1.5">
               {participants.filter((p) => p.is_present && !p.current_room_name).map((p) => {
                 const dSid = dailySessionByUserId[p.id];
                 const isMuted = dSid ? Boolean(muteStates[dSid]) : false;
                 return (
-                <div key={p.id} className="text-center relative group bg-white border border-neutral-200 rounded-md py-2 px-1">
-                  <div className="relative w-11 h-11 mx-auto">
-                    <div className="w-11 h-11 rounded-full display flex items-center justify-center text-black text-base" style={{ background: colorForName(p.name) }}>
+                <div key={p.id} className="flex items-center gap-2.5 bg-white border border-neutral-200 rounded-md py-2 px-2.5 hover:border-neutral-300">
+                  <div className="relative w-8 h-8 flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full display flex items-center justify-center text-black text-xs" style={{ background: colorForName(p.name) }}>
                       {initials(p.name)}
                     </div>
                     {/* mute badge: red dot in corner when participant is muted */}
                     {isMuted && dSid && (
                       <div
-                        className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-600 text-white flex items-center justify-center text-[8px] border border-white"
+                        className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-red-600 text-white flex items-center justify-center text-[7px] border border-white"
                         title={`${p.name} is muted`}
                       >
                         🔇
@@ -793,22 +793,22 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                       <button
                         type="button"
                         onClick={() => onOpenMessage?.(p)}
-                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-400 text-black text-xs font-bold flex items-center justify-center leading-none animate-pulse border border-white"
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 text-black text-[10px] font-bold flex items-center justify-center leading-none animate-pulse border border-white"
                         title={`${p.name} raised a flag · click to send a private message`}
                       >
                         !
                       </button>
                     )}
                   </div>
-                  <div className="text-[11px] mt-1.5 font-medium truncate">{p.name?.split(' ')[0]}</div>
-                  <div className="flex items-center justify-center gap-1.5 mt-1.5">
+                  <div className="text-xs font-medium truncate flex-1 min-w-0">{p.name}</div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     <PlacePicker participant={p} pairings={pairings} onPlace={onPlace} />
                     {/* mute button: only shown when participant has a live Daily session */}
                     {dSid && (
                       <button
                         type="button"
                         onClick={() => !isMuted && onMute?.(p.id, p.name)}
-                        className={`w-6 h-6 rounded-full text-[11px] flex items-center justify-center leading-none ${isMuted ? 'bg-red-100 text-red-600 cursor-default' : 'bg-neutral-100 hover:bg-orange-100 text-neutral-700 cursor-pointer'}`}
+                        className={`w-7 h-7 rounded-full text-xs flex items-center justify-center leading-none ${isMuted ? 'bg-red-100 text-red-600 cursor-default' : 'bg-neutral-100 hover:bg-orange-100 text-neutral-700 cursor-pointer'}`}
                         title={isMuted ? `${p.name} is muted` : `mute ${p.name}`}
                       >
                         {isMuted ? '🔇' : '🎤'}
@@ -817,7 +817,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                     <button
                       type="button"
                       onClick={() => onOpenMessage?.(p)}
-                      className="w-6 h-6 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-bold flex items-center justify-center leading-none"
+                      className="w-7 h-7 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold flex items-center justify-center leading-none"
                       title={`send ${p.name} a private message`}
                     >
                       ✉
@@ -825,7 +825,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                     <button
                       type="button"
                       onClick={() => onKick?.(p.id, p.name)}
-                      className="w-6 h-6 rounded-full bg-red-50 hover:bg-red-600 text-red-600 hover:text-white text-[11px] font-bold flex items-center justify-center leading-none"
+                      className="w-7 h-7 rounded-full bg-red-50 hover:bg-red-600 text-red-600 hover:text-white text-xs font-bold flex items-center justify-center leading-none"
                       title={`remove ${p.name} from the session`}
                     >
                       ×
@@ -835,7 +835,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                 );
               })}
               {participants.filter((p) => p.is_present && !p.current_room_name).length === 0 && (
-                <div className="col-span-3 text-xs text-neutral-500 italic">[no one here yet]</div>
+                <div className="text-xs text-neutral-500 italic">[no one here yet]</div>
               )}
             </div>
           </div>
@@ -1084,27 +1084,33 @@ function HostControlBar() {
 
   return (
     <div className="border-t border-neutral-200 px-6 py-3 flex items-center justify-center gap-3 bg-white">
-      <div className="flex items-center gap-1">
-        <CtrlBtn on={audioOn} onClick={toggleAudio} label={audioOn ? 'mic on' : 'mic off'} />
-        <DeviceMenu kind="audio" daily={daily} theme="light" />
-      </div>
-      <div className="flex items-center gap-1">
-        <CtrlBtn on={videoOn} onClick={toggleVideo} label={videoOn ? 'cam on' : 'cam off'} />
-        <DeviceMenu kind="video" daily={daily} theme="light" />
-      </div>
+      <CtrlBtn on={audioOn} onClick={toggleAudio} label={audioOn ? 'mic on' : 'mic off'}>
+        <DeviceMenu kind="audio" daily={daily} theme="light" connected />
+      </CtrlBtn>
+      <CtrlBtn on={videoOn} onClick={toggleVideo} label={videoOn ? 'cam on' : 'cam off'}>
+        <DeviceMenu kind="video" daily={daily} theme="light" connected />
+      </CtrlBtn>
     </div>
   );
 }
 
-function CtrlBtn({ on, onClick, label }) {
+// fused "toggle + device-picker" pill: one rounded, bordered container so the
+// mic/cam switch and its chevron dropdown read as a single control instead of
+// two adjacent buttons.
+function CtrlBtn({ on, onClick, label, children }) {
   return (
-    <button
-      onClick={onClick}
-      title={label}
-      className={`px-4 py-2 rounded-full text-xs font-semibold border ${on ? 'bg-neutral-100 border-neutral-300 text-black' : 'bg-red-50 border-red-300 text-red-600'}`}
-    >
-      {label}
-    </button>
+    <div className={`inline-flex items-center rounded-full border overflow-hidden ${on ? 'bg-neutral-100 border-neutral-300 text-black' : 'bg-red-50 border-red-300 text-red-600'}`}>
+      <button
+        type="button"
+        onClick={onClick}
+        title={label}
+        className="px-4 py-2 text-xs font-semibold"
+      >
+        {label}
+      </button>
+      {children && <span aria-hidden="true" className="self-stretch w-px my-1.5" style={{ background: 'currentColor', opacity: 0.25 }} />}
+      {children}
+    </div>
   );
 }
 

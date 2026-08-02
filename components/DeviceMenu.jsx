@@ -8,7 +8,10 @@ import { useEffect, useState } from 'react';
 // kind: 'audio' | 'video'
 // daily: the daily.js call object (callObject from useDaily or held in state)
 // theme: 'dark' (default) for dark control bars, 'light' for the lit-up main room
-export default function DeviceMenu({ kind, daily, theme = 'dark' }) {
+// connected: true when rendered fused to a toggle button as one pill (the
+// wrapper supplies the shared border/background/rounding; this trigger then
+// just needs a transparent hover state and inherits the wrapper's text color)
+export default function DeviceMenu({ kind, daily, theme = 'dark', connected = false }) {
   const [open, setOpen] = useState(false);
   const [devices, setDevices] = useState([]);
   const [currentId, setCurrentId] = useState(null);
@@ -52,9 +55,11 @@ export default function DeviceMenu({ kind, daily, theme = 'dark' }) {
   }
 
   const light = theme === 'light';
-  const arrowClass = light
-    ? 'bg-neutral-100 border-neutral-300 text-black hover:bg-neutral-200'
-    : 'bg-neutral-800 border-neutral-700 text-white hover:bg-neutral-700';
+  const arrowClass = connected
+    ? (light ? 'bg-transparent hover:bg-black/5' : 'bg-transparent hover:bg-white/10')
+    : (light
+        ? 'rounded-full border bg-neutral-100 border-neutral-300 text-black hover:bg-neutral-200'
+        : 'rounded-full border bg-neutral-800 border-neutral-700 text-white hover:bg-neutral-700');
   const menuClass = light
     ? 'bg-white border border-neutral-200 text-black shadow-lg'
     : 'bg-neutral-900 border border-neutral-700 text-white shadow-lg';
@@ -62,11 +67,11 @@ export default function DeviceMenu({ kind, daily, theme = 'dark' }) {
   const labelKind = kind === 'audio' ? 'microphone' : 'camera';
 
   return (
-    <div className="relative">
+    <div className={connected ? 'relative flex' : 'relative'}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`px-2 py-2 rounded-full text-xs font-semibold border ${arrowClass}`}
+        className={`px-2.5 py-2 text-xs font-semibold ${arrowClass}`}
         title={`choose ${labelKind}`}
         aria-label={`choose ${labelKind}`}
       >
