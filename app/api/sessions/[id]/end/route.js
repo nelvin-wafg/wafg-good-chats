@@ -33,7 +33,7 @@ export async function POST(_request, { params }) {
   try {
     const [{ data: participants }, { data: captures }, { data: rounds }] = await Promise.all([
       admin.from('participants')
-        .select('id, name, profiles(email)')
+        .select('id, name, profiles(email, email_verified_at)')
         .eq('session_id', session.id),
       admin.from('captures')
         .select('capturer_id, captured_name, captured_linkedin_url')
@@ -50,8 +50,11 @@ export async function POST(_request, { params }) {
       return acc;
     }, {});
 
+    // only email participants whose profile email is verified — either a
+    // brand-new email that's been confirmed via /api/profiles/verify, or a
+    // pre-existing profile grandfathered in as trusted (see schema.sql).
     const emailPromises = (participants || [])
-      .filter((p) => p.profiles?.email)
+      .filter((p) => p.profiles?.email && p.profiles?.email_verified_at)
       .map((p) => sendRecapEmail({
         to: p.profiles.email,
         participantName: p.name,
