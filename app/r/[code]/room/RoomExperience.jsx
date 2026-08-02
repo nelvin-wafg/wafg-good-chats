@@ -67,6 +67,7 @@ export default function RoomExperience({ session: initialSession }) {
   // my linkedin (from the poll's participant row) · used to prefill the edit modal
   const myParticipantRow = participants.find((p) => p.id === participantId) || null;
   const myLinkedin = myParticipantRow?.linkedin_url || null;
+  const myAvatarUrl = myParticipantRow?.avatar_url || null;
   const isOrphaned = Boolean(session.status === 'running_round' && myAssignment?.orphaned);
   const orphanedFromName = isOrphaned ? myAssignment?.partnerName : null;
 
@@ -381,6 +382,7 @@ export default function RoomExperience({ session: initialSession }) {
           session={session}
           myName={participantName}
           myLinkedin={myLinkedin}
+          myAvatarUrl={myAvatarUrl}
           transition={transition}
           transitionCountdown={transitionCountdown}
           onEditProfile={() => setShowEdit(true)}
@@ -750,7 +752,7 @@ function MainRoomStaticGallery({ participants, myId }) {
 // ============================================================================
 // PAIR ROOM VIEW (mostly unchanged from prior version)
 // ============================================================================
-function PairRoomView({ assignment, session, myName, myLinkedin, transition, transitionCountdown, onEditProfile, onFlag }) {
+function PairRoomView({ assignment, session, myName, myLinkedin, myAvatarUrl, transition, transitionCountdown, onEditProfile, onFlag }) {
   const daily = useDaily();
   const localId = useLocalSessionId();
   const remoteIds = useParticipantIds({ filter: 'remote' });
@@ -819,9 +821,9 @@ function PairRoomView({ assignment, session, myName, myLinkedin, transition, tra
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr,300px] overflow-hidden">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 overflow-hidden">
-          <DailyVideoTile sessionId={localId} isLocal nameOverride={myName} linkedinOverride={myLinkedin} />
+          <DailyVideoTile sessionId={localId} isLocal nameOverride={myName} linkedinOverride={myLinkedin} avatarOverride={myAvatarUrl} />
           {remoteIds.length > 0 ? (
-            <DailyVideoTile sessionId={remoteIds[0]} cyan nameOverride={assignment.partnerName} linkedinOverride={assignment.partnerLinkedinUrl} />
+            <DailyVideoTile sessionId={remoteIds[0]} cyan nameOverride={assignment.partnerName} linkedinOverride={assignment.partnerLinkedinUrl} avatarOverride={assignment.partnerAvatarUrl} />
           ) : (
             <div className="rounded-md bg-neutral-900 border-2 border-dashed border-neutral-700 flex items-center justify-center">
               <div className="text-center">
@@ -890,7 +892,7 @@ function CaptureControl({ captured, partnerName, partnerLinkedinUrl, onCapture }
 // ============================================================================
 // shared video tile component used by both pair room and main room
 // ============================================================================
-function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverride, participantsByName, tileClassName }) {
+function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverride, avatarOverride, participantsByName, tileClassName }) {
   const ref = useRef();
   const videoState = useMediaTrack(sessionId, 'video');
   const userName = useParticipantProperty(sessionId, 'user_name');
@@ -907,8 +909,9 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverri
     }
   }, [videoState?.persistentTrack]);
 
-  // resolve linkedin: explicit override wins, else lookup by name in main room gallery
+  // resolve linkedin/avatar: explicit override wins, else lookup by name in main room gallery
   const linkedinUrl = linkedinOverride || participantsByName?.[name]?.linkedin_url || null;
+  const avatarUrl = avatarOverride || participantsByName?.[name]?.avatar_url || null;
 
   const isHostTile = name?.toLowerCase().includes('host') || (!isLocal && participantsByName?.[name]?.is_host);
   const borderStyle = (cyan || isHostTile)
@@ -932,12 +935,16 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverri
       />
       {!hasVideo && (
         <div className="absolute inset-0 flex items-center justify-center" style={{ background: '#1a1a1a' }}>
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-black" />
+          ) : (
           <div
             className="w-16 h-16 rounded-full display flex items-center justify-center text-black text-xl"
             style={{ background: colorForName(name || '') }}
           >
             {initials(name || '?')}
           </div>
+          )}
         </div>
       )}
       <div className="absolute bottom-2 left-2 bg-black px-2.5 py-1.5 rounded-md text-sm font-bold text-white flex items-center gap-2">
@@ -1478,7 +1485,10 @@ function EndedView({ session }) {
         )}
 
         <p className="script text-3xl mt-10">what starts here, ripples →</p>
-        <a href="/" className="inline-block mt-8 underline text-sm">close out</a>
+        <div className="mt-8 flex items-center gap-4 text-sm">
+          <a href="/profile" className="underline font-semibold">your profile · see your history →</a>
+          <a href="/" className="underline">close out</a>
+        </div>
       </div>
     </main>
   );
