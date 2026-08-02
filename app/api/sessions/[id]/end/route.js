@@ -3,6 +3,7 @@ import { adminClient } from '@/lib/supabase-server';
 import { getApprovedHost } from '@/lib/auth';
 import { deleteRoom } from '@/lib/daily';
 import { sendRecapEmail } from '@/lib/resend';
+import { logAuditEvent } from '@/lib/audit';
 
 // POST /api/sessions/:id/end  — any approved host ends the session
 export async function POST(_request, { params }) {
@@ -29,11 +30,18 @@ export async function POST(_request, { params }) {
     .update({ status: 'ended', ended_at: new Date().toISOString() })
     .eq('id', session.id);
 
+  logAuditEvent({
+    eventType: 'session.ended',
+    actorId: auth.user.id,
+    actorLabel: auth.host.display_name || auth.host.email,
+    sessionId: session.id,
+  });
+
   // fire recap emails to all participants who have a profile email · non-blocking
   try {
     const [{ data: participants }, { data: captures }, { data: rounds }] = await Promise.all([
       admin.from('participants')
-        .select('id, name, profiles(email)')
+        .select('id, name, profiles(email, email_verified_at)')
         .eq('session_id', session.id),
       admin.from('captures')
         .select('capturer_id, captured_name, captured_linkedin_url')
@@ -50,8 +58,11 @@ export async function POST(_request, { params }) {
       return acc;
     }, {});
 
+    // only email participants whose profile email is verified — either a
+    // brand-new email that's been confirmed via /api/profiles/verify, or a
+    // pre-existing profile grandfathered in as trusted (see schema.sql).
     const emailPromises = (participants || [])
-      .filter((p) => p.profiles?.email)
+      .filter((p) => p.profiles?.email && p.profiles?.email_verified_at)
       .map((p) => sendRecapEmail({
         to: p.profiles.email,
         participantName: p.name,

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient, adminClient } from '@/lib/supabase-server';
 import { createRoom } from '@/lib/daily';
+import { logAuditEvent } from '@/lib/audit';
 import {
   validateSessionName,
   validateCode,
@@ -21,7 +22,7 @@ export async function POST(request) {
   const admin = adminClient();
   const { data: host } = await admin
     .from('hosts')
-    .select('is_approved')
+    .select('is_approved, email, display_name')
     .eq('id', user.id)
     .single();
   if (!host?.is_approved) return new NextResponse('host not approved', { status: 403 });
@@ -91,6 +92,14 @@ export async function POST(request) {
       console.error('failed to provision daily room on session create', e);
     }
   }
+
+  logAuditEvent({
+    eventType: 'session.created',
+    actorId: user.id,
+    actorLabel: host.display_name || host.email,
+    sessionId: data.id,
+    metadata: { code: data.code, startNow: Boolean(startNow) },
+  });
 
   return NextResponse.json({ id: data.id, code: data.code });
 }

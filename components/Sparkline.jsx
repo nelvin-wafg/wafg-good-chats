@@ -37,28 +37,55 @@ export default function Sparkline({ data = [], width = 80, height = 24, color = 
   );
 }
 
-// bar chart variant for analytics page
+// "nice" gridline step for a given max value · picks from 1/2/5 × a power of ten
+// so labels read as round numbers (5, 10, 25, 50...) instead of arbitrary fractions.
+function niceStep(max, targetLines = 4) {
+  const raw = max / targetLines;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+  const norm = raw / magnitude;
+  const step = norm < 1.5 ? 1 : norm < 3.5 ? 2 : norm < 7.5 ? 5 : 10;
+  return Math.max(1, step * magnitude);
+}
+
+// bar chart variant for analytics page · gridlines + labeled baseline so a value
+// reads in context instead of floating on its own.
 export function SparkBars({ data = [], labels = [], width = 600, height = 200, color = '#01ecf3' }) {
   if (!data || data.length === 0) {
     return <div className="text-sm text-neutral-500 italic">[no data yet]</div>;
   }
-  const max = Math.max(1, ...data);
-  const padding = { top: 16, bottom: 32, left: 8, right: 8 };
+  const rawMax = Math.max(1, ...data);
+  const step = niceStep(rawMax);
+  const gridMax = Math.ceil(rawMax / step) * step;
+  const gridLines = [];
+  for (let v = 0; v <= gridMax; v += step) gridLines.push(v);
+
+  const padding = { top: 16, bottom: 32, left: 28, right: 8 };
   const chartW = width - padding.left - padding.right;
   const chartH = height - padding.top - padding.bottom;
   const barW = (chartW / data.length) * 0.6;
   const gap = (chartW / data.length) * 0.4;
+  const yFor = (v) => padding.top + chartH - (v / gridMax) * chartH;
 
   return (
     <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet">
+      {/* gridlines + axis labels */}
+      {gridLines.map((v) => (
+        <g key={v}>
+          <line
+            x1={padding.left} x2={width - padding.right} y1={yFor(v)} y2={yFor(v)}
+            stroke={v === 0 ? '#17181a' : '#e4e2dc'} strokeWidth={v === 0 ? 1.5 : 1}
+          />
+          <text x={padding.left - 6} y={yFor(v) + 3} textAnchor="end" fontSize="9" fill="#999">{v}</text>
+        </g>
+      ))}
       {data.map((v, i) => {
-        const h = (v / max) * chartH;
         const x = padding.left + i * (barW + gap) + gap / 2;
-        const y = padding.top + (chartH - h);
+        const y = yFor(v);
+        const h = padding.top + chartH - y;
         return (
           <g key={i}>
             <rect x={x} y={y} width={barW} height={h} fill={color} rx={2} />
-            <text x={x + barW / 2} y={y - 4} textAnchor="middle" fontSize="10" fill="#444" fontWeight="600">
+            <text x={x + barW / 2} y={y - 4} textAnchor="middle" fontSize="10" fill="#17181a" fontWeight="700">
               {v}
             </text>
             {labels[i] && (

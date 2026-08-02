@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase-server';
 import { getApprovedHost } from '@/lib/auth';
 import { createRoom } from '@/lib/daily';
+import { logAuditEvent } from '@/lib/audit';
 
 // POST /api/sessions/:id/start  — flip from draft → live and provision the main daily room.
 // any approved host can start any session (co-host enabled).
@@ -35,6 +36,13 @@ export async function POST(_request, { params }) {
     .from('sessions')
     .update({ status: 'live', main_room_name: mainRoomName })
     .eq('id', session.id);
+
+  logAuditEvent({
+    eventType: 'session.started',
+    actorId: auth.user.id,
+    actorLabel: auth.host.display_name || auth.host.email,
+    sessionId: session.id,
+  });
 
   return NextResponse.json({ ok: true, mainRoomName });
 }

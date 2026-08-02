@@ -77,6 +77,13 @@ create index if not exists idx_profiles_email on profiles(email);
 -- initials circle when present. see app/api/profiles/avatar/route.js.
 alter table profiles add column if not exists avatar_url text;
 
+-- email verification: null = nobody's confirmed they own this inbox yet.
+-- new profiles (brand-new email at join time) start null and only get set by
+-- clicking the link sent via /api/profiles/verify. this gates recap emails
+-- and the kit newsletter sync — see app/api/sessions/[id]/join/route.js,
+-- app/api/sessions/[id]/end/route.js, and app/api/profiles/verify/route.js.
+alter table profiles add column if not exists email_verified_at timestamptz;
+
 -- ============================================================================
 -- STORAGE · avatars bucket for self-uploaded profile photos
 -- public read (photos are shown to other participants during sessions, same
@@ -177,6 +184,26 @@ alter table captures add column if not exists captured_linkedin_url text;
 alter table captures add column if not exists captured_name text;
 
 -- ============================================================================
+-- AUDIT_EVENTS · lightweight trail for host actions with real consequences
+-- (session lifecycle, destructive deletes). not exhaustive by design — routine
+-- per-round/host-UI actions aren't logged, only things worth being able to
+-- answer "who did this and when" about later.
+-- ============================================================================
+create table if not exists audit_events (
+  id uuid primary key default uuid_generate_v4(),
+  event_type text not null,                   -- e.g. 'session.created', 'session.deleted', 'person.deleted'
+  actor_id uuid,                               -- hosts.id · who did it
+  actor_label text,                            -- denormalized email/display_name so this reads without a join
+  session_id uuid references sessions(id) on delete set null,
+  target_id uuid,                              -- e.g. participant/profile id affected, when applicable
+  metadata jsonb default '{}'::jsonb,
+  created_at timestamptz default now()
+);
+create index if not exists idx_audit_events_session on audit_events(session_id);
+create index if not exists idx_audit_events_created on audit_events(created_at);
+create index if not exists idx_audit_events_type on audit_events(event_type);
+
+-- ============================================================================
 -- RATE_LIMITS · sliding-window request tracking per IP/key
 -- ============================================================================
 create table if not exists rate_limits (
@@ -215,6 +242,7 @@ alter table pairings enable row level security;
 alter table captures enable row level security;
 alter table rate_limits enable row level security;
 alter table profiles enable row level security;
+alter table audit_events enable row level security;
 
 -- hosts: authenticated host reads self only.
 drop policy if exists "hosts read self" on hosts;
@@ -256,6 +284,16 @@ left join participants p on p.session_id = s.id
 left join pairings pa on pa.session_id = s.id
 left join captures c on c.session_id = s.id
 group by s.id;
+
+-- ============================================================================
+-- EMAIL VERIFICATION BACKFILL · run this ONCE, right after adding the
+-- email_verified_at column above (i.e. the first time this section of the
+-- file is deployed). grandfathers in every profile that already existed as
+-- trusted/verified, since they predate the verification feature entirely.
+-- DO NOT re-run this later — re-running would also mark any genuinely
+-- unverified new signups as verified, defeating the whole point.
+-- ============================================================================
+-- update profiles set email_verified_at = created_at where email_verified_at is null;
 
 -- ============================================================================
 -- APPROVAL · run this AFTER the host signs up via magic link the first time.

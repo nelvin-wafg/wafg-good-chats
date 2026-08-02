@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase-server';
 import { getApprovedHost } from '@/lib/auth';
 import { validateUuid, ValidationError } from '@/lib/validate';
+import { logAuditEvent } from '@/lib/audit';
 
 // POST /api/sessions/:id/kick  body: { participantId }
 // host-initiated removal. the host's tab does the actual Daily eject (it has the
@@ -38,6 +39,14 @@ export async function POST(request, { params }) {
     console.error('[kick] update failed', error);
     return new NextResponse('could not kick', { status: 500 });
   }
+
+  logAuditEvent({
+    eventType: 'participant.kicked',
+    actorId: auth.user.id,
+    actorLabel: auth.host.display_name || auth.host.email,
+    sessionId,
+    targetId: participantId,
+  });
 
   return NextResponse.json({ ok: true });
 }

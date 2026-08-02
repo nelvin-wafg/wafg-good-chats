@@ -20,6 +20,8 @@ import {
   PROFILE_COOKIE_OPTIONS,
 } from '@/lib/profile-cookie';
 import { addSubscriberToKit } from '@/lib/kit';
+import { signEmailVerifyToken } from '@/lib/email-verify-token';
+import { sendVerificationEmail } from '@/lib/resend';
 
 // POST /api/sessions/:id/join
 // body: { name, email, linkedinUrl?, newsletterOptIn }
@@ -113,6 +115,15 @@ export async function POST(request, { params }) {
       return new NextResponse('could not create profile', { status: 500 });
     }
     profileId = created.id;
+
+    // brand-new email · we don't know yet that this person actually owns it
+    // (anyone can type any email into the join form). send a confirmation
+    // link before we ever act on it — recap emails and the newsletter sync
+    // are held until they click through (see /api/profiles/verify). the
+    // session itself is never blocked on this; it only gates emailing them.
+    const verifyToken = signEmailVerifyToken({ profileId, email });
+    const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/profiles/verify?token=${verifyToken}`;
+    sendVerificationEmail({ to: email, name, verifyUrl }).catch(() => {});
   }
 
   // create OR reuse the session-specific participant row.
@@ -182,8 +193,11 @@ export async function POST(request, { params }) {
     participant = created;
   }
 
-  // sync to Kit if opted in (fire-and-forget; don't block the join on Kit availability)
-  if (newsletterOptIn && (!existingProfile || !existingProfile.kit_synced_at)) {
+  // sync to Kit if opted in (fire-and-forget; don't block the join on Kit availability).
+  // only for existing (trusted) profiles — a brand-new email's sync is deferred
+  // until they verify it (see /api/profiles/verify), so we never subscribe an
+  // inbox nobody's confirmed ownership of.
+  if (newsletterOptIn && existingProfile && !existingProfile.kit_synced_at) {
     addSubscriberToKit({ email, firstName: name.split(' ')[0], linkedinUrl })
       .then(async (r) => {
         if (r.ok) {

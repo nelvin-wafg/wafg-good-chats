@@ -531,22 +531,22 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
   const nextPrompt = session.prompts?.[(session.current_round || 0)]?.text;
 
   return (
-    <main className="min-h-screen flex flex-col text-white" style={{ background: '#0a0a0a' }}>
-      <header className="border-b border-neutral-800 px-6 py-3 flex items-center justify-between">
+    <main className="min-h-screen flex flex-col" style={{ background: '#f4f4f1', color: '#000' }}>
+      <header className="border-b border-neutral-200 bg-white px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
-          <a href="/host" className="text-xs text-neutral-500 hover:text-white whitespace-nowrap">← dashboard</a>
-          <span className="text-neutral-600">·</span>
+          <a href="/host" className="text-xs text-neutral-500 hover:text-black whitespace-nowrap">← dashboard</a>
+          <span className="text-neutral-300">·</span>
           <span className="text-sm font-semibold truncate">{session.name}</span>
           <HeaderCopyLink code={session.code} />
-          <span className="text-neutral-600">·</span>
+          <span className="text-neutral-300">·</span>
           <CoHostCopyLink sessionId={session.id} />
         </div>
         <div className="flex items-center gap-3">
-          <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded ${isRunning ? 'animate-pulse' : ''}`} style={{ background: isEnded ? '#444' : '#01ecf3', color: isEnded ? '#aaa' : '#000' }}>
+          <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded ${isRunning ? 'animate-pulse' : ''}`} style={{ background: isEnded ? '#e5e5e5' : '#01ecf3', color: isEnded ? '#888' : '#000' }}>
             {session.status.replace(/_/g, ' ')}
           </span>
-          <span className="text-sm text-neutral-400">
-            <strong style={{ color: '#01ecf3' }}>{participants.filter((p) => p.is_present).length}</strong> here
+          <span className="text-sm text-neutral-500">
+            <strong className="text-black">{participants.filter((p) => p.is_present).length}</strong> here
           </span>
         </div>
       </header>
@@ -557,19 +557,19 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
         <div className="flex flex-col overflow-hidden">
 
           {/* state-specific controls bar */}
-          <div className="px-6 py-4 border-b border-neutral-800">
+          <div className="px-6 py-4 border-b border-neutral-200 bg-white">
             {session.status === 'draft' && (
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <div className="display text-2xl">ready when you are.</div>
-                    <p className="text-sm text-neutral-400 mt-1">share the link below · then hit go live</p>
+                    <p className="text-sm text-neutral-600 mt-1">share the link below · then hit go live</p>
                   </div>
                   <button onClick={() => action('start')} disabled={busy} className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap">
                     go live *
                   </button>
                 </div>
-                <CopyLink code={session.code} variant="dark" label="participant link" />
+                <CopyLink code={session.code} variant="light" label="participant link" />
               </div>
             )}
 
@@ -578,18 +578,18 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <div className="display text-2xl">main room is open.</div>
-                    <p className="text-sm text-neutral-400 mt-1">welcome folks · kick it off when ready</p>
+                    <p className="text-sm text-neutral-600 mt-1">welcome folks · kick it off when ready</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button onClick={() => action('round', { action: 'start' })} disabled={busy} className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap">
                       kick it off *
                     </button>
-                    <button onClick={() => { if (confirm('end this session now? this closes the room and marks the session ended.')) action('end'); }} disabled={busy} className="px-4 py-3 rounded-md border-2 border-red-500 text-red-400 hover:bg-red-500 hover:text-white font-semibold text-sm whitespace-nowrap">
+                    <button onClick={() => { if (confirm('end this session now? this closes the room and marks the session ended.')) action('end'); }} disabled={busy} className="px-4 py-3 rounded-md border-2 border-red-500 text-red-600 hover:bg-red-500 hover:text-white font-semibold text-sm whitespace-nowrap">
                       end session
                     </button>
                   </div>
                 </div>
-                <CopyLink code={session.code} variant="dark" label="still need to share? grab the link" />
+                <CopyLink code={session.code} variant="light" label="still need to share? grab the link" />
               </div>
             )}
 
@@ -606,26 +606,26 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
               <div>
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>round {session.current_round} of {session.rounds_total} · live</div>
+                    <div className="text-[10px] uppercase tracking-widest font-bold mb-1 text-neutral-600">round {session.current_round} of {session.rounds_total} · live</div>
                     {currentPrompt && <div className="display text-base">{currentPrompt}</div>}
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="display text-4xl" style={{ color: secondsLeft <= 30 ? '#fbbf24' : '#01ecf3' }}>
+                    <div className="display text-4xl" style={{ color: secondsLeft <= 30 ? '#d97706' : '#000' }}>
                       {fmtTime(secondsLeft)}
                     </div>
                     <button onClick={() => action('round', { action: 'end' })} disabled={busy} className="btn-cyan px-4 py-2 rounded-md text-sm">end round *</button>
-                    <button onClick={() => { if (confirm('end the whole session?')) action('end'); }} disabled={busy} className="px-4 py-2 rounded-md border-2 border-red-500 text-red-400 hover:bg-red-500 hover:text-white font-semibold text-sm">end session</button>
+                    <button onClick={() => { if (confirm('end the whole session?')) action('end'); }} disabled={busy} className="px-4 py-2 rounded-md border-2 border-red-500 text-red-600 hover:bg-red-500 hover:text-white font-semibold text-sm">end session</button>
                   </div>
                 </div>
                 {(() => {
                   const withHostPairing = pairings.find((p) => !p.participant_b_name);
                   if (!withHostPairing) return null;
                   return (
-                    <div className="mt-3 px-5 py-4 rounded-md border-2 flex items-center justify-between gap-4" style={{ background: 'rgba(1,236,243,0.12)', borderColor: '#01ecf3' }}>
+                    <div className="mt-3 px-5 py-4 rounded-md border-2 flex items-center justify-between gap-4" style={{ background: 'rgba(1,236,243,0.15)', borderColor: '#01ecf3' }}>
                       <div>
-                        <div className="text-[10px] uppercase tracking-widest font-bold mb-1 opacity-70" style={{ color: '#01ecf3' }}>your conversation this round</div>
-                        <div className="display text-xl font-bold" style={{ color: '#01ecf3' }}>{withHostPairing.participant_a_name}</div>
-                        <div className="text-xs text-neutral-400 mt-1">they're in the main room with you · say hi 👋</div>
+                        <div className="text-[10px] uppercase tracking-widest font-bold mb-1 text-neutral-600">your conversation this round</div>
+                        <div className="display text-xl font-bold">{withHostPairing.participant_a_name}</div>
+                        <div className="text-xs text-neutral-600 mt-1">they're in the main room with you · say hi 👋</div>
                       </div>
                       <div className="text-3xl animate-pulse">🗨️</div>
                     </div>
@@ -638,13 +638,13 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <div className="display text-2xl">all rounds wrapped.</div>
-                  <p className="text-sm text-neutral-400 mt-1">say a final thing · close out · or run another round (pairs may repeat)</p>
+                  <p className="text-sm text-neutral-600 mt-1">say a final thing · close out · or run another round (pairs may repeat)</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => { if (confirm('run another round? everyone has already met everyone, so pairs will repeat.')) action('round', { action: 'start', allowRepeats: true }); }}
                     disabled={busy}
-                    className="px-4 py-3 rounded-md border-2 border-cyan-400 text-cyan-300 hover:bg-cyan-400 hover:text-black font-semibold text-sm whitespace-nowrap"
+                    className="px-4 py-3 rounded-md border-2 border-black text-black hover:bg-cyan-400 font-semibold text-sm whitespace-nowrap"
                   >
                     do another round
                   </button>
@@ -666,11 +666,11 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
           <div className="flex-1 overflow-y-auto p-4 flex flex-col min-h-0">
             {hasCall && (
               <div className="flex items-center justify-end mb-2 flex-shrink-0">
-                <ViewModeToggle mode={viewMode} onChange={updateViewMode} theme="dark" />
+                <ViewModeToggle mode={viewMode} onChange={updateViewMode} theme="light" />
               </div>
             )}
             {hasCall ? <HostVideoGallery participantsByName={participantsByName} mode={viewMode} /> : (
-              <div className="h-full flex items-center justify-center text-neutral-600 text-sm text-center px-6">
+              <div className="h-full flex items-center justify-center text-neutral-500 text-sm text-center px-6">
                 {isEnded
                   ? '[session has ended]'
                   : session.status === 'draft'
@@ -685,13 +685,13 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
         </div>
 
         {/* right rail · relative z-10 ensures dropdowns here stack above the video panel on the left */}
-        <aside className="bg-black border-l border-neutral-800 p-6 overflow-y-auto flex flex-col gap-5 relative z-10">
+        <aside className="bg-white border-l border-neutral-200 p-6 overflow-y-auto flex flex-col gap-5 relative z-10">
 
           {/* waiting room · only relevant before the host kicks off */}
           {waitingList.length > 0 && (
-            <div className="rounded-md border-2 p-3" style={{ borderColor: '#01ecf3', background: 'rgba(1,236,243,0.06)' }}>
+            <div className="rounded-md border-2 p-3 sticker-sm" style={{ borderColor: '#01ecf3', background: 'rgba(1,236,243,0.1)' }}>
               <div className="flex items-center justify-between mb-3">
-                <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#01ecf3' }}>
+                <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-700">
                   waiting ({waitingList.length})
                 </div>
                 <button
@@ -706,7 +706,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
               </div>
               <ul className="space-y-1.5">
                 {waitingList.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-2 text-sm bg-neutral-900 rounded px-2 py-1.5">
+                  <li key={p.id} className="flex items-center justify-between gap-2 text-sm bg-white border border-neutral-200 rounded px-2 py-1.5">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-6 h-6 rounded-full display flex items-center justify-center text-black text-[10px] flex-shrink-0" style={{ background: colorForName(p.name) }}>
                         {initials(p.name)}
@@ -725,7 +725,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                       <button
                         type="button"
                         onClick={() => onKick?.(p.id, p.name)}
-                        className="w-5 h-5 rounded-full bg-red-600/40 hover:bg-red-600 text-white text-[10px] font-bold flex items-center justify-center leading-none"
+                        className="w-5 h-5 rounded-full bg-red-100 hover:bg-red-600 text-red-600 hover:text-white text-[10px] font-bold flex items-center justify-center leading-none"
                         title={`remove ${p.name}`}
                       >
                         ×
@@ -739,7 +739,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
 
           {/* broadcast composer · sends a gentle banner to every room */}
           {hasCall && (
-            <div className="rounded-md border border-neutral-800 bg-neutral-900 p-3">
+            <div className="rounded-md border border-neutral-200 bg-white p-3">
               <div className="text-[10px] uppercase tracking-widest font-bold mb-2 text-neutral-500">broadcast to everyone</div>
               <form
                 onSubmit={(e) => { e.preventDefault(); sendBroadcast?.(); }}
@@ -751,7 +751,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                   onChange={(e) => setBroadcastText?.(e.target.value)}
                   placeholder="e.g. wrapping in 2 minutes..."
                   maxLength={200}
-                  className="flex-1 bg-neutral-800 rounded px-2.5 py-1.5 text-sm text-white border border-neutral-700 focus:outline-none focus:border-cyan-400"
+                  className="flex-1 bg-neutral-100 rounded px-2.5 py-1.5 text-sm text-black border border-neutral-300 focus:outline-none focus:border-cyan-500"
                 />
                 <button
                   type="submit"
@@ -762,7 +762,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                   {broadcastBusy ? '...' : 'send'}
                 </button>
               </form>
-              <p className="text-[10px] text-neutral-600 mt-1.5">[shows briefly at the top of every room]</p>
+              <p className="text-[10px] text-neutral-500 mt-1.5">[shows briefly at the top of every room]</p>
             </div>
           )}
 
@@ -770,20 +770,20 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
             <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">
               in main room ({participants.filter((p) => p.is_present && !p.current_room_name).length})
             </div>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {participants.filter((p) => p.is_present && !p.current_room_name).map((p) => {
                 const dSid = dailySessionByUserId[p.id];
                 const isMuted = dSid ? Boolean(muteStates[dSid]) : false;
                 return (
-                <div key={p.id} className="text-center relative group">
-                  <div className="relative w-12 h-12 mx-auto">
-                    <div className="w-12 h-12 rounded-full display flex items-center justify-center text-black text-base" style={{ background: colorForName(p.name) }}>
+                <div key={p.id} className="text-center relative group bg-white border border-neutral-200 rounded-md py-2 px-1">
+                  <div className="relative w-11 h-11 mx-auto">
+                    <div className="w-11 h-11 rounded-full display flex items-center justify-center text-black text-base" style={{ background: colorForName(p.name) }}>
                       {initials(p.name)}
                     </div>
                     {/* mute badge: red dot in corner when participant is muted */}
                     {isMuted && dSid && (
                       <div
-                        className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-600 text-white flex items-center justify-center text-[8px]"
+                        className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-600 text-white flex items-center justify-center text-[8px] border border-white"
                         title={`${p.name} is muted`}
                       >
                         🔇
@@ -793,22 +793,22 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                       <button
                         type="button"
                         onClick={() => onOpenMessage?.(p)}
-                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-400 text-black text-xs font-bold flex items-center justify-center leading-none animate-pulse"
+                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-400 text-black text-xs font-bold flex items-center justify-center leading-none animate-pulse border border-white"
                         title={`${p.name} raised a flag · click to send a private message`}
                       >
                         !
                       </button>
                     )}
                   </div>
-                  <div className="text-[10px] mt-1 text-neutral-400 truncate">{p.name?.split(' ')[0]}</div>
-                  <div className="flex items-center justify-center gap-1 mt-1">
+                  <div className="text-[11px] mt-1.5 font-medium truncate">{p.name?.split(' ')[0]}</div>
+                  <div className="flex items-center justify-center gap-1.5 mt-1.5">
                     <PlacePicker participant={p} pairings={pairings} onPlace={onPlace} />
                     {/* mute button: only shown when participant has a live Daily session */}
                     {dSid && (
                       <button
                         type="button"
                         onClick={() => !isMuted && onMute?.(p.id, p.name)}
-                        className={`w-5 h-5 rounded-full text-white text-[9px] flex items-center justify-center leading-none ${isMuted ? 'bg-red-800/70 cursor-default' : 'bg-neutral-700 hover:bg-orange-600 cursor-pointer'}`}
+                        className={`w-6 h-6 rounded-full text-[11px] flex items-center justify-center leading-none ${isMuted ? 'bg-red-100 text-red-600 cursor-default' : 'bg-neutral-100 hover:bg-orange-100 text-neutral-700 cursor-pointer'}`}
                         title={isMuted ? `${p.name} is muted` : `mute ${p.name}`}
                       >
                         {isMuted ? '🔇' : '🎤'}
@@ -817,7 +817,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                     <button
                       type="button"
                       onClick={() => onOpenMessage?.(p)}
-                      className="w-5 h-5 rounded-full bg-neutral-700 hover:bg-neutral-600 text-white text-[10px] font-bold flex items-center justify-center leading-none"
+                      className="w-6 h-6 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-bold flex items-center justify-center leading-none"
                       title={`send ${p.name} a private message`}
                     >
                       ✉
@@ -825,7 +825,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                     <button
                       type="button"
                       onClick={() => onKick?.(p.id, p.name)}
-                      className="w-5 h-5 rounded-full bg-red-600/60 hover:bg-red-600 text-white text-[10px] font-bold flex items-center justify-center leading-none"
+                      className="w-6 h-6 rounded-full bg-red-50 hover:bg-red-600 text-red-600 hover:text-white text-[11px] font-bold flex items-center justify-center leading-none"
                       title={`remove ${p.name} from the session`}
                     >
                       ×
@@ -835,7 +835,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                 );
               })}
               {participants.filter((p) => p.is_present && !p.current_room_name).length === 0 && (
-                <div className="col-span-4 text-xs text-neutral-600 italic">[no one here yet]</div>
+                <div className="col-span-3 text-xs text-neutral-500 italic">[no one here yet]</div>
               )}
             </div>
           </div>
@@ -843,10 +843,11 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
           {hasCall && (
             <ChatPanel
               myName="host"
+              theme="light"
               title="room chat"
               placeholder="message the room..."
               emptyHint="[messages from people in the main room show up here]"
-              className="flex h-72 border border-neutral-800 rounded-md"
+              className="flex h-72 border border-neutral-200 rounded-md"
             />
           )}
 
@@ -859,8 +860,8 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                   return (
                     <div
                       key={pa.id}
-                      className={`rounded p-3 text-sm border ${isWithHost ? 'border-cyan-400' : 'bg-neutral-900 border-neutral-800'}`}
-                      style={isWithHost ? { background: 'rgba(1,236,243,0.1)', borderColor: '#01ecf3' } : {}}
+                      className={`rounded p-3 text-sm border ${isWithHost ? '' : 'bg-white border-neutral-200'}`}
+                      style={isWithHost ? { background: 'rgba(1,236,243,0.12)', borderColor: '#01ecf3' } : {}}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
@@ -878,13 +879,13 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                           <button
                             type="button"
                             onClick={() => onKick?.(pa.participant_a_id, pa.participant_a_name)}
-                            className="w-4 h-4 rounded-full bg-red-600/40 hover:bg-red-600 text-white text-[10px] font-bold flex items-center justify-center leading-none flex-shrink-0"
+                            className="w-4 h-4 rounded-full bg-red-100 hover:bg-red-600 text-red-600 hover:text-white text-[10px] font-bold flex items-center justify-center leading-none flex-shrink-0"
                             title={`remove ${pa.participant_a_name} from the session`}
                           >
                             ×
                           </button>
-                          <span className="text-neutral-500">·</span>
-                          <span className={`font-medium truncate ${isWithHost ? '' : ''}`} style={isWithHost ? { color: '#01ecf3' } : {}}>
+                          <span className="text-neutral-400">·</span>
+                          <span className="font-medium truncate">
                             {isWithHost ? 'you (host)' : pa.participant_b_name}
                           </span>
                           {!isWithHost && pa.participant_b_id && participants.find((p) => p.id === pa.participant_b_id)?.flag_at && (
@@ -901,14 +902,14 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                             <button
                               type="button"
                               onClick={() => onKick?.(pa.participant_b_id, pa.participant_b_name)}
-                              className="w-4 h-4 rounded-full bg-red-600/40 hover:bg-red-600 text-white text-[10px] font-bold flex items-center justify-center leading-none flex-shrink-0"
+                              className="w-4 h-4 rounded-full bg-red-100 hover:bg-red-600 text-red-600 hover:text-white text-[10px] font-bold flex items-center justify-center leading-none flex-shrink-0"
                               title={`remove ${pa.participant_b_name} from the session`}
                             >
                               ×
                             </button>
                           )}
                         </div>
-                        <span className="text-[10px] whitespace-nowrap" style={{ color: '#01ecf3' }}>* {pa.room_label}</span>
+                        <span className="text-[10px] whitespace-nowrap text-neutral-600">* {pa.room_label}</span>
                       </div>
                     </div>
                   );
@@ -919,12 +920,12 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
 
           <RoundHistoryPanel pairingsHistory={pairingsHistory} currentRound={session.current_round} />
 
-          <div className="border-t border-neutral-800 pt-5">
+          <div className="border-t border-neutral-200 pt-5">
             <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">session info</div>
-            <div className="text-sm space-y-1 text-neutral-300">
-              <div className="flex justify-between"><span>rounds</span><span style={{ color: '#01ecf3' }}>{session.current_round}/{session.rounds_total}</span></div>
-              <div className="flex justify-between"><span>per round</span><span style={{ color: '#01ecf3' }}>{Math.round(session.round_seconds / 60)} min</span></div>
-              <div className="flex justify-between"><span>total joined</span><span style={{ color: '#01ecf3' }}>{participants.length}</span></div>
+            <div className="text-sm space-y-1">
+              <div className="flex justify-between"><span className="text-neutral-600">rounds</span><span className="font-semibold">{session.current_round}/{session.rounds_total}</span></div>
+              <div className="flex justify-between"><span className="text-neutral-600">per round</span><span className="font-semibold">{Math.round(session.round_seconds / 60)} min</span></div>
+              <div className="flex justify-between"><span className="text-neutral-600">total joined</span><span className="font-semibold">{participants.length}</span></div>
             </div>
           </div>
         </aside>
@@ -1082,14 +1083,14 @@ function HostControlBar() {
   }
 
   return (
-    <div className="border-t border-neutral-800 px-6 py-3 flex items-center justify-center gap-3 bg-black">
+    <div className="border-t border-neutral-200 px-6 py-3 flex items-center justify-center gap-3 bg-white">
       <div className="flex items-center gap-1">
         <CtrlBtn on={audioOn} onClick={toggleAudio} label={audioOn ? 'mic on' : 'mic off'} />
-        <DeviceMenu kind="audio" daily={daily} theme="dark" />
+        <DeviceMenu kind="audio" daily={daily} theme="light" />
       </div>
       <div className="flex items-center gap-1">
         <CtrlBtn on={videoOn} onClick={toggleVideo} label={videoOn ? 'cam on' : 'cam off'} />
-        <DeviceMenu kind="video" daily={daily} theme="dark" />
+        <DeviceMenu kind="video" daily={daily} theme="light" />
       </div>
     </div>
   );
@@ -1100,7 +1101,7 @@ function CtrlBtn({ on, onClick, label }) {
     <button
       onClick={onClick}
       title={label}
-      className={`px-4 py-2 rounded-full text-xs font-semibold border ${on ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-red-900/30 border-red-700 text-red-300'}`}
+      className={`px-4 py-2 rounded-full text-xs font-semibold border ${on ? 'bg-neutral-100 border-neutral-300 text-black' : 'bg-red-50 border-red-300 text-red-600'}`}
     >
       {label}
     </button>
@@ -1146,25 +1147,25 @@ function BetweenRoundsBar({ session, nextPrompt, busy, action }) {
         <div className="flex items-center gap-3">
           <div className="display text-2xl">round {session.current_round} wrapped.</div>
           {!paused && !triggered && (
-            <span className="text-sm" style={{ color: '#01ecf3' }}>
-              · round {session.current_round + 1} starts in <strong>{remaining}s</strong>
+            <span className="text-sm text-neutral-700">
+              · round {session.current_round + 1} starts in <strong className="text-black">{remaining}s</strong>
             </span>
           )}
           {paused && (
-            <span className="text-sm text-amber-400">· paused</span>
+            <span className="text-sm" style={{ color: '#d97706' }}>· paused</span>
           )}
           {triggered && (
             <span className="text-sm text-neutral-500">· starting...</span>
           )}
         </div>
-        {nextPrompt && <p className="text-sm text-neutral-400 mt-1 truncate">next: <span style={{ color: '#01ecf3' }}>{nextPrompt}</span></p>}
+        {nextPrompt && <p className="text-sm text-neutral-600 mt-1 truncate">next: <span className="text-black font-medium">{nextPrompt}</span></p>}
       </div>
       <div className="flex items-center gap-2">
         {!triggered && (
           <button
             onClick={() => setPaused((p) => !p)}
             disabled={busy}
-            className="px-3 py-2 rounded-md border border-neutral-600 text-neutral-300 hover:bg-neutral-800 text-xs whitespace-nowrap"
+            className="px-3 py-2 rounded-md border border-neutral-300 text-neutral-700 hover:bg-neutral-100 text-xs whitespace-nowrap"
           >
             {paused ? 'resume' : 'hold up'}
           </button>
@@ -1172,7 +1173,7 @@ function BetweenRoundsBar({ session, nextPrompt, busy, action }) {
         <button onClick={() => action('round', { action: 'start' })} disabled={busy || triggered} className="btn-cyan px-5 py-3 rounded-md text-base whitespace-nowrap">
           start now *
         </button>
-        <button onClick={() => { if (confirm('end this session now? skips remaining rounds.')) action('end'); }} disabled={busy} className="px-3 py-2 rounded-md border-2 border-red-500 text-red-400 hover:bg-red-500 hover:text-white font-semibold text-xs whitespace-nowrap">
+        <button onClick={() => { if (confirm('end this session now? skips remaining rounds.')) action('end'); }} disabled={busy} className="px-3 py-2 rounded-md border-2 border-red-500 text-red-600 hover:bg-red-500 hover:text-white font-semibold text-xs whitespace-nowrap">
           end session
         </button>
       </div>
@@ -1193,18 +1194,18 @@ function RoundHistoryPanel({ pairingsHistory, currentRound }) {
   const rounds = Object.keys(byRound).map(Number).sort((a, b) => a - b);
 
   return (
-    <div className="border-t border-neutral-800 pt-5">
+    <div className="border-t border-neutral-200 pt-5">
       <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">round history</div>
       <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
         {rounds.map((rn) => {
           const isCurrent = rn === currentRound;
           return (
-            <div key={rn} className={`rounded p-2 ${isCurrent ? 'border border-cyan-700 bg-cyan-900/10' : 'bg-neutral-900 border border-neutral-800'}`}>
+            <div key={rn} className={`rounded p-2 border ${isCurrent ? 'border-cyan-400' : 'bg-white border-neutral-200'}`} style={isCurrent ? { background: 'rgba(1,236,243,0.1)' } : {}}>
               <div className="flex items-center justify-between mb-1">
-                <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: isCurrent ? '#01ecf3' : '#888' }}>
+                <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: isCurrent ? '#00838f' : '#888' }}>
                   round {rn}{isCurrent ? ' · live' : ''}
                 </div>
-                <div className="text-[10px] text-neutral-600">
+                <div className="text-[10px] text-neutral-500">
                   {byRound[rn].filter((p) => p.participant_b_name).length} pair{byRound[rn].filter((p) => p.participant_b_name).length === 1 ? '' : 's'}
                 </div>
               </div>
@@ -1213,10 +1214,10 @@ function RoundHistoryPanel({ pairingsHistory, currentRound }) {
                   <li key={p.id} className="text-xs flex items-center justify-between gap-2">
                     <span className="truncate">
                       <span className="font-medium">{p.participant_a_name}</span>
-                      <span className="text-neutral-500"> × </span>
+                      <span className="text-neutral-400"> × </span>
                       <span className="font-medium">{p.participant_b_name || <span className="italic text-neutral-500">with you</span>}</span>
                     </span>
-                    {p.room_label && <span className="text-[9px] text-neutral-600 whitespace-nowrap">* {p.room_label}</span>}
+                    {p.room_label && <span className="text-[9px] text-neutral-500 whitespace-nowrap">* {p.room_label}</span>}
                   </li>
                 ))}
               </ul>
@@ -1243,7 +1244,7 @@ function HostRecapPanel({ sessionId }) {
   }, [sessionId]);
 
   if (loading) {
-    return <div className="text-sm text-neutral-400">[pulling recap...]</div>;
+    return <div className="text-sm text-neutral-500">[pulling recap...]</div>;
   }
   if (!recap || recap.role !== 'host') {
     return (
@@ -1263,30 +1264,30 @@ function HostRecapPanel({ sessionId }) {
       <div className="display text-2xl mb-3">that's a wrap.</div>
 
       <div className="grid grid-cols-3 gap-3 mb-5 max-w-md">
-        <div className="bg-neutral-900 border border-neutral-800 rounded-md p-3">
-          <div className="display text-2xl" style={{ color: '#01ecf3' }}>{recap.stats.total_participants}</div>
+        <div className="bg-white border border-neutral-200 rounded-md p-3">
+          <div className="display text-2xl">{recap.stats.total_participants}</div>
           <div className="text-[10px] uppercase tracking-widest font-bold mt-1 text-neutral-500">people</div>
         </div>
-        <div className="bg-neutral-900 border border-neutral-800 rounded-md p-3">
-          <div className="display text-2xl" style={{ color: '#01ecf3' }}>{recap.stats.total_rounds}</div>
+        <div className="bg-white border border-neutral-200 rounded-md p-3">
+          <div className="display text-2xl">{recap.stats.total_rounds}</div>
           <div className="text-[10px] uppercase tracking-widest font-bold mt-1 text-neutral-500">rounds</div>
         </div>
-        <div className="bg-neutral-900 border border-neutral-800 rounded-md p-3">
-          <div className="display text-2xl" style={{ color: '#01ecf3' }}>{recap.stats.total_captures}</div>
-          <div className="text-[10px] uppercase tracking-widest font-bold mt-1 text-neutral-500">captures</div>
+        <div className="rounded-md p-3" style={{ background: '#01ecf3' }}>
+          <div className="display text-2xl">{recap.stats.total_captures}</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold mt-1 opacity-60">captures</div>
         </div>
       </div>
 
       {/* captures list */}
       {recap.captures.length > 0 && (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-md p-4 mb-5 max-w-2xl">
+        <div className="bg-white border border-neutral-200 rounded-md p-4 mb-5 max-w-2xl">
           <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">connections captured</div>
-          <ul className="divide-y divide-neutral-800">
+          <ul className="divide-y divide-neutral-200">
             {recap.captures.map((c) => (
               <li key={c.id} className="py-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <span className="font-semibold text-base">{c.capturer_name}</span>
-                  <span className="text-neutral-400 text-sm"> → </span>
+                  <span className="text-neutral-500 text-sm"> → </span>
                   <span className="font-semibold text-base">{c.captured_name}</span>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -1301,16 +1302,16 @@ function HostRecapPanel({ sessionId }) {
       )}
 
       {/* participants list */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-md p-4 mb-5 max-w-2xl">
+      <div className="bg-white border border-neutral-200 rounded-md p-4 mb-5 max-w-2xl">
         <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">all participants</div>
-        <ul className="divide-y divide-neutral-800">
+        <ul className="divide-y divide-neutral-200">
           {recap.participants.map((p) => (
             <li key={p.id} className="py-3 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <span className="font-semibold text-base">{p.name}</span>
-                {p.email && <span className="text-neutral-400 ml-2 text-sm font-mono">{p.email}</span>}
+                {p.email && <span className="text-neutral-500 ml-2 text-sm font-mono">{p.email}</span>}
               </div>
-              <div className="flex items-center gap-3 flex-shrink-0 text-sm text-neutral-400">
+              <div className="flex items-center gap-3 flex-shrink-0 text-sm text-neutral-500">
                 <span>{capturerCounts[p.name] || 0} captures</span>
                 {p.linkedin_url && (
                   <a href={p.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-1 rounded font-bold" style={{ background: '#0a66c2', color: '#fff' }}>LinkedIn →</a>
@@ -1321,7 +1322,7 @@ function HostRecapPanel({ sessionId }) {
         </ul>
       </div>
 
-      <a href="/host" className="inline-block text-sm underline text-neutral-400 hover:text-white">back to dashboard →</a>
+      <a href="/host" className="inline-block text-sm underline text-neutral-500 hover:text-black">back to dashboard →</a>
     </div>
   );
 }
@@ -1349,7 +1350,7 @@ function PlacePicker({ participant, pairings, onPlace }) {
         type="button"
         onClick={handleOpen}
         disabled={rooms.length === 0}
-        className="w-5 h-5 rounded-full bg-cyan-500/40 hover:bg-cyan-500 text-white text-[10px] font-bold flex items-center justify-center leading-none disabled:opacity-30"
+        className="w-6 h-6 rounded-full bg-cyan-100 hover:bg-cyan-400 text-cyan-800 hover:text-black text-[11px] font-bold flex items-center justify-center leading-none disabled:opacity-30"
         title={rooms.length === 0 ? 'no live rooms yet' : `place ${participant.name} into a room`}
       >
         →
@@ -1358,7 +1359,7 @@ function PlacePicker({ participant, pairings, onPlace }) {
         <>
           <button type="button" onClick={() => setOpen(false)} className="fixed inset-0 z-[190] cursor-default" aria-label="close menu" />
           <div
-            className="fixed z-[200] bg-neutral-900 border border-neutral-700 rounded shadow-xl p-1 min-w-[180px]"
+            className="fixed z-[200] bg-white border border-neutral-200 rounded shadow-xl p-1 min-w-[180px]"
             style={{ top: dropPos.top, right: dropPos.right }}
           >
             <div className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 text-neutral-500">place into</div>
@@ -1370,7 +1371,7 @@ function PlacePicker({ participant, pairings, onPlace }) {
                 key={r.id}
                 type="button"
                 onClick={() => { onPlace?.(participant.id, r.room_name); setOpen(false); }}
-                className="block w-full text-left px-2 py-1.5 text-xs text-white rounded hover:bg-neutral-800"
+                className="block w-full text-left px-2 py-1.5 text-xs text-black rounded hover:bg-neutral-100"
               >
                 <span style={{ color: '#01ecf3' }}>* </span>{r.room_label}
               </button>
@@ -1450,8 +1451,8 @@ function HeaderCopyLink({ code }) {
     <button
       onClick={copy}
       title="copy participant share link"
-      className="text-xs flex items-center gap-1.5 hover:text-cyan-300 transition-colors"
-      style={{ color: copied ? '#01ecf3' : '#737373' }}
+      className="text-xs flex items-center gap-1.5 hover:text-black transition-colors"
+      style={{ color: copied ? '#00838f' : '#737373' }}
     >
       <span className="font-mono">/r/{code}</span>
       <span>{copied ? '✓ copied' : '· copy'}</span>
@@ -1476,8 +1477,8 @@ function CoHostCopyLink({ sessionId }) {
     <button
       onClick={copy}
       title="copy co-host link · share with another approved host (jon, becky)"
-      className="text-xs flex items-center gap-1.5 hover:text-cyan-300 transition-colors"
-      style={{ color: copied ? '#01ecf3' : '#737373' }}
+      className="text-xs flex items-center gap-1.5 hover:text-black transition-colors"
+      style={{ color: copied ? '#00838f' : '#737373' }}
     >
       <span>{copied ? '✓ co-host link copied' : 'co-host link'}</span>
     </button>
