@@ -1009,24 +1009,30 @@ function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile, onF
     <>
       {audioBlocked && <MicBlockedOverlay daily={daily} />}
       <footer className={`border-t px-6 py-3 flex items-center justify-center gap-3 flex-wrap ${footerClass}`}>
-        <div className="flex items-center gap-1">
+        <div
+          className={`inline-flex items-center rounded-full border overflow-hidden ${audioOn ? onClass : offClass}`}
+        >
           <button
             onClick={toggleAudio}
-            className={`px-4 py-2 rounded-full text-xs font-semibold border ${audioOn ? onClass : offClass}`}
+            className="px-4 py-2 text-xs font-semibold"
           >
             {audioOn ? 'mic on' : (audioBlocked ? '🔇 mic blocked · fix it ↑' : 'mic off · tap to unmute')}
           </button>
-          <DeviceMenu kind="audio" daily={daily} theme={theme} />
+          <span aria-hidden="true" className="self-stretch w-px my-1.5" style={{ background: 'currentColor', opacity: 0.25 }} />
+          <DeviceMenu kind="audio" daily={daily} theme={theme} connected />
         </div>
-        <div className="flex items-center gap-1">
+        <div
+          className={`inline-flex items-center rounded-full border overflow-hidden ${videoOn ? onClass : offClass}`}
+          style={!videoOn ? { background: '#01ecf3', color: '#000', borderColor: '#01ecf3' } : {}}
+        >
           <button
             onClick={toggleVideo}
-            className={`px-4 py-2 rounded-full text-xs font-semibold border ${videoOn ? onClass : offClass}`}
-            style={!videoOn ? { background: '#01ecf3', color: '#000', borderColor: '#01ecf3' } : {}}
+            className="px-4 py-2 text-xs font-semibold"
           >
             {videoOn ? 'cam on' : (videoBlocked ? 'camera blocked · check browser settings' : 'tap to turn on camera')}
           </button>
-          <DeviceMenu kind="video" daily={daily} theme={theme} />
+          <span aria-hidden="true" className="self-stretch w-px my-1.5" style={{ background: 'currentColor', opacity: 0.25 }} />
+          <DeviceMenu kind="video" daily={daily} theme={theme} connected />
         </div>
         {onEditProfile && (
           <button
