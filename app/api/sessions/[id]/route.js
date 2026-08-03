@@ -3,6 +3,7 @@ import { adminClient } from '@/lib/supabase-server';
 import { getApprovedHost } from '@/lib/auth';
 import { deleteRoom, createRoom } from '@/lib/daily';
 import { logAuditEvent } from '@/lib/audit';
+import { notifyPendingSignups } from '@/lib/notify';
 import {
   validateSessionName,
   validateCode,
@@ -18,7 +19,7 @@ export async function PATCH(request, { params }) {
   const auth = await getApprovedHost();
   if (!auth) return new NextResponse('not an approved host', { status: 403 });
 
-  let name, code, roundsTotal, roundSeconds, prompts, startNow, isPublished, startsAt, hasPublishedKey, hasStartsAtKey;
+  let name, code, roundsTotal, roundSeconds, prompts, startNow, isPublished, startsAt, notifyList, hasPublishedKey, hasStartsAtKey, hasNotifyListKey;
   try {
     const body = await request.json();
     name = validateSessionName(body?.name);
@@ -31,7 +32,9 @@ export async function PATCH(request, { params }) {
     // (broadcast, etc.) intact.
     hasPublishedKey = Object.prototype.hasOwnProperty.call(body || {}, 'is_published');
     hasStartsAtKey = Object.prototype.hasOwnProperty.call(body || {}, 'starts_at');
+    hasNotifyListKey = Object.prototype.hasOwnProperty.call(body || {}, 'notify_list');
     isPublished = hasPublishedKey ? Boolean(body.is_published) : undefined;
+    notifyList = hasNotifyListKey ? Boolean(body.notify_list) : undefined;
     if (hasStartsAtKey) {
       if (!body.starts_at) {
         startsAt = null;
@@ -60,6 +63,14 @@ export async function PATCH(request, { params }) {
   const newMetadata = { ...(session.metadata || {}) };
   if (hasPublishedKey) newMetadata.is_published = isPublished;
   if (hasStartsAtKey) newMetadata.starts_at = startsAt;
+  if (hasNotifyListKey) newMetadata.notify_list = notifyList;
+
+  // fire the announcement blast at most once per session: only when the host
+  // has explicitly opted this session in AND it hasn't already gone out (so
+  // saving the same published-and-notified draft again never double-sends).
+  const effectiveNotifyList = hasNotifyListKey ? notifyList : Boolean(session.metadata?.notify_list);
+  const shouldNotify = effectiveNotifyList && !session.metadata?.notify_sent_at;
+  if (shouldNotify) newMetadata.notify_sent_at = new Date().toISOString();
 
   const updates = {
     name,
@@ -91,6 +102,12 @@ export async function PATCH(request, { params }) {
       return new NextResponse('that code is already in use · pick a different slug', { status: 409 });
     }
     return new NextResponse('could not update session', { status: 500 });
+  }
+
+  if (shouldNotify) {
+    notifyPendingSignups({ sessionName: name, sessionCode: code, startsAt: newMetadata.starts_at }).catch((e) =>
+      console.error('[notify] announcement blast failed', e?.message || e)
+    );
   }
 
   if (updates.status === 'live') {

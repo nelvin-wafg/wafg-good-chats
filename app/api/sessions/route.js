@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient, adminClient } from '@/lib/supabase-server';
 import { createRoom } from '@/lib/daily';
 import { logAuditEvent } from '@/lib/audit';
+import { notifyPendingSignups } from '@/lib/notify';
 import {
   validateSessionName,
   validateCode,
@@ -28,7 +29,7 @@ export async function POST(request) {
   if (!host?.is_approved) return new NextResponse('host not approved', { status: 403 });
 
   // validate inputs
-  let name, code, roundsTotal, roundSeconds, prompts, startNow, isPublished, startsAt;
+  let name, code, roundsTotal, roundSeconds, prompts, startNow, isPublished, startsAt, notifyList;
   try {
     const body = await request.json();
     name = validateSessionName(body?.name);
@@ -46,10 +47,20 @@ export async function POST(request) {
       const ts = new Date(body.starts_at);
       if (!Number.isNaN(ts.getTime())) startsAt = ts.toISOString();
     }
+    // notify_list: a SEPARATE, explicit, default-false opt-in from is_published.
+    // is_published defaults true on every session (including throwaway test
+    // sessions) — tying an email blast to that would spam real subscribers
+    // every time a test session gets created, so this only fires the
+    // announcement when the host deliberately checks it.
+    notifyList = body?.notify_list === true;
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
     return new NextResponse('bad request', { status: 400 });
   }
+
+  // notify_list fires once, right away, at creation — stamp notify_sent_at
+  // immediately so a rapid double-submit (or a later edit) can't double-send.
+  const notifySentAt = notifyList ? new Date().toISOString() : null;
 
   // always insert as draft first; if start_now, provision the daily room then flip to live.
   // doing it in two steps so the daily call doesn't block session creation if it fails.
@@ -63,7 +74,7 @@ export async function POST(request) {
       round_seconds: roundSeconds,
       prompts,
       status: 'draft',
-      metadata: { is_published: isPublished, starts_at: startsAt },
+      metadata: { is_published: isPublished, starts_at: startsAt, notify_list: notifyList, notify_sent_at: notifySentAt },
     })
     .select('id, code')
     .single();
@@ -73,6 +84,12 @@ export async function POST(request) {
       return new NextResponse('that code is already in use · pick a different slug', { status: 409 });
     }
     return new NextResponse('could not create session', { status: 500 });
+  }
+
+  if (notifyList) {
+    notifyPendingSignups({ sessionName: name, sessionCode: code, startsAt }).catch((e) =>
+      console.error('[notify] announcement blast failed', e?.message || e)
+    );
   }
 
   // if the host clicked "go live now *", provision the daily.co main room and flip status
