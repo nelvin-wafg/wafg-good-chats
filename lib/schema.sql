@@ -204,6 +204,28 @@ create index if not exists idx_audit_events_created on audit_events(created_at);
 create index if not exists idx_audit_events_type on audit_events(event_type);
 
 -- ============================================================================
+-- NOTIFY_SIGNUPS · public landing-page "tell me about the next session" list
+-- independent of any session/profile — backs app/api/notify. notified_at is
+-- stamped once a session announcement email goes out to that row so the same
+-- person isn't emailed twice for the same "next session" wave; a host-opted-in
+-- announcement (session.metadata.notify_list) only fires for rows still null.
+-- ============================================================================
+create table if not exists notify_signups (
+  id uuid primary key default uuid_generate_v4(),
+  email text not null,
+  first_name text,
+  linkedin_url text,
+  source text,
+  subscribed_to_weekly boolean default false,
+  notified_at timestamptz,
+  created_at timestamptz default now()
+);
+create index if not exists idx_notify_signups_notified on notify_signups(notified_at);
+
+-- backfill: ensure notified_at exists on tables created before this column was added
+alter table notify_signups add column if not exists notified_at timestamptz;
+
+-- ============================================================================
 -- RATE_LIMITS · sliding-window request tracking per IP/key
 -- ============================================================================
 create table if not exists rate_limits (
@@ -243,6 +265,7 @@ alter table captures enable row level security;
 alter table rate_limits enable row level security;
 alter table profiles enable row level security;
 alter table audit_events enable row level security;
+alter table notify_signups enable row level security;
 
 -- hosts: authenticated host reads self only.
 drop policy if exists "hosts read self" on hosts;
@@ -262,7 +285,8 @@ drop policy if exists "rounds public read" on rounds;
 drop policy if exists "pairings public read" on pairings;
 drop policy if exists "captures public" on captures;
 
--- intentionally no anon policies on participants / rounds / pairings / captures / rate_limits.
+-- intentionally no anon policies on participants / rounds / pairings / captures /
+-- rate_limits / notify_signups.
 -- anon clients can't read or write. server uses service_role and bypasses RLS.
 -- if you ever expose the supabase client to the browser for any of these, REVISIT THIS.
 

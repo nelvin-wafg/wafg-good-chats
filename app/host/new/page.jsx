@@ -47,6 +47,12 @@ function NewSessionInner() {
   // is the optional event datetime (HTML datetime-local format, browser tz).
   const [isPublished, setIsPublished] = useState(true);
   const [startsAt, setStartsAt] = useState('');
+  // notify-list announcement · deliberately separate from isPublished and
+  // defaults OFF. isPublished defaults true on every session (including
+  // throwaway test ones) — tying an email blast to that would spam real
+  // notify-list subscribers every time a test session gets created.
+  const [notifyList, setNotifyList] = useState(false);
+  const [notifySentAt, setNotifySentAt] = useState(null);
 
   // load an existing draft's config when editing
   useEffect(() => {
@@ -64,6 +70,8 @@ function NewSessionInner() {
           setSelected((d.session.prompts || []).map((p) => p.text).filter(Boolean));
           // publish controls (loaded from session.metadata if present)
           if (typeof d.session.is_published === 'boolean') setIsPublished(d.session.is_published);
+          if (typeof d.session.notify_list === 'boolean') setNotifyList(d.session.notify_list);
+          if (d.session.notify_sent_at) setNotifySentAt(d.session.notify_sent_at);
           if (d.session.starts_at) {
             // datetime-local needs YYYY-MM-DDTHH:mm (no seconds, no tz suffix)
             const dt = new Date(d.session.starts_at);
@@ -123,6 +131,7 @@ function NewSessionInner() {
           prompts: selected.map((text, i) => ({ id: i, text })),
           start_now: startNow,
           is_published: isPublished,
+          notify_list: notifyList,
           // datetime-local is treated as the browser's local time · the server
           // converts to ISO. send empty string as null so PATCH can clear it.
           starts_at: startsAt ? new Date(startsAt).toISOString() : null,
@@ -197,6 +206,27 @@ function NewSessionInner() {
                     <span className="text-neutral-500">— anyone visiting goodchats.weareforgood.com will see this session and can click through to join. uncheck for invite-only.</span>
                   </span>
                 </label>
+              </Field>
+
+              <Field label="email your notify list">
+                {notifySentAt ? (
+                  <p className="text-sm text-neutral-500 italic">
+                    [already sent to your notify list on {new Date(notifySentAt).toLocaleDateString()} · can't resend for this session]
+                  </p>
+                ) : (
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={notifyList}
+                      onChange={(e) => setNotifyList(e.target.checked)}
+                      className="mt-1 w-5 h-5 accent-red-500"
+                    />
+                    <span className="text-sm">
+                      <strong>announce this to everyone on the notify list</strong>{' '}
+                      <span className="text-neutral-500">— sends a real email to everyone who signed up on the landing page waiting to hear about the next session. only check this for the real thing · fires once, when you save.</span>
+                    </span>
+                  </label>
+                )}
               </Field>
 
               <div className="flex justify-end mt-4">
