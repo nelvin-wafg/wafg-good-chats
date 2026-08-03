@@ -138,6 +138,7 @@ export async function GET() {
     .slice(-8);
   const trendsCaptures = recentEnded.map((s) => sessionStats[s.id]?.captures || 0);
   const trendsAttendance = recentEnded.map((s) => sessionStats[s.id]?.attendance || 0);
+  const trendsMinutes = recentEnded.map((s) => Math.round((s.rounds_total || 0) * ((s.round_seconds || 0) / 60)));
 
   // categorize sessions
   const live = sessions.filter((s) =>
@@ -176,6 +177,6 @@ export async function GET() {
     drafts: drafts.map((s) => ({ id: s.id, code: s.code, name: s.name })),
     past,
     topConnectors,
-    trends: { captures: trendsCaptures, attendance: trendsAttendance },
+    trends: { captures: trendsCaptures, attendance: trendsAttendance, minutes: trendsMinutes },
   });
 }

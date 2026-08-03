@@ -119,36 +119,42 @@ export default function HostDashboard() {
             hey {data.host?.display_name || 'friend'} <span style={{ color: '#01ecf3' }}>*</span>
           </div>
         </div>
-        <div className="flex items-center gap-3 flex-shrink-0 text-sm">
-          <button
-            type="button"
-            onClick={() => setShowStory(true)}
-            className="underline text-neutral-600 hover:text-black"
-            title="how this project has evolved"
-          >
-            the story →
-          </button>
-          <span className="text-neutral-400">·</span>
-          <Link href="/host/analytics" className="underline text-neutral-600 hover:text-black">analytics →</Link>
-          <span className="text-neutral-400">·</span>
-          <a
-            href="/api/host/export"
-            className="underline text-neutral-600 hover:text-black"
-            download
-          >
-            export all (csv)
-          </a>
-          <span className="text-neutral-400">·</span>
-          <a
-            href="/api/host/export/people"
-            className="underline text-neutral-600 hover:text-black"
-            download
-          >
-            people (csv)
-          </a>
-          <span className="text-neutral-400">·</span>
-          <form action="/api/auth/signout" method="POST" className="inline">
-            <button type="submit" className="underline text-neutral-600 hover:text-black">sign out</button>
+        <div className="flex flex-col items-end gap-2 flex-shrink-0 text-sm">
+          <div className="flex items-center flex-wrap justify-end gap-x-3 gap-y-1">
+            <button
+              type="button"
+              onClick={() => setShowStory(true)}
+              className="underline text-neutral-600 hover:text-black"
+              title="how this project has evolved"
+            >
+              the story →
+            </button>
+            <span className="text-neutral-400">·</span>
+            <Link href="/host/analytics" className="underline text-neutral-600 hover:text-black">analytics →</Link>
+            <span className="text-neutral-400">·</span>
+            <a
+              href="/api/host/export"
+              className="underline text-neutral-600 hover:text-black"
+              download
+            >
+              export all (csv)
+            </a>
+            <span className="text-neutral-400">·</span>
+            <a
+              href="/api/host/export/people"
+              className="underline text-neutral-600 hover:text-black"
+              download
+            >
+              people (csv)
+            </a>
+          </div>
+          <form action="/api/auth/signout" method="POST">
+            <button
+              type="submit"
+              className="text-xs font-semibold px-3 py-1.5 rounded-full border border-neutral-300 text-neutral-600 hover:border-neutral-400 hover:text-black"
+            >
+              sign out
+            </button>
           </form>
         </div>
       </header>
@@ -189,11 +195,16 @@ export default function HostDashboard() {
         />
         <StatCard label="unique people" value={data.totals.totalParticipants} spark={data.trends?.attendance} onClick={() => setActiveStat('people')} />
         <StatCard label="newsletter opt-ins" value={data.totals.totalNewsletterOptIns} onClick={() => setActiveStat('newsletter')} />
-        <StatCard label="minutes hosted" value={data.totals.totalSessionMinutes} onClick={() => setActiveStat('minutes')} />
+        <StatCard
+          label="minutes hosted"
+          value={data.totals.totalSessionMinutes}
+          spark={data.trends?.minutes}
+          onClick={() => setActiveStat('minutes')}
+        />
       </div>
 
       {/* newsletter sync card */}
-      <div className="bg-white rounded-md p-4 mb-8 border border-neutral-200 flex items-center justify-between gap-4 flex-wrap">
+      <div className="sticker-sm bg-white rounded-md p-4 mb-8 flex items-center justify-between gap-4 flex-wrap">
         <div className="min-w-0">
           <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">newsletter sync (kit)</div>
           <div className="text-sm mt-1">
@@ -206,7 +217,12 @@ export default function HostDashboard() {
           </div>
         </div>
         {data.newsletter.syncedThisMonth === 0 && (
-          <span className="text-xs text-neutral-500 italic">[no syncs yet · check KIT_API_KEY in vercel if expected]</span>
+          <span
+            className="text-xs text-neutral-500 italic"
+            title="check KIT_API_KEY in vercel if you expected syncs this month"
+          >
+            [no syncs yet this month]
+          </span>
         )}
       </div>
 
@@ -258,7 +274,7 @@ export default function HostDashboard() {
                     </div>
                     <button
                       onClick={() => handleDeletePerson(c)}
-                      className="text-xs text-red-500 hover:text-red-700 underline"
+                      className="text-xs text-red-500 hover:text-red-700 underline pl-4 ml-1 border-l border-neutral-200"
                       title={`permanently delete ${c.name}`}
                     >
                       delete
@@ -284,7 +300,7 @@ export default function HostDashboard() {
         ) : (
           <div className="grid gap-3">
             {data.past.map((s) => (
-              <div key={s.id} className="bg-white rounded-md p-4 border border-neutral-200">
+              <div key={s.id} className="sticker-sm bg-white rounded-md p-4">
                 <div className="flex items-start justify-between gap-4 mb-2">
                   <div className="min-w-0">
                     <div className="font-semibold truncate">{s.name}</div>
@@ -303,7 +319,7 @@ export default function HostDashboard() {
                     </a>
                     <button
                       onClick={() => handleDelete(s.id, s.name)}
-                      className="text-red-500 hover:text-red-700 underline"
+                      className="text-red-500 hover:text-red-700 underline pl-3 ml-1 border-l border-neutral-200"
                       title="delete session"
                     >
                       delete
@@ -312,7 +328,7 @@ export default function HostDashboard() {
                 </div>
 
                 {/* inline stats */}
-                <div className="flex items-center gap-4 text-xs flex-wrap mt-3 pt-3 border-t border-neutral-100">
+                <div className="flex items-center gap-2 text-xs flex-wrap mt-3 pt-3 border-t border-neutral-100">
                   <Stat label="attendance" value={s.attendance} />
                   <Stat label="captures" value={s.captures} highlight />
                   <Stat label="engagement" value={`${s.engagement_pct}%`} />
@@ -366,10 +382,10 @@ function StatCard({ label, value, highlight, spark, onClick }) {
   );
 }
 
-// inline mini-stat for past session cards
+// inline mini-stat chip for past session cards
 function Stat({ label, value, highlight }) {
   return (
-    <div className="inline-flex items-baseline gap-1.5">
+    <div className={`inline-flex items-baseline gap-1.5 rounded-full px-2.5 py-1 ${highlight ? 'bg-cyan-50' : 'bg-neutral-100'}`}>
       <span className="text-neutral-500">{label}:</span>
       <span className={`font-bold ${highlight ? '' : 'text-black'}`} style={highlight ? { color: '#01ecf3' } : {}}>{value}</span>
     </div>
