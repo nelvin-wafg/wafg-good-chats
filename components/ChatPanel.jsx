@@ -113,7 +113,9 @@ export default function ChatPanel({
     ? 'bg-neutral-100 text-black border-neutral-300 focus:border-cyan-500'
     : 'bg-neutral-800 text-white border-neutral-700 focus:border-cyan-400';
   const hintClass = light ? 'text-neutral-400' : 'text-neutral-600';
-  const mutedLinkClass = light ? 'text-neutral-400 hover:text-neutral-700' : 'text-neutral-600 hover:text-neutral-300';
+  const iconBtnClass = light
+    ? 'bg-neutral-100 hover:bg-neutral-200 text-neutral-600'
+    : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300';
   const quoteClass = light ? 'border-neutral-300 text-neutral-500' : 'border-neutral-700 text-neutral-400';
   const pickerClass = light
     ? 'bg-white border-neutral-200 shadow-lg'
@@ -164,10 +166,11 @@ export default function ChatPanel({
                 <button
                   type="button"
                   onClick={() => setPickerFor((cur) => (cur === m.id ? null : m.id))}
-                  className={`text-[11px] leading-none ${mutedLinkClass}`}
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] leading-none ${iconBtnClass}`}
                   title="react"
+                  aria-label="react to this message"
                 >
-                  react +
+                  🙂
                 </button>
                 {pickerFor === m.id && (
                   <>
@@ -190,9 +193,11 @@ export default function ChatPanel({
               <button
                 type="button"
                 onClick={() => setReplyTo({ id: m.id, text: m.text, from: m.from })}
-                className={`text-[11px] leading-none ${mutedLinkClass}`}
+                className={`w-5 h-5 rounded-full flex items-center justify-center text-xs leading-none ${iconBtnClass}`}
+                title="reply"
+                aria-label="reply to this message"
               >
-                reply
+                ↩
               </button>
             </div>
           </div>

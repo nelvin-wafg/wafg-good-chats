@@ -71,7 +71,7 @@ export default function DeviceMenu({ kind, daily, theme = 'dark', connected = fa
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`px-2.5 py-2 text-xs font-semibold ${arrowClass}`}
+        className={`px-2.5 py-2 text-xs font-semibold ${connected ? 'rounded-r-full' : ''} ${arrowClass}`}
         title={`choose ${labelKind}`}
         aria-label={`choose ${labelKind}`}
       >

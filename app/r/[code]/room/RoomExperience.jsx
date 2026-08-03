@@ -548,8 +548,13 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
   return (
     <main className="min-h-screen flex flex-col" style={{ background: '#f4f4f1', color: '#000' }}>
       <header className="flex items-center justify-between px-6 py-3 border-b border-neutral-200 bg-white">
-        <div className="display text-base">
-          Good<span style={{ color: '#01ecf3' }}>*</span>Chats
+        <div>
+          <div className="text-[9px] uppercase tracking-widest font-bold text-neutral-400 leading-none mb-0.5">
+            We Are For Good
+          </div>
+          <div className="display text-xl leading-none">
+            Good<span style={{ color: '#01ecf3' }}>*</span>Chats
+          </div>
         </div>
         <div className="text-xs text-neutral-500">
           <span className="font-bold text-black">{liveCount}</span> here · {session.name}
@@ -1010,11 +1015,11 @@ function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile, onF
       {audioBlocked && <MicBlockedOverlay daily={daily} />}
       <footer className={`border-t px-6 py-3 flex items-center justify-center gap-3 flex-wrap ${footerClass}`}>
         <div
-          className={`inline-flex items-center rounded-full border overflow-hidden ${audioOn ? onClass : offClass}`}
+          className={`inline-flex items-center rounded-full border ${audioOn ? onClass : offClass}`}
         >
           <button
             onClick={toggleAudio}
-            className="px-4 py-2 text-xs font-semibold"
+            className="px-4 py-2 text-xs font-semibold rounded-l-full"
           >
             {audioOn ? 'mic on' : (audioBlocked ? '🔇 mic blocked · fix it ↑' : 'mic off · tap to unmute')}
           </button>
@@ -1022,12 +1027,12 @@ function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile, onF
           <DeviceMenu kind="audio" daily={daily} theme={theme} connected />
         </div>
         <div
-          className={`inline-flex items-center rounded-full border overflow-hidden ${videoOn ? onClass : offClass}`}
+          className={`inline-flex items-center rounded-full border ${videoOn ? onClass : offClass}`}
           style={!videoOn ? { background: '#01ecf3', color: '#000', borderColor: '#01ecf3' } : {}}
         >
           <button
             onClick={toggleVideo}
-            className="px-4 py-2 text-xs font-semibold"
+            className="px-4 py-2 text-xs font-semibold rounded-l-full"
           >
             {videoOn ? 'cam on' : (videoBlocked ? 'camera blocked · check browser settings' : 'tap to turn on camera')}
           </button>

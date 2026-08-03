@@ -1099,12 +1099,12 @@ function HostControlBar() {
 // two adjacent buttons.
 function CtrlBtn({ on, onClick, label, children }) {
   return (
-    <div className={`inline-flex items-center rounded-full border overflow-hidden ${on ? 'bg-neutral-100 border-neutral-300 text-black' : 'bg-red-50 border-red-300 text-red-600'}`}>
+    <div className={`inline-flex items-center rounded-full border ${on ? 'bg-neutral-100 border-neutral-300 text-black' : 'bg-red-50 border-red-300 text-red-600'}`}>
       <button
         type="button"
         onClick={onClick}
         title={label}
-        className="px-4 py-2 text-xs font-semibold"
+        className="px-4 py-2 text-xs font-semibold rounded-l-full"
       >
         {label}
       </button>
