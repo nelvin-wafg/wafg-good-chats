@@ -10,6 +10,11 @@ import { logAuditEvent } from '@/lib/audit';
 // host views update immediately and the participant doesn't appear in re-pairings.
 // the participant could still rejoin via the session link · the user asked for
 // "just eject" semantics rather than a permanent block.
+//
+// kicked_at is what makes the eject actually stick: without it, a still-open tab
+// from the kicked participant keeps sending state-poll heartbeats, which would
+// otherwise silently flip is_present back to true. see the heartbeat guard in
+// app/api/sessions/[id]/state/route.js and the clear-on-rejoin in join/route.js.
 export async function POST(request, { params }) {
   const auth = await getApprovedHost();
   if (!auth) return new NextResponse('forbidden', { status: 403 });
@@ -31,6 +36,7 @@ export async function POST(request, { params }) {
       is_present: false,
       current_room_name: null,
       left_at: new Date().toISOString(),
+      kicked_at: new Date().toISOString(),
     })
     .eq('id', participantId)
     .eq('session_id', sessionId);

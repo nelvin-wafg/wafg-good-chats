@@ -191,17 +191,35 @@ async function startRound(admin, session, { allowRepeats = false, fromAdvance = 
   // update participants' current_room_name so the host views know who's where.
   // reset everyone to the main room first, then stamp the paired folks into their
   // rooms · this covers the seamless-advance path where endRound doesn't pre-clear.
-  await admin
+  // stamps run in parallel (not one-by-one) both for speed and to shrink the
+  // window where the host's "in main room" list can catch an inconsistent
+  // mid-transition state, and every write is error-checked — a prior version
+  // let these fail silently, which is why paired participants could still show
+  // as "in main room" on the host dashboard despite being correctly paired
+  // (their actual room assignment, read from the pairings table, was never wrong —
+  // only this display-only stamp was).
+  const { error: resetErr } = await admin
     .from('participants')
     .update({ current_room_name: null })
     .eq('session_id', session.id);
-  for (const insert of pairingInserts) {
-    if (insert.room_name) {
-      await admin
-        .from('participants')
-        .update({ current_room_name: insert.room_name })
-        .in('id', [insert.participant_a_id, insert.participant_b_id].filter(Boolean));
-    }
+  if (resetErr) console.error('[round] failed to reset current_room_name before stamping', resetErr);
+
+  const stampResults = await Promise.all(
+    pairingInserts
+      .filter((insert) => insert.room_name)
+      .map(async (insert) => {
+        const ids = [insert.participant_a_id, insert.participant_b_id].filter(Boolean);
+        const { error } = await admin
+          .from('participants')
+          .update({ current_room_name: insert.room_name })
+          .in('id', ids);
+        if (error) console.error('[round] failed to stamp current_room_name', { ids, room: insert.room_name, error });
+        return { ok: !error, ids, room: insert.room_name };
+      })
+  );
+  const failedStamps = stampResults.filter((r) => !r.ok);
+  if (failedStamps.length > 0) {
+    console.error(`[round] ${failedStamps.length}/${stampResults.length} pairing(s) failed to stamp current_room_name`, failedStamps);
   }
 
   // update session status

@@ -122,6 +122,14 @@ alter table participants add column if not exists profile_id uuid references pro
 -- vs. brief refreshes (a refreshing participant updates this within ~2s).
 alter table participants add column if not exists last_seen timestamptz default now();
 
+-- explicit host removal marker · distinct from left_at (which also gets set by a
+-- graceful self-leave or session end). while this is set, the state-poll heartbeat
+-- refuses to resurrect is_present, so a kicked participant's still-open tab can't
+-- silently undo the kick just by continuing to poll. only POST /join (an actual,
+-- deliberate rejoin) clears this — see app/api/sessions/[id]/kick/route.js and
+-- app/api/sessions/[id]/join/route.js.
+alter table participants add column if not exists kicked_at timestamptz;
+
 create index if not exists idx_participants_session on participants(session_id);
 create index if not exists idx_participants_present on participants(session_id, is_present);
 create index if not exists idx_participants_profile on participants(profile_id);

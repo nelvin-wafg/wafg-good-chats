@@ -71,18 +71,22 @@ export async function GET(request, { params }) {
   }
 
   // heartbeat: each poll from a participant marks them present + bumps last_seen.
-  // this is what makes a browser refresh NOT look like a disconnect.
+  // this is what makes a browser refresh NOT look like a disconnect. gated on
+  // kicked_at: without this check, a host-kicked participant's still-open tab
+  // would silently flip is_present back to true on its very next poll, undoing
+  // the kick. only an actual rejoin (POST /join) clears kicked_at.
   if (participantId) {
     await admin
       .from('participants')
       .update({ is_present: true, last_seen: new Date().toISOString() })
       .eq('id', participantId)
-      .eq('session_id', sessionId);
+      .eq('session_id', sessionId)
+      .is('kicked_at', null);
   }
 
   const { data: rawParticipants = [] } = await admin
     .from('participants')
-    .select('id, name, is_present, current_room_name, joined_at, last_seen, metadata, profiles(linkedin_url, avatar_url)')
+    .select('id, name, is_present, current_room_name, joined_at, last_seen, metadata, kicked_at, profiles(linkedin_url, avatar_url)')
     .eq('session_id', session.id)
     .order('joined_at', { ascending: true });
   const participants = (rawParticipants || []).map((p) => ({
@@ -305,6 +309,10 @@ export async function GET(request, { params }) {
             Boolean(
               rawParticipants.find((p) => p.id === participantId)?.metadata?.admitted_at
             ),
+          // host explicitly removed this participant · the client should stop
+          // polling and show a clear "removed" screen rather than silently
+          // sitting in a broken state (see RoomExperience.jsx's poll loop).
+          kicked: Boolean(rawParticipants.find((p) => p.id === participantId)?.kicked_at),
         }
       : null,
   });
