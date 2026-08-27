@@ -153,6 +153,7 @@ export async function POST(request, { params }) {
           is_present: true,
           last_seen: now,
           left_at: null,
+          kicked_at: null,
           metadata: { join_ip: getClientIp(request), admitted_at: preservedAdmittedAt },
         })
         .eq('id', primaryId)

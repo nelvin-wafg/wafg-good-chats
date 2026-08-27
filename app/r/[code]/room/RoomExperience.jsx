@@ -142,6 +142,15 @@ export default function RoomExperience({ session: initialSession }) {
           setBroadcast(null);
         }
         if (data.me?.participantId) {
+          // host explicitly kicked us · this covers the case where we were never
+          // actually connected to the Daily call (so the 'left-meeting'-based
+          // eject detection below never fires) — e.g. a stale tab that only ever
+          // polled state without joining. redirect the same way a real eject does.
+          if (data.me.kicked) {
+            cancelled = true;
+            window.location.href = `/r/${initialSession.code}?removed=1`;
+            return;
+          }
           setParticipantId(data.me.participantId);
           setAdmitted(Boolean(data.me.admitted));
           consecutiveUnauthed = 0;
@@ -215,6 +224,35 @@ export default function RoomExperience({ session: initialSession }) {
         try { co.destroy(); } catch {}
       }
     };
+  }, []);
+
+  // root-cause fix for "can't hear my partner until I leave and rejoin": DailyAudio
+  // mounts a fresh <audio> element per remote participant whenever their track
+  // arrives, which after a room switch can land well after our one-shot, blindly-
+  // timed setTimeout(unlockIosAudio, 500) below has already fired — under real
+  // event load (many simultaneous room switches renegotiating at once) that race
+  // is lost often enough to matter. rather than guess a timing window, watch the
+  // DOM directly and force-play every <audio> element the instant it actually
+  // appears, whenever that is. this runs for the whole component lifetime, not
+  // just around a room switch, so it also covers audio elements created for
+  // participants whose tracks arrive late in the room we're already in.
+  useEffect(() => {
+    if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') return;
+    function tryPlay(el) {
+      try { el.play().catch(() => {}); } catch {}
+    }
+    document.querySelectorAll('audio').forEach(tryPlay);
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          if (node.tagName === 'AUDIO') tryPlay(node);
+          else if (node.querySelectorAll) node.querySelectorAll('audio').forEach(tryPlay);
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
   }, []);
 
   // detect involuntary disconnect (host eject). on Daily's 'left-meeting' event,
@@ -291,16 +329,18 @@ export default function RoomExperience({ session: initialSession }) {
       try { await callObject.setLocalVideo(true); } catch (e) { console.warn('[daily] setLocalVideo failed', e); }
       try { await callObject.setLocalAudio(true); } catch (e) { console.warn('[daily] setLocalAudio failed', e); }
       // attempt daily's krisp noise cancellation; falls back to browser-native if not on plan
-      try { await callObject.updateInputSettings({ audio: { processor: { type: 'noise-cancellation' } } }); } catch {}
+      try { await callObject.updateInputSettings({ audio: { processor: { type: 'noise-cancellation' } } }); } catch (e) { console.warn('[daily] noise-cancellation init failed', e); }
 
       joinedNameRef.current = target.name;
       setCurrentRoom({ name: target.name, isPair: target.isPair });
 
       // nudge iOS audio playback after each room switch · DailyAudio mounts new
       // <audio> elements per room and iOS sometimes needs them poked into play.
-      // if the audio context was already unlocked by a prior tap, this just
-      // force-plays the new elements; if not, it's a safe no-op.
-      setTimeout(unlockIosAudio, 500);
+      // the MutationObserver above is the real fix (it catches audio elements
+      // whenever they actually appear); these are just extra, cheap safety-net
+      // attempts spread over a few seconds in case the observer isn't available
+      // or a browser needs a repeated nudge.
+      [300, 1000, 2500, 5000].forEach((delay) => setTimeout(unlockIosAudio, delay));
 
       // brief "splitting" transition only when entering a pair room
       if (target.isPair && session.status === 'running_round') {

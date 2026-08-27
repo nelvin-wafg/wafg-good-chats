@@ -613,7 +613,19 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                     <div className="display text-4xl" style={{ color: secondsLeft <= 30 ? '#d97706' : '#000' }}>
                       {fmtTime(secondsLeft)}
                     </div>
-                    <button onClick={() => action('round', { action: 'end' })} disabled={busy} className="btn-cyan px-4 py-2 rounded-md text-sm">end round *</button>
+                    {(() => {
+                      const isLastRound = session.current_round >= session.rounds_total;
+                      return (
+                        <button
+                          onClick={() => action('round', { action: 'end' })}
+                          disabled={busy}
+                          className="btn-cyan px-4 py-2 rounded-md text-sm"
+                          title={isLastRound ? 'this was the last round · everyone returns to the main room' : `starts round ${session.current_round + 1} immediately · no stop in the main room`}
+                        >
+                          {isLastRound ? 'end round → main room *' : `end round → start round ${session.current_round + 1} *`}
+                        </button>
+                      );
+                    })()}
                     <button onClick={() => { if (confirm('end the whole session?')) action('end'); }} disabled={busy} className="px-4 py-2 rounded-md border-2 border-red-500 text-red-600 hover:bg-red-500 hover:text-white font-semibold text-sm">end session</button>
                   </div>
                 </div>
@@ -878,6 +890,14 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                           )}
                           <button
                             type="button"
+                            onClick={() => onOpenMessage?.({ id: pa.participant_a_id, name: pa.participant_a_name })}
+                            className="w-4 h-4 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[9px] font-bold flex items-center justify-center leading-none flex-shrink-0"
+                            title={`send ${pa.participant_a_name} a private message`}
+                          >
+                            ✉
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => onKick?.(pa.participant_a_id, pa.participant_a_name)}
                             className="w-4 h-4 rounded-full bg-red-100 hover:bg-red-600 text-red-600 hover:text-white text-[10px] font-bold flex items-center justify-center leading-none flex-shrink-0"
                             title={`remove ${pa.participant_a_name} from the session`}
@@ -896,6 +916,16 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                               title={`${pa.participant_b_name} raised a flag · click to message`}
                             >
                               !
+                            </button>
+                          )}
+                          {!isWithHost && pa.participant_b_id && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenMessage?.({ id: pa.participant_b_id, name: pa.participant_b_name })}
+                              className="w-4 h-4 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[9px] font-bold flex items-center justify-center leading-none flex-shrink-0"
+                              title={`send ${pa.participant_b_name} a private message`}
+                            >
+                              ✉
                             </button>
                           )}
                           {!isWithHost && pa.participant_b_id && (
