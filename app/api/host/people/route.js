@@ -13,7 +13,12 @@ import { logAuditEvent } from '@/lib/audit';
 // only that participant row (which cascades captures off them).
 //
 // host-only · approved hosts have access to every profile because all sessions
-// share the WAFG host pool.
+// share the WAFG host pool. deleting a whole PROFILE (profileId) is irreversible
+// and cross-session — it wipes a person's contact record and capture history
+// from every session any host has ever run, not just the caller's own — so that
+// path additionally requires is_admin. deleting a single participant row
+// (participantId, scoped to one session) stays available to any approved host,
+// matching every other per-session moderation action in this app.
 export async function DELETE(request) {
   const auth = await getApprovedHost();
   if (!auth) return new NextResponse('forbidden', { status: 403 });
@@ -30,6 +35,10 @@ export async function DELETE(request) {
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
     return new NextResponse('bad request', { status: 400 });
+  }
+
+  if (profileId && !auth.host.is_admin) {
+    return new NextResponse('deleting a person across every session requires an admin host', { status: 403 });
   }
 
   const admin = adminClient();

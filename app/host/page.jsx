@@ -14,6 +14,12 @@ export default function HostDashboard() {
   const [details, setDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [showStory, setShowStory] = useState(false);
+  // irreversible, cascading deletes (a whole session or a person's cross-session
+  // record) get a typed-confirmation modal instead of a bare confirm() — a host
+  // who's clicked through several low-stakes confirm() dialogs while setting up
+  // drafts is trained to reflexively accept them, and nothing about a plain
+  // confirm() singles out the ones that can't be undone.
+  const [pendingDelete, setPendingDelete] = useState(null); // { kind: 'session'|'person', label, run }
 
   useEffect(() => {
     if (!activeStat) { setDetails(null); return; }
@@ -48,8 +54,16 @@ export default function HostDashboard() {
     return () => { cancelled = true; };
   }, []);
 
-  async function handleDelete(sessionId, name) {
-    if (!confirm(`delete "${name}" permanently? this removes all participants, pairings, and captures from the database. cannot be undone.`)) return;
+  function confirmDeleteSession(sessionId, name) {
+    setPendingDelete({
+      kind: 'session',
+      label: name,
+      detail: 'this removes all participants, pairings, and captures from the database.',
+      run: () => runDeleteSession(sessionId),
+    });
+  }
+
+  async function runDeleteSession(sessionId) {
     try {
       const res = await fetch(`/api/sessions/${sessionId}`, {
         method: 'DELETE',
@@ -60,7 +74,6 @@ export default function HostDashboard() {
         return;
       }
       showToast('session deleted', 'success');
-      // refetch
       const fresh = await fetch('/api/host/dashboard', { credentials: 'same-origin' });
       if (fresh.ok) setData(await fresh.json());
     } catch (e) {
@@ -68,9 +81,17 @@ export default function HostDashboard() {
     }
   }
 
-  async function handleDeletePerson(connector) {
+  function confirmDeletePerson(connector) {
     const label = connector.name || connector.email || 'this person';
-    if (!confirm(`delete ${label} permanently? this removes their profile and every record of them across all your sessions (participant rows, captures). cannot be undone.`)) return;
+    setPendingDelete({
+      kind: 'person',
+      label,
+      detail: 'this removes their profile and every record of them across ALL your sessions (participant rows, captures).',
+      run: () => runDeletePerson(connector, label),
+    });
+  }
+
+  async function runDeletePerson(connector, label) {
     try {
       const res = await fetch('/api/host/people', {
         method: 'DELETE',
@@ -217,10 +238,7 @@ export default function HostDashboard() {
           </div>
         </div>
         {data.newsletter.syncedThisMonth === 0 && (
-          <span
-            className="text-xs text-neutral-500 italic"
-            title="check KIT_API_KEY in vercel if you expected syncs this month"
-          >
+          <span className="text-xs text-neutral-500 italic">
             [no syncs yet this month]
           </span>
         )}
@@ -241,7 +259,7 @@ export default function HostDashboard() {
                   <div className="flex items-center gap-3 text-sm flex-shrink-0">
                     <Link href={`/host/new?id=${s.id}`} className="underline whitespace-nowrap">edit →</Link>
                     <button
-                      onClick={() => handleDelete(s.id, s.name)}
+                      onClick={() => confirmDeleteSession(s.id, s.name)}
                       className="text-red-500 hover:text-red-700 underline"
                       title="delete draft"
                     >
@@ -273,7 +291,7 @@ export default function HostDashboard() {
                       {c.captures} {c.captures === 1 ? 'capture' : 'captures'}
                     </div>
                     <button
-                      onClick={() => handleDeletePerson(c)}
+                      onClick={() => confirmDeletePerson(c)}
                       className="text-xs text-red-500 hover:text-red-700 underline pl-4 ml-1 border-l border-neutral-200"
                       title={`permanently delete ${c.name}`}
                     >
@@ -318,7 +336,7 @@ export default function HostDashboard() {
                       csv
                     </a>
                     <button
-                      onClick={() => handleDelete(s.id, s.name)}
+                      onClick={() => confirmDeleteSession(s.id, s.name)}
                       className="text-red-500 hover:text-red-700 underline pl-3 ml-1 border-l border-neutral-200"
                       title="delete session"
                     >
@@ -352,7 +370,59 @@ export default function HostDashboard() {
       )}
 
       {showStory && <StoryModal onClose={() => setShowStory(false)} />}
+
+      {pendingDelete && (
+        <TypedConfirmModal
+          title={pendingDelete.kind === 'person' ? 'delete this person, everywhere' : 'delete this session'}
+          label={pendingDelete.label}
+          detail={pendingDelete.detail}
+          onConfirm={() => { const run = pendingDelete.run; setPendingDelete(null); run(); }}
+          onClose={() => setPendingDelete(null)}
+        />
+      )}
     </main>
+  );
+}
+
+// typed-confirmation modal for irreversible, cascading deletes. requires typing
+// the exact name back rather than a single click, so it can't be reflexively
+// clicked through the way a native confirm() gets trained away after a few
+// low-stakes drafts get deleted the same way.
+function TypedConfirmModal({ title, label, detail, onConfirm, onClose }) {
+  const [typed, setTyped] = useState('');
+  const matches = typed.trim() === label.trim();
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-md w-full max-w-md sticker p-6" style={{ color: '#000' }}>
+        <div className="text-xs uppercase tracking-widest font-bold text-red-600 mb-1">* cannot be undone *</div>
+        <div className="display text-2xl mb-2">{title}</div>
+        <p className="text-sm text-neutral-600 mb-4">{detail}</p>
+        <label className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-1 block">
+          type <span className="text-black">{label}</span> to confirm
+        </label>
+        <input
+          type="text"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          autoFocus
+          className="w-full border-2 border-neutral-300 rounded-md px-3 py-2 mb-4 focus:border-red-500 focus:outline-none"
+        />
+        <div className="flex items-center justify-end gap-3">
+          <button type="button" onClick={onClose} className="text-sm underline text-neutral-500 hover:text-black">cancel</button>
+          <button
+            type="button"
+            disabled={!matches}
+            onClick={onConfirm}
+            className="px-4 py-2 rounded-md border-2 border-red-500 text-red-600 hover:bg-red-500 hover:text-white font-semibold text-sm disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-red-600"
+          >
+            delete permanently
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

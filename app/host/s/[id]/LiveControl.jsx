@@ -93,7 +93,7 @@ export default function LiveControl({ session: initialSession }) {
   // join main daily.co room when session is active
   useEffect(() => {
     let mounted = true;
-    const isActive = ['live', 'running_round', 'between_rounds', 'closing'].includes(session.status);
+    const isActive = ['live', 'running_round', 'closing'].includes(session.status);
     const wantsCall = isActive && session.main_room_name;
 
     async function manageCall() {
@@ -224,12 +224,14 @@ export default function LiveControl({ session: initialSession }) {
   // mute a participant: host-initiated. only works for participants in the MAIN
   // daily room since the host's call object is only connected there.
   function muteParticipant(participantId, participantName) {
-    if (!callObject) return;
+    if (!callObject) { showToast("couldn't mute · not connected to the call", 'error'); return; }
     try {
       const dps = callObject.participants() || {};
+      let found = false;
       for (const [sid, p] of Object.entries(dps)) {
         if (sid === 'local') continue;
         if (p?.user_id === participantId) {
+          found = true;
           callObject.updateParticipant(sid, { setAudio: false });
           // optimistic update so the UI reflects immediately
           setMuteStates((prev) => ({ ...prev, [sid]: true }));
@@ -237,8 +239,13 @@ export default function LiveControl({ session: initialSession }) {
           break;
         }
       }
+      // the mute button is only shown when dailySessionByUserId has this
+      // participant, so this shouldn't happen — but if that gating assumption
+      // ever breaks, fail loudly instead of doing nothing silently.
+      if (!found) showToast(`couldn't find ${participantName || 'them'} in the call`, 'error');
     } catch (e) {
       console.warn('[mute] failed', e);
+      showToast("couldn't mute · try again", 'error');
     }
   }
 
@@ -318,7 +325,9 @@ export default function LiveControl({ session: initialSession }) {
         showToast((await res.text()) || "couldn't send", 'error');
         return false;
       }
-      showToast('sent', 'success');
+      // empty text = "mark as handled" (clears the flag with no message sent),
+      // not an actual send · see the endpoint's comment for why this exists.
+      showToast(text ? 'sent' : 'flag cleared', 'success');
       return true;
     } catch {
       showToast('connection issue · try again', 'error');
@@ -399,10 +408,19 @@ export default function LiveControl({ session: initialSession }) {
   // a stale row is one whose heartbeat (last_seen) is older than STALE_MS · a
   // browser refresh updates last_seen within ~2s so refreshes never trigger.
   //
+  // STALE_MS is deliberately generous (30s, not the original 8s): this is a
+  // live in-person event tool, and an 8s gap is well within normal range for a
+  // phone locking for a moment or a room's wifi hiccuping — that used to be
+  // enough to have someone auto-marked absent. 30s comfortably survives that
+  // while still catching a genuinely dead tab within one round's timescale.
+  //
   // we do TWO things for each stale row:
-  //  1. mark them absent in the db via the same /kick endpoint manual kicks use
-  //     · this is what stops phantom names from sticking in "in main room" when
-  //     a participant's tab dies without firing pagehide (mobile especially).
+  //  1. mark them absent in the db via the same /kick endpoint manual kicks use,
+  //     but with `auto: true` · this is what stops phantom names from sticking
+  //     in "in main room" when a participant's tab dies without firing pagehide
+  //     (mobile especially) — WITHOUT setting kicked_at, so it's silently
+  //     recoverable the instant their own heartbeat resumes, and they never see
+  //     "the host removed you" messaging for something the host never did.
   //  2. if they're still in the Daily participants list, eject them from the
   //     call too so their video tile clears for everyone else.
   //
@@ -412,7 +430,7 @@ export default function LiveControl({ session: initialSession }) {
   useEffect(() => {
     if (!callObject) return;
     const now = Date.now();
-    const STALE_MS = 8000;
+    const STALE_MS = 30000;
     const staleParticipants = participants.filter((p) => {
       if (!p.is_present) return false; // already absent · nothing to do
       const seen = p.last_seen ? new Date(p.last_seen).getTime() : 0;
@@ -440,12 +458,13 @@ export default function LiveControl({ session: initialSession }) {
         try { callObject.updateParticipant(sid, { eject: true }); }
         catch (e) { console.warn('[presence] eject failed', e); }
       }
-      // 2 · mark absent in db so host views stop showing them
+      // 2 · mark absent in db so host views stop showing them · auto:true means
+      // this does NOT set kicked_at (see the endpoint's comment above)
       fetch(`/api/sessions/${session.id}/kick`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ participantId: sp.id }),
+        body: JSON.stringify({ participantId: sp.id, auto: true }),
       }).catch((e) => console.warn('[presence] kick api failed', e));
     }
   }, [callObject, participants, session.id]);
@@ -510,7 +529,6 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
     : [];
   const isPre = session.status === 'draft' || session.status === 'live';
   const isRunning = session.status === 'running_round';
-  const isBetween = session.status === 'between_rounds';
   const isEnded = session.status === 'ended';
 
   // host video view mode · persisted in localStorage so it sticks across sessions
@@ -528,7 +546,23 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
 
   const promptIdx = (session.current_round || 1) - 1;
   const currentPrompt = session.prompts?.[promptIdx]?.text;
-  const nextPrompt = session.prompts?.[(session.current_round || 0)]?.text;
+
+  // orphaned: this round's pairing partner dropped, so the server bounced this
+  // participant back to the main room mid-round (see state/route.js's `orphaned`
+  // flag on the participant's own assignment). the main-room roster otherwise
+  // shows them identically to a late joiner or a sit-out, so the host has no way
+  // to notice they need placing into another room without inspecting the roster
+  // closely — surface it as an explicit badge instead.
+  const orphanedIds = new Set();
+  if (isRunning) {
+    for (const pa of pairings) {
+      if (!pa.participant_a_id || !pa.participant_b_id) continue; // sit-out pairing, not a real pair
+      const aPresent = participants.find((p) => p.id === pa.participant_a_id)?.is_present;
+      const bPresent = participants.find((p) => p.id === pa.participant_b_id)?.is_present;
+      if (aPresent && !bPresent) orphanedIds.add(pa.participant_a_id);
+      if (bPresent && !aPresent) orphanedIds.add(pa.participant_b_id);
+    }
+  }
 
   return (
     <main className="min-h-screen flex flex-col" style={{ background: '#f4f4f1', color: '#000' }}>
@@ -591,15 +625,6 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                 </div>
                 <CopyLink code={session.code} variant="light" label="still need to share? grab the link" />
               </div>
-            )}
-
-            {isBetween && (
-              <BetweenRoundsBar
-                session={session}
-                nextPrompt={nextPrompt}
-                busy={busy}
-                action={action}
-              />
             )}
 
             {isRunning && (
@@ -812,7 +837,18 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                       </button>
                     )}
                   </div>
-                  <div className="text-xs font-medium truncate flex-1 min-w-0">{p.name}</div>
+                  <div className="text-xs font-medium truncate flex-1 min-w-0 flex items-center gap-1.5">
+                    {p.name}
+                    {orphanedIds.has(p.id) && (
+                      <span
+                        className="text-[9px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                        style={{ background: '#fef3c7', color: '#92400e' }}
+                        title={`${p.name}'s partner dropped this round · needs placing into another room`}
+                      >
+                        needs placing
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <PlacePicker participant={p} pairings={pairings} onPlace={onPlace} />
                     {/* mute button: only shown when participant has a live Daily session */}
@@ -1150,73 +1186,6 @@ function fmtTime(secs) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-// between rounds, auto-advance to the next round after a short countdown.
-// host can pause/resume the countdown.
-function BetweenRoundsBar({ session, nextPrompt, busy, action }) {
-  const AUTO_ADVANCE_SECONDS = 15;
-  const [remaining, setRemaining] = useState(AUTO_ADVANCE_SECONDS);
-  const [paused, setPaused] = useState(false);
-  const [triggered, setTriggered] = useState(false);
-
-  // reset countdown whenever between_rounds re-enters or current_round changes
-  useEffect(() => {
-    setRemaining(AUTO_ADVANCE_SECONDS);
-    setPaused(false);
-    setTriggered(false);
-  }, [session.current_round]);
-
-  // tick down
-  useEffect(() => {
-    if (paused || triggered) return;
-    if (remaining <= 0) {
-      setTriggered(true);
-      action('round', { action: 'start' });
-      return;
-    }
-    const id = setTimeout(() => setRemaining((r) => r - 1), 1000);
-    return () => clearTimeout(id);
-  }, [remaining, paused, triggered]); // eslint-disable-line
-
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="min-w-0">
-        <div className="flex items-center gap-3">
-          <div className="display text-2xl">round {session.current_round} wrapped.</div>
-          {!paused && !triggered && (
-            <span className="text-sm text-neutral-700">
-              · round {session.current_round + 1} starts in <strong className="text-black">{remaining}s</strong>
-            </span>
-          )}
-          {paused && (
-            <span className="text-sm" style={{ color: '#d97706' }}>· paused</span>
-          )}
-          {triggered && (
-            <span className="text-sm text-neutral-500">· starting...</span>
-          )}
-        </div>
-        {nextPrompt && <p className="text-sm text-neutral-600 mt-1 truncate">next: <span className="text-black font-medium">{nextPrompt}</span></p>}
-      </div>
-      <div className="flex items-center gap-2">
-        {!triggered && (
-          <button
-            onClick={() => setPaused((p) => !p)}
-            disabled={busy}
-            className="px-3 py-2 rounded-md border border-neutral-300 text-neutral-700 hover:bg-neutral-100 text-xs whitespace-nowrap"
-          >
-            {paused ? 'resume' : 'hold up'}
-          </button>
-        )}
-        <button onClick={() => action('round', { action: 'start' })} disabled={busy || triggered} className="btn-cyan px-5 py-3 rounded-md text-base whitespace-nowrap">
-          start now *
-        </button>
-        <button onClick={() => { if (confirm('end this session now? skips remaining rounds.')) action('end'); }} disabled={busy} className="px-3 py-2 rounded-md border-2 border-red-500 text-red-600 hover:bg-red-500 hover:text-white font-semibold text-xs whitespace-nowrap">
-          end session
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // round history · all rounds and their pairings, current round highlighted
 function RoundHistoryPanel({ pairingsHistory, currentRound }) {
   if (!pairingsHistory || pairingsHistory.length === 0) return null;
@@ -1433,6 +1402,13 @@ function MessageComposerModal({ target, onClose, onSend }) {
     setBusy(false);
   }
 
+  async function markHandled() {
+    if (busy) return;
+    setBusy(true);
+    await onSend(''); // empty text · clears the flag with no message sent
+    setBusy(false);
+  }
+
   return (
     <div
       className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50"
@@ -1460,9 +1436,22 @@ function MessageComposerModal({ target, onClose, onSend }) {
             autoFocus
             className="w-full border-2 border-black rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-wafg-cyan resize-none"
           />
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={onClose} disabled={busy} className="px-3 py-1.5 text-sm underline text-neutral-600 hover:text-black">cancel</button>
-            <button type="submit" disabled={busy || !text.trim()} className="btn-cyan px-4 py-1.5 rounded-md text-sm font-bold disabled:opacity-50">{busy ? 'sending...' : 'send *'}</button>
+          <div className="flex items-center justify-between gap-2">
+            {target.flagText && (
+              <button
+                type="button"
+                onClick={markHandled}
+                disabled={busy}
+                className="px-3 py-1.5 text-sm underline text-neutral-600 hover:text-black whitespace-nowrap"
+                title="clear their flag without sending a message"
+              >
+                mark as handled
+              </button>
+            )}
+            <div className="flex justify-end gap-2 ml-auto">
+              <button type="button" onClick={onClose} disabled={busy} className="px-3 py-1.5 text-sm underline text-neutral-600 hover:text-black">cancel</button>
+              <button type="submit" disabled={busy || !text.trim()} className="btn-cyan px-4 py-1.5 rounded-md text-sm font-bold disabled:opacity-50">{busy ? 'sending...' : 'send *'}</button>
+            </div>
           </div>
         </form>
       </div>

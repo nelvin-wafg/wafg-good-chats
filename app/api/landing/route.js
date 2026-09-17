@@ -44,7 +44,7 @@ export async function GET() {
     next: {
       code: chosen.code,
       name: chosen.name,
-      status: chosen.status, // 'draft' | 'live' | 'running_round' | 'between_rounds' | 'closing'
+      status: chosen.status, // 'draft' | 'live' | 'running_round' | 'closing'
       startsAt: chosen.metadata?.starts_at || null,
     },
   });

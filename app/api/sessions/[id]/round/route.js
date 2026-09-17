@@ -54,8 +54,8 @@ async function startRound(admin, session, { allowRepeats = false, fromAdvance = 
   if (!fromAdvance) {
     // accept 'closing' too when allowRepeats is set · host wants to extend post-final-round
     const validStatuses = allowRepeats
-      ? ['live', 'between_rounds', 'closing']
-      : ['live', 'between_rounds'];
+      ? ['live', 'closing']
+      : ['live'];
     if (!validStatuses.includes(session.status)) {
       return new NextResponse(`cannot start round from status ${session.status}`, { status: 400 });
     }
@@ -245,12 +245,24 @@ async function endRound(admin, session) {
     return new NextResponse('no round running', { status: 400 });
   }
 
-  // mark the current round ended
-  await admin
+  // mark the current round ended · conditioned on ended_at still being null so
+  // this is an atomic compare-and-swap, not just a status re-check. co-hosting
+  // means two host tabs/devices can have this same dashboard open at once, both
+  // polling independently — if both fire round/end within the same instant near
+  // a round boundary, both requests can read session.status === 'running_round'
+  // above before either write lands. .is('ended_at', null) makes only the FIRST
+  // request's update actually affect a row; a second, near-simultaneous request
+  // gets back zero rows and stops here instead of double-advancing the round.
+  const { data: endedRows } = await admin
     .from('rounds')
     .update({ ended_at: new Date().toISOString() })
     .eq('session_id', session.id)
-    .eq('round_number', session.current_round);
+    .eq('round_number', session.current_round)
+    .is('ended_at', null)
+    .select('id');
+  if (!endedRows || endedRows.length === 0) {
+    return NextResponse.json({ ok: true, alreadyEnded: true });
+  }
 
   const isLast = session.current_round >= session.rounds_total;
 

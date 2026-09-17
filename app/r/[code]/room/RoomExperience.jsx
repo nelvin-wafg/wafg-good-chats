@@ -562,6 +562,7 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
   const liveCount = participants.filter((p) => p.is_present).length;
   const isPreSession = session.status === 'live' || session.status === 'draft';
   const isClosing = session.status === 'closing';
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
 
   // view mode (participant main room) · persisted across sessions in localStorage
   const [viewMode, setViewMode] = useState('gallery');
@@ -715,14 +716,38 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
         <footer className="border-t border-neutral-200 bg-white px-6 py-3 flex items-center justify-between">
           <div className="text-xs text-neutral-500">main room · everyone together</div>
           <button
-            onClick={() => { if (confirm('leave this session?')) window.location.href = session?.code ? `/r/${session.code}` : '/'; }}
+            onClick={() => setConfirmingLeave(true)}
             className="text-sm border border-red-500 text-red-500 px-4 py-2 rounded font-semibold hover:bg-red-500 hover:text-white"
           >
             leave
           </button>
         </footer>
       )}
+      {confirmingLeave && (
+        <LeaveConfirmModal
+          onConfirm={() => { window.location.href = session?.code ? `/r/${session.code}` : '/'; }}
+          onClose={() => setConfirmingLeave(false)}
+        />
+      )}
     </main>
+  );
+}
+
+// on-brand replacement for a native confirm() on "leave this session" · a
+// native browser dialog is jarring against this app's fully custom UI,
+// especially on mobile Safari/Chrome.
+function LeaveConfirmModal({ onConfirm, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-md p-6 max-w-sm w-full sticker" style={{ color: '#000' }}>
+        <div className="display text-2xl mb-2">leave this session?</div>
+        <p className="text-sm text-neutral-600 mb-5">you can rejoin anytime with the same link, as long as the session is still going.</p>
+        <div className="flex justify-end gap-3">
+          <button type="button" onClick={onClose} className="text-sm underline text-neutral-500 hover:text-black">stay</button>
+          <button type="button" onClick={onConfirm} className="px-4 py-2 rounded-md border-2 border-red-500 text-red-600 hover:bg-red-500 hover:text-white font-semibold text-sm">leave</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -803,12 +828,29 @@ function PairRoomView({ assignment, session, myName, myLinkedin, myAvatarUrl, tr
   const remoteIds = useParticipantIds({ filter: 'remote' });
   const [secondsLeft, setSecondsLeft] = useState(assignment.secondsRemaining || session.round_seconds);
   const [captured, setCaptured] = useState(false);
+  // the countdown itself is purely visual (color/pulse) with no programmatic
+  // announcement, so a screen-reader user gets no cue the round is ending —
+  // announce only at a couple of milestones, not every second, so it isn't spam.
+  const [timeAnnouncement, setTimeAnnouncement] = useState('');
+  const announcedRef = useRef(new Set());
 
   useEffect(() => {
     setSecondsLeft(Math.max(0, assignment.secondsRemaining || 0));
+    announcedRef.current = new Set();
+    setTimeAnnouncement('');
     const id = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(id);
   }, [assignment]);
+
+  useEffect(() => {
+    const milestone = secondsLeft === 30 ? '30 seconds left'
+      : secondsLeft === 10 ? '10 seconds left'
+      : secondsLeft === 0 ? "time's up" : null;
+    if (milestone && !announcedRef.current.has(milestone)) {
+      announcedRef.current.add(milestone);
+      setTimeAnnouncement(milestone);
+    }
+  }, [secondsLeft]);
 
   const wrapUp = secondsLeft <= 30 && secondsLeft > 0;
 
@@ -849,6 +891,7 @@ function PairRoomView({ assignment, session, myName, myLinkedin, myAvatarUrl, tr
           {fmtTime(secondsLeft)}
         </div>
         <div className="text-xs text-neutral-500">{assignment.roomLabel}</div>
+        <span className="sr-only" role="status" aria-live="polite">{timeAnnouncement}</span>
       </header>
 
       <div className="px-6 py-4 border-b border-neutral-200 flex items-center justify-between gap-4" style={{ background: 'rgba(1,236,243,0.15)' }}>
@@ -1024,6 +1067,7 @@ function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile, onF
   const localId = useLocalSessionId();
   const videoState = useMediaTrack(localId, 'video');
   const audioState = useMediaTrack(localId, 'audio');
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
 
   const videoOn = videoState?.state === 'sendable' || videoState?.state === 'playable';
   const audioOn = audioState?.state === 'sendable' || audioState?.state === 'playable';
@@ -1098,12 +1142,18 @@ function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile, onF
           </button>
         )}
         <button
-          onClick={() => { if (confirm('leave this session?')) window.location.href = sessionCode ? `/r/${sessionCode}` : '/'; }}
+          onClick={() => setConfirmingLeave(true)}
           className={`px-4 py-2 rounded-full text-xs font-semibold border ${leaveClass}`}
         >
           leave
         </button>
       </footer>
+      {confirmingLeave && (
+        <LeaveConfirmModal
+          onConfirm={() => { window.location.href = sessionCode ? `/r/${sessionCode}` : '/'; }}
+          onClose={() => setConfirmingLeave(false)}
+        />
+      )}
     </>
   );
 }
@@ -1459,15 +1509,19 @@ function EditProfileModal({ session, initialName, initialLinkedin, callObject, o
 function EndedView({ session }) {
   const [recap, setRecap] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setFailed(false);
     fetch(`/api/sessions/${session.id}/recap`, { credentials: 'same-origin' })
-      .then((r) => r.ok ? r.json() : null)
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error(`recap fetch failed: ${r.status}`)))
       .then((d) => { if (!cancelled) { setRecap(d); setLoading(false); } })
-      .catch(() => { if (!cancelled) setLoading(false); });
+      .catch(() => { if (!cancelled) { setFailed(true); setLoading(false); } });
     return () => { cancelled = true; };
-  }, [session.id]);
+  }, [session.id, retryKey]);
 
   return (
     <main className="min-h-screen p-6 md:p-12" style={{ background: '#01ecf3', color: '#000' }}>
@@ -1477,7 +1531,23 @@ function EndedView({ session }) {
 
         {loading && <p className="text-sm opacity-70 mt-6">[pulling your recap...]</p>}
 
-        {!loading && recap && (
+        {!loading && failed && (
+          <div className="bg-white rounded-md p-5 sticker mt-8" style={{ color: '#000' }}>
+            <div className="font-semibold">couldn't load your recap right now.</div>
+            <p className="text-sm text-neutral-600 mt-1">
+              no worries — a recap email is still on its way to you with your captures and their linkedin links.
+            </p>
+            <button
+              type="button"
+              onClick={() => setRetryKey((k) => k + 1)}
+              className="mt-3 text-sm underline text-neutral-700 hover:text-black"
+            >
+              try again →
+            </button>
+          </div>
+        )}
+
+        {!loading && !failed && recap && (
           <div className="mt-8 space-y-6">
 
             {/* stats row */}

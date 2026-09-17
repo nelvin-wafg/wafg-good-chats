@@ -53,6 +53,10 @@ function NewSessionInner() {
   // notify-list subscribers every time a test session gets created.
   const [notifyList, setNotifyList] = useState(false);
   const [notifySentAt, setNotifySentAt] = useState(null);
+  // slug availability, checked as the host types it (debounced) rather than
+  // only discovering a collision after walking the whole 3-step wizard and
+  // submitting on step 3.
+  const [codeAvailable, setCodeAvailable] = useState(null); // null = unknown/unchecked
 
   // load an existing draft's config when editing
   useEffect(() => {
@@ -98,6 +102,21 @@ function NewSessionInner() {
     setName(v);
     if (!code) setCode(slugify(v));
   }
+
+  // debounce-check slug availability as it changes
+  useEffect(() => {
+    if (!code) { setCodeAvailable(null); return; }
+    setCodeAvailable(null);
+    const id = setTimeout(() => {
+      const params = new URLSearchParams({ code });
+      if (editId) params.set('excludeId', editId);
+      fetch(`/api/sessions/check-code?${params}`, { credentials: 'same-origin' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (d) setCodeAvailable(d.available); })
+        .catch(() => {}); // unobtrusive · final uniqueness is still enforced on submit
+    }, 400);
+    return () => clearTimeout(id);
+  }, [code, editId]);
 
   function togglePrompt(p) {
     setSelected((s) => s.includes(p.text) ? s.filter((x) => x !== p.text) : [...s, p.text]);
@@ -178,9 +197,21 @@ function NewSessionInner() {
               <Field label="shareable link slug">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-neutral-500">wafg.app/r/</span>
-                  <input type="text" value={code} onChange={(e) => setCode(slugify(e.target.value))} placeholder="november-gather" className="flex-1 border-2 border-black rounded px-4 py-3 font-mono text-base" />
+                  <input
+                    type="text"
+                    value={code}
+                    onChange={(e) => setCode(slugify(e.target.value))}
+                    placeholder="november-gather"
+                    className={`flex-1 border-2 rounded px-4 py-3 font-mono text-base ${codeAvailable === false ? 'border-red-500' : 'border-black'}`}
+                  />
                 </div>
-                <p className="text-xs text-neutral-500 mt-2">[this is the link you'll share on the event page]</p>
+                {codeAvailable === false ? (
+                  <p className="text-xs text-red-600 mt-2 font-semibold">[that slug is already in use · try a different one]</p>
+                ) : codeAvailable === true ? (
+                  <p className="text-xs text-green-700 mt-2">[available ✓]</p>
+                ) : (
+                  <p className="text-xs text-neutral-500 mt-2">[this is the link you'll share on the event page]</p>
+                )}
               </Field>
 
               <Field label="when does it start? (optional)">

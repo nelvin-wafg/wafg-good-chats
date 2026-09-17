@@ -19,7 +19,7 @@ export async function GET(_request, { params }) {
   const [{ data: participants = [] }, { data: captures = [] }] = await Promise.all([
     admin
       .from('participants')
-      .select('id, name, joined_at, left_at, profiles(email, linkedin_url, newsletter_opt_in)')
+      .select('id, name, joined_at, left_at, kicked_at, metadata, profiles(email, linkedin_url, newsletter_opt_in)')
       .eq('session_id', session.id),
     admin
       .from('captures')
@@ -34,11 +34,17 @@ export async function GET(_request, { params }) {
     capturesReceived[c.captured_id] = (capturesReceived[c.captured_id] || 0) + 1;
   }
 
+  // status is explicit rather than silently dropping rows: "attendance" as
+  // reported on the dashboard only counts admitted rows, but an export should
+  // still show everyone who ever showed up, with enough info for a human to
+  // filter it themselves (e.g. exclude waiting-room no-shows before reporting
+  // a headcount externally).
   const rows = participants.map((p) => ({
     name: p.name,
     email: p.profiles?.email || '',
     linkedin: p.profiles?.linkedin_url || '',
     newsletter_opt_in: p.profiles?.newsletter_opt_in ? 'yes' : 'no',
+    status: p.kicked_at ? 'kicked' : p.metadata?.admitted_at ? 'admitted' : 'waiting room (never admitted)',
     joined_at: p.joined_at || '',
     left_at: p.left_at || '',
     captures_made: capturesMade[p.id] || 0,
@@ -46,7 +52,7 @@ export async function GET(_request, { params }) {
   }));
 
   const csv = toCSV(rows, [
-    'name', 'email', 'linkedin', 'newsletter_opt_in',
+    'name', 'email', 'linkedin', 'newsletter_opt_in', 'status',
     'joined_at', 'left_at', 'captures_made', 'captures_received',
   ]);
   const dateStr = (session.created_at || new Date().toISOString()).slice(0, 10);

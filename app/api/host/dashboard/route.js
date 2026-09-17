@@ -25,8 +25,14 @@ export async function GET() {
 
   const [{ data: captures = [] }, { data: participants = [] }] = await Promise.all([
     admin.from('captures').select('id, session_id, capturer_id, created_at').in('session_id', safeIds),
-    admin.from('participants').select('id, session_id, profile_id, name, joined_at').in('session_id', safeIds),
+    admin.from('participants').select('id, session_id, profile_id, name, joined_at, metadata').in('session_id', safeIds),
   ]);
+
+  // "attendance" only counts people who were actually admitted into a room —
+  // not someone who sat in the waiting room and never got let in. without this,
+  // a host-facing number like "42 attended" (which gets reported to funders/
+  // boards) could include waiting-room no-shows.
+  const admittedParticipants = participants.filter((p) => p.metadata?.admitted_at);
 
   const profileIds = [...new Set(participants.filter((p) => p.profile_id).map((p) => p.profile_id))];
   const safeProfileIds = profileIds.length > 0 ? profileIds : ['00000000-0000-0000-0000-000000000000'];
@@ -45,7 +51,7 @@ export async function GET() {
       profileIdsThisSession: new Set(),
     };
   }
-  for (const p of participants) {
+  for (const p of admittedParticipants) {
     const stats = sessionStats[p.session_id];
     if (!stats) continue;
     stats.attendance++;
@@ -60,7 +66,7 @@ export async function GET() {
 
   // returning vs new participants per session (across this host's sessions only)
   const profileFirstSeenAt = {}; // profile_id -> Date
-  const sortedParticipants = [...participants].sort(
+  const sortedParticipants = [...admittedParticipants].sort(
     (a, b) => new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime()
   );
   for (const p of sortedParticipants) {
@@ -142,7 +148,7 @@ export async function GET() {
 
   // categorize sessions
   const live = sessions.filter((s) =>
-    ['live', 'running_round', 'between_rounds', 'closing'].includes(s.status)
+    ['live', 'running_round', 'closing'].includes(s.status)
   );
   const drafts = sessions.filter((s) => s.status === 'draft');
   const past = endedSessions.map((s) => ({

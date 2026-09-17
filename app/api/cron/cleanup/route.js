@@ -46,7 +46,7 @@ export async function GET(request) {
     const { data: activeSessions = [] } = await admin
       .from('sessions')
       .select('id, created_at, main_room_name')
-      .in('status', ['live', 'running_round', 'between_rounds', 'closing']);
+      .in('status', ['live', 'running_round', 'closing']);
 
     for (const s of activeSessions) {
       // most recent participant heartbeat for this session
