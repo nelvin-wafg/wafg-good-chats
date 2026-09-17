@@ -24,9 +24,12 @@ export async function GET() {
 
   const [{ data: captures = [] }, { data: participants = [] }, { data: rounds = [] }] = await Promise.all([
     admin.from('captures').select('id, session_id, capturer_id').in('session_id', safe),
-    admin.from('participants').select('id, session_id, profile_id').in('session_id', safe),
+    admin.from('participants').select('id, session_id, profile_id, metadata').in('session_id', safe),
     admin.from('rounds').select('id, session_id, prompt_text, round_number').in('session_id', safe),
   ]);
+  // attendance = actually admitted into a room, not a waiting-room no-show ·
+  // matches the same definition used on the main dashboard (see host/dashboard/route.js)
+  const admittedParticipants = participants.filter((p) => p.metadata?.admitted_at);
 
   // sessions over time (per month)
   const monthBuckets = {};
@@ -41,7 +44,7 @@ export async function GET() {
 
   // per-session attendance + captures + engagement
   const perSession = sessions.map((s) => {
-    const att = participants.filter((p) => p.session_id === s.id);
+    const att = admittedParticipants.filter((p) => p.session_id === s.id);
     const caps = captures.filter((c) => c.session_id === s.id);
     const capturers = new Set(caps.map((c) => c.capturer_id));
     return {

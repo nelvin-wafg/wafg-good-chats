@@ -240,7 +240,7 @@ export async function GET(request, { params }) {
     const idToName = Object.fromEntries(participants.map((p) => [p.id, p.name]));
 
     // current round pairings (for the active "live pairings" view)
-    if (session.status === 'running_round' || session.status === 'between_rounds') {
+    if (session.status === 'running_round') {
       const { data } = await admin
         .from('pairings')
         .select('id, room_name, room_label, participant_a_id, participant_b_id, rounds!inner(round_number)')

@@ -63,8 +63,8 @@ export async function POST(request, { params }) {
   //   → new arrivals land in the waiting room. they get a participant row, but
   //     metadata.admitted_at stays null until the host explicitly lets them in
   //     (or hits "kick it off", which auto-admits everyone via the round route).
-  // - any other live state (running_round / between_rounds / closing) → auto-admit
-  //   so latecomers slide straight into the main room.
+  // - any other live state (running_round / closing) → auto-admit so latecomers
+  //   slide straight into the main room.
   // - status='draft' is rare here (the link normally isn't shared yet) · treat
   //   like 'live' to be safe: join, sit in waiting until the host opens up.
   const needsAdmission = session.status === 'live' || session.status === 'draft';

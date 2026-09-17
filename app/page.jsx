@@ -173,7 +173,7 @@ export default function Landing() {
 // Next session pill · fixed top-right corner · subtle indicator
 // ============================================================================
 function NextSessionPill({ session }) {
-  const isLive = session.status === 'running_round' || session.status === 'between_rounds' || session.status === 'closing' || session.status === 'live';
+  const isLive = session.status === 'running_round' || session.status === 'closing' || session.status === 'live';
   const startsAt = session.startsAt ? new Date(session.startsAt) : null;
   const startsLabel = startsAt && !Number.isNaN(startsAt.getTime())
     ? startsAt.toLocaleString(undefined, {
