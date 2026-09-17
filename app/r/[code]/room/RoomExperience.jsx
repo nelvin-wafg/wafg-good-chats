@@ -204,6 +204,10 @@ export default function RoomExperience({ session: initialSession }) {
   // remember which direct-message timestamps the participant has dismissed, so
   // they don't re-pop on every state poll.
   const dismissedDirectMessagesRef = useRef(new Set());
+  // bumped by the left-meeting handler below to force a rejoin attempt after
+  // an unintentional disconnect, even though targetRoom/targetName haven't
+  // changed (we're still supposed to be in the same room).
+  const [reconnectNonce, setReconnectNonce] = useState(0);
 
   // create the call object exactly once, reuse it for the whole session.
   useEffect(() => {
@@ -255,23 +259,32 @@ export default function RoomExperience({ session: initialSession }) {
     return () => observer.disconnect();
   }, []);
 
-  // detect involuntary disconnect (host eject). on Daily's 'left-meeting' event,
-  // if intentionalLeaveRef is false we know we didn't cause this · bounce back to
-  // the branded join page with a ?removed=1 hint so the form can explain.
+  // an unintentional 'left-meeting' event does NOT mean the host kicked us —
+  // this same Daily event also fires on a genuine connection/meeting error
+  // (bad wifi, a revoked mic permission, anything else fatal to the call). it
+  // used to be treated as an ejection and redirected straight to the branded
+  // "the host removed you" page, which meant a real, non-kicked participant
+  // could see that message purely because their connection blipped mid-round.
+  // the ONLY authoritative signal for an actual kick is the server's `me.kicked`
+  // flag, already checked on every 2s poll above (data.me.kicked) — that path
+  // is unaffected by this change and still redirects correctly on a real kick.
+  // here we instead treat it as a dropped connection and try to rejoin the
+  // room we're supposed to be in, rather than assuming we were ejected.
   useEffect(() => {
     if (!callObject) return;
     const handler = () => {
       if (intentionalLeaveRef.current) return;
-      // if the session just ended, the room deletion booted us — not a kick.
-      // the poll will render EndedView shortly; don't redirect to ?removed=1.
+      // if the session just ended, the room deletion booted us — nothing to
+      // reconnect to. the poll will render EndedView shortly.
       if (sessionRef.current.status === 'ended') return;
-      if (typeof window !== 'undefined') {
-        window.location.href = `/r/${initialSession.code}?removed=1`;
-      }
+      console.warn('[daily] unexpected left-meeting · attempting reconnect');
+      showToast('connection hiccup · reconnecting...', 'error');
+      joinedNameRef.current = null;
+      setReconnectNonce((n) => n + 1);
     };
     callObject.on('left-meeting', handler);
     return () => { callObject.off('left-meeting', handler); };
-  }, [callObject, initialSession.code]);
+  }, [callObject]);
 
   // join / switch / leave rooms as targetRoom changes. operations are serialized
   // through a promise chain so two transitions never run on the call object at
@@ -356,7 +369,7 @@ export default function RoomExperience({ session: initialSession }) {
     }).catch((e) => { console.warn('[daily] room transition failed', e); });
 
     return () => { cancelled = true; };
-  }, [callObject, targetName, participantName]); // eslint-disable-line
+  }, [callObject, targetName, participantName, reconnectNonce]); // eslint-disable-line
 
   // mark participant is_present=false AND destroy the daily call when they
   // navigate away or close the tab. destroy() synchronously tears down the
