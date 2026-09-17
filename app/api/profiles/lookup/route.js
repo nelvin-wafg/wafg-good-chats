@@ -4,10 +4,15 @@ import { validateEmail, validateUuid, ValidationError } from '@/lib/validate';
 import { rateLimitByIp } from '@/lib/rate-limit';
 
 // POST /api/profiles/lookup  body: { email, sessionId }
-// returns { found: bool, profile?: { display_name, linkedin_url, newsletter_opt_in } }
-// used by the join form to autofill returning users.
-// requires a valid, non-ended session context · this narrows email enumeration
-// to active session windows rather than allowing open-ended probing of the member list.
+// returns { found: bool, profile?: { display_name } }
+// used by the join form to autofill returning users' name only. linkedin_url and
+// newsletter_opt_in are deliberately withheld: session ids aren't secret (every
+// visitor to any public join page gets one for free), so this endpoint is reachable
+// by anyone who can guess/collect an email — returning only a bare name keeps a
+// batch-checked email list from also harvesting LinkedIn URLs or subscription status
+// for the whole cross-session member base. the join form already has both of those
+// via the profile cookie for a genuinely returning user; this lookup is only for the
+// case where someone types a known email on a device that doesn't carry that cookie.
 export async function POST(request) {
   const ok = await rateLimitByIp(request, 'profile-lookup', { limit: 20, windowSeconds: 300 });
   if (!ok) return new NextResponse('too many lookups', { status: 429 });
@@ -36,7 +41,7 @@ export async function POST(request) {
 
   const { data } = await admin
     .from('profiles')
-    .select('display_name, linkedin_url, newsletter_opt_in')
+    .select('display_name')
     .eq('email', email)
     .maybeSingle();
 
@@ -45,8 +50,6 @@ export async function POST(request) {
     found: true,
     profile: {
       display_name: data.display_name,
-      linkedin_url: data.linkedin_url,
-      newsletter_opt_in: data.newsletter_opt_in,
     },
   });
 }

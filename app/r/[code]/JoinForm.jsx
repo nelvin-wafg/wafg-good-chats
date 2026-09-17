@@ -37,9 +37,9 @@ export default function JoinForm({ session, knownProfile }) {
       if (!res.ok) return;
       const data = await res.json();
       if (data.found && data.profile) {
+        // lookup only returns a bare name now (see /api/profiles/lookup) · linkedin
+        // and newsletter prefs aren't exposed to an unauthenticated email check.
         setName(data.profile.display_name || '');
-        setLinkedinUrl(data.profile.linkedin_url || '');
-        setNewsletterOptIn(Boolean(data.profile.newsletter_opt_in));
         setRecognized(true);
       } else {
         setRecognized(false);
