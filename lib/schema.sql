@@ -259,6 +259,24 @@ returns void as $$
 $$ language sql security definer;
 
 -- ============================================================================
+-- CONNECTION_EVENTS · client-reported WebRTC connection-health diagnostics.
+-- lets "someone couldn't hear anyone" turn into a two-minute lookup instead of
+-- a mystery: participants' own clients report their network quality and
+-- connection-state changes, and the host's client reports the same about
+-- remote participants it observes (via daily-js's participant-updated event).
+-- ============================================================================
+create table if not exists connection_events (
+  id uuid primary key default uuid_generate_v4(),
+  session_id uuid not null references sessions(id) on delete cascade,
+  participant_id uuid references participants(id) on delete set null,
+  role text not null default 'participant',   -- 'participant' | 'host'
+  event_type text not null,                   -- 'network-quality-change' | 'network-connection' | 'track-state-change'
+  payload jsonb default '{}'::jsonb,
+  created_at timestamptz default now()
+);
+create index if not exists idx_connection_events_session on connection_events(session_id, created_at desc);
+
+-- ============================================================================
 -- ROW LEVEL SECURITY · deny-by-default
 -- service role bypasses RLS, so server-side API routes (which use service_role)
 -- still have full access. anon clients have no direct access to any table —
@@ -274,6 +292,7 @@ alter table rate_limits enable row level security;
 alter table profiles enable row level security;
 alter table audit_events enable row level security;
 alter table notify_signups enable row level security;
+alter table connection_events enable row level security;
 
 -- hosts: authenticated host reads self only.
 drop policy if exists "hosts read self" on hosts;
@@ -294,7 +313,7 @@ drop policy if exists "pairings public read" on pairings;
 drop policy if exists "captures public" on captures;
 
 -- intentionally no anon policies on participants / rounds / pairings / captures /
--- rate_limits / notify_signups.
+-- rate_limits / notify_signups / connection_events.
 -- anon clients can't read or write. server uses service_role and bypasses RLS.
 -- if you ever expose the supabase client to the browser for any of these, REVISIT THIS.
 
