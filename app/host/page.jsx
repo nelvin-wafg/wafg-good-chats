@@ -401,7 +401,11 @@ function TypedConfirmModal({ title, label, detail, onConfirm, onClose }) {
         <div className="display text-2xl mb-2">{title}</div>
         <p className="text-sm text-neutral-600 mb-4">{detail}</p>
         <label className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-1 block">
-          type <span className="text-black">{label}</span> to confirm
+          {/* normal-case overrides the label's inherited uppercase transform for just
+              the name itself · without it, the label VISUALLY reads "TYPE DRAFTAUDIO"
+              while the match below is case-sensitive against the real "draftaudio",
+              so typing exactly what's on screen would never satisfy the check. */}
+          type <span className="text-black normal-case">{label}</span> to confirm
         </label>
         <input
           type="text"
