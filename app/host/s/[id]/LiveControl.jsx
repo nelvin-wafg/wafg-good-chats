@@ -13,6 +13,22 @@ import { showToast } from '@/components/Toast';
 // host stays in the main daily.co room for the entire active session
 // (does NOT hop into pair rooms during rounds · participants do that on their own).
 
+// fire-and-forget WebRTC connection-health logging — same helper/endpoint the
+// participant side uses (see app/r/[code]/room/RoomExperience.jsx and the
+// /diagnostics route's comment). always console.logs too.
+function reportDiagnostic(sessionId, eventType, payload, subjectParticipantId) {
+  try { console.log('[diagnostics]', eventType, payload); } catch {}
+  try {
+    fetch(`/api/sessions/${sessionId}/diagnostics`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      keepalive: true,
+      body: JSON.stringify({ eventType, payload, subjectParticipantId }),
+    }).catch(() => {});
+  } catch {}
+}
+
 export default function LiveControl({ session: initialSession }) {
   const [session, setSession] = useState(initialSession);
   const [participants, setParticipants] = useState([]);
@@ -28,6 +44,26 @@ export default function LiveControl({ session: initialSession }) {
   const [muteStates, setMuteStates] = useState({});
   // maps DB participant UUID → Daily session ID (for mute button + badge)
   const [dailySessionByUserId, setDailySessionByUserId] = useState({});
+  // recent connection-health events (see /diagnostics route) · shown in a
+  // "connection log" panel so a reported audio issue is a lookup, not a mystery.
+  const [diagnosticEvents, setDiagnosticEvents] = useState([]);
+
+  // poll connection diagnostics (separate, slower cadence than session state ·
+  // this is a secondary/debugging panel, not something round-timing depends on)
+  useEffect(() => {
+    let cancelled = false;
+    async function poll() {
+      try {
+        const res = await fetch(`/api/sessions/${session.id}/diagnostics`, { credentials: 'same-origin' });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled) setDiagnosticEvents(data.events || []);
+      } catch {}
+    }
+    poll();
+    const id = setInterval(poll, 8000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [session.id]);
 
   // poll session state
   useEffect(() => {
@@ -159,9 +195,67 @@ export default function LiveControl({ session: initialSession }) {
     };
   }, [callObject]);
 
+  // root-cause fix for "host couldn't hear a participant who joined mid-event,
+  // even though the participant could hear the host": this is the exact same
+  // bug already fixed on the participant side (see RoomExperience.jsx) — <DailyAudio />
+  // mounts a fresh <audio> element per remote participant whenever their track
+  // arrives, and browsers gate .play() on that new element behind having had
+  // some prior user gesture on the page. that fix was only ever applied to the
+  // participant-facing client; the host dashboard uses <DailyAudio /> the same
+  // way and never got it. force-play every audio element the instant it
+  // appears, for as long as the dashboard is open.
+  useEffect(() => {
+    if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') return;
+    function tryPlay(el) { try { el.play().catch(() => {}); } catch {} }
+    document.querySelectorAll('audio').forEach(tryPlay);
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          if (node.tagName === 'AUDIO') tryPlay(node);
+          else if (node.querySelectorAll) node.querySelectorAll('audio').forEach(tryPlay);
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  // connection diagnostics: report the HOST's own network quality and
+  // connection-state changes (see the /diagnostics route's comment).
+  useEffect(() => {
+    if (!callObject) return;
+    function onQuality(ev) {
+      reportDiagnostic(session.id, 'network-quality-change', {
+        networkState: ev?.networkState,
+        reasons: ev?.networkStateReasons,
+      });
+    }
+    function onConnection(ev) {
+      reportDiagnostic(session.id, 'network-connection', {
+        type: ev?.type,
+        event: ev?.event,
+      });
+    }
+    callObject.on('network-quality-change', onQuality);
+    callObject.on('network-connection', onConnection);
+    return () => {
+      callObject.off('network-quality-change', onQuality);
+      callObject.off('network-connection', onConnection);
+    };
+  }, [callObject, session.id]);
+
   // subscribe to Daily participant events to track mute state reactively.
   // p.tracks.audio.state === 'off' means they muted themselves.
   // also rebuilds the userId→sessionId map whenever the participant list changes.
+  //
+  // this is also where the host's client reports connection diagnostics about
+  // REMOTE participants — daily-js's participant-updated event carries each
+  // remote participant's networkQualityState and track states, which is
+  // exactly the "can the host actually hear/see this specific person" signal.
+  // reported only on actual changes (tracked in a ref keyed by user_id), not
+  // every poll tick, so this can't flood the connection_events table.
+  const lastParticipantDiagRef = useRef({});
   useEffect(() => {
     if (!callObject) return;
     function updateStates() {
@@ -172,6 +266,19 @@ export default function LiveControl({ session: initialSession }) {
         if (sid === 'local') continue;
         if (p?.user_id) byUserId[p.user_id] = sid;
         mutes[sid] = p?.tracks?.audio?.state === 'off';
+
+        if (p?.user_id) {
+          const prev = lastParticipantDiagRef.current[p.user_id] || {};
+          const networkQualityState = p.networkQualityState;
+          const audioState = p?.tracks?.audio?.state;
+          if (networkQualityState && networkQualityState !== prev.networkQualityState) {
+            reportDiagnostic(session.id, 'network-quality-change', { networkQualityState }, p.user_id);
+          }
+          if (audioState && audioState !== prev.audioState) {
+            reportDiagnostic(session.id, 'track-state-change', { track: 'audio', state: audioState }, p.user_id);
+          }
+          lastParticipantDiagRef.current[p.user_id] = { networkQualityState, audioState };
+        }
       }
       setMuteStates(mutes);
       setDailySessionByUserId(byUserId);
@@ -185,7 +292,7 @@ export default function LiveControl({ session: initialSession }) {
       callObject.off('participant-joined', updateStates);
       callObject.off('participant-left', updateStates);
     };
-  }, [callObject]);
+  }, [callObject, session.id]);
 
   // kick a participant: eject them from the daily call (their tab gets a
   // 'left-meeting' event and disconnects) AND mark them absent in the db so
@@ -492,6 +599,7 @@ export default function LiveControl({ session: initialSession }) {
         broadcastBusy={broadcastBusy}
         muteStates={muteStates}
         dailySessionByUserId={dailySessionByUserId}
+        diagnosticEvents={diagnosticEvents}
       />
       {messageTarget && (
         <MessageComposerModal
@@ -521,7 +629,7 @@ export default function LiveControl({ session: initialSession }) {
 // ============================================================================
 // inner component (uses daily hooks if wrapped in DailyProvider)
 // ============================================================================
-function LiveControlInner({ session, participants, participantsByName, pairings, pairingsHistory, secondsLeft, busy, action, hasCall, onKick, onMute, onPlace, onOpenMessage, onAdmit, broadcastText, setBroadcastText, sendBroadcast, broadcastBusy, muteStates = {}, dailySessionByUserId = {} }) {
+function LiveControlInner({ session, participants, participantsByName, pairings, pairingsHistory, secondsLeft, busy, action, hasCall, onKick, onMute, onPlace, onOpenMessage, onAdmit, broadcastText, setBroadcastText, sendBroadcast, broadcastBusy, muteStates = {}, dailySessionByUserId = {}, diagnosticEvents = [] }) {
   // waiting list: people in the session whose admitted_at is null while the
   // session is in 'live' status (host has opened but hasn't kicked off yet).
   const waitingList = (session.status === 'live' || session.status === 'draft')
@@ -986,6 +1094,8 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
 
           <RoundHistoryPanel pairingsHistory={pairingsHistory} currentRound={session.current_round} />
 
+          <ConnectionLogPanel events={diagnosticEvents} />
+
           <div className="border-t border-neutral-200 pt-5">
             <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">session info</div>
             <div className="text-sm space-y-1">
@@ -1229,6 +1339,52 @@ function RoundHistoryPanel({ pairingsHistory, currentRound }) {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// connection log · recent WebRTC health events (network quality, connection
+// drops, track state changes) reported by participants' clients and the
+// host's own client. turns "someone couldn't hear anyone" into a lookup:
+// scan for their name and see whether their connection ever actually
+// stabilized, instead of relying on a verbal report alone.
+function ConnectionLogPanel({ events }) {
+  if (!events || events.length === 0) return null;
+
+  function describe(e) {
+    if (e.eventType === 'network-quality-change') {
+      return `network: ${e.payload?.networkQualityState || e.payload?.networkState || 'unknown'}`;
+    }
+    if (e.eventType === 'network-connection') {
+      return `connection ${e.payload?.event || 'changed'} (${e.payload?.type || 'sfu'})`;
+    }
+    if (e.eventType === 'track-state-change') {
+      return `${e.payload?.track || 'track'}: ${e.payload?.state || 'unknown'}`;
+    }
+    return e.eventType;
+  }
+
+  function timeAgo(iso) {
+    const secs = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+    if (secs < 60) return `${secs}s ago`;
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return `${mins}m ago`;
+    return `${Math.floor(mins / 60)}h ago`;
+  }
+
+  return (
+    <div className="border-t border-neutral-200 pt-5">
+      <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">connection log</div>
+      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+        {events.slice(0, 30).map((e) => (
+          <div key={e.id} className="text-xs text-neutral-600 flex items-center justify-between gap-2">
+            <span className="truncate">
+              <strong className="text-black">{e.name}</strong> · {describe(e)}
+            </span>
+            <span className="text-neutral-400 flex-shrink-0 whitespace-nowrap">{timeAgo(e.createdAt)}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

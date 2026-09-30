@@ -38,6 +38,24 @@ function unlockIosAudio() {
   } catch {}
 }
 
+// fire-and-forget WebRTC connection-health logging: turns "someone couldn't
+// hear anyone" into a lookup the host can do afterward instead of a mystery.
+// always console.logs too, for anyone actively watching devtools live.
+// keepalive:true so the request has a chance to land even if the tab is in
+// the middle of navigating away right as a connection drops.
+function reportDiagnostic(sessionId, eventType, payload, subjectParticipantId) {
+  try { console.log('[diagnostics]', eventType, payload); } catch {}
+  try {
+    fetch(`/api/sessions/${sessionId}/diagnostics`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      keepalive: true,
+      body: JSON.stringify({ eventType, payload, subjectParticipantId }),
+    }).catch(() => {});
+  } catch {}
+}
+
 // participant experience.
 // state machine: lobby → main_room → splitting → pair_room → returning → main_room → ... → ended
 // participant is in the main daily.co room whenever they're in the "with everyone" state,
@@ -258,6 +276,33 @@ export default function RoomExperience({ session: initialSession }) {
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, []);
+
+  // connection diagnostics: report this participant's OWN network quality and
+  // connection-state changes (see lib note on the /diagnostics route). this is
+  // the data that turns "I couldn't hear anyone, tried everything" into a real
+  // answer — e.g. confirming their connection never stabilized at all, which
+  // points at their network/firewall rather than anything in this app.
+  useEffect(() => {
+    if (!callObject) return;
+    function onQuality(ev) {
+      reportDiagnostic(initialSession.id, 'network-quality-change', {
+        networkState: ev?.networkState,
+        reasons: ev?.networkStateReasons,
+      });
+    }
+    function onConnection(ev) {
+      reportDiagnostic(initialSession.id, 'network-connection', {
+        type: ev?.type,
+        event: ev?.event,
+      });
+    }
+    callObject.on('network-quality-change', onQuality);
+    callObject.on('network-connection', onConnection);
+    return () => {
+      callObject.off('network-quality-change', onQuality);
+      callObject.off('network-connection', onConnection);
+    };
+  }, [callObject, initialSession.id]);
 
   // an unintentional 'left-meeting' event does NOT mean the host kicked us —
   // this same Daily event also fires on a genuine connection/meeting error
