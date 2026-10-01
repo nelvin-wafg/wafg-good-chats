@@ -1126,6 +1126,7 @@ function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile, onF
   const videoState = useMediaTrack(localId, 'video');
   const audioState = useMediaTrack(localId, 'audio');
   const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [showTroubleshoot, setShowTroubleshoot] = useState(false);
 
   const videoOn = videoState?.state === 'sendable' || videoState?.state === 'playable';
   const audioOn = audioState?.state === 'sendable' || audioState?.state === 'playable';
@@ -1190,6 +1191,13 @@ function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile, onF
             edit info
           </button>
         )}
+        <button
+          onClick={() => setShowTroubleshoot(true)}
+          className={`px-4 py-2 rounded-full text-xs font-semibold border ${onClass}`}
+          title="having audio or video trouble? get help"
+        >
+          🔧 trouble hearing/being heard?
+        </button>
         {onFlag && (
           <button
             onClick={onFlag}
@@ -1212,7 +1220,106 @@ function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile, onF
           onClose={() => setConfirmingLeave(false)}
         />
       )}
+      {showTroubleshoot && (
+        <TroubleshootModal
+          daily={daily}
+          sessionCode={sessionCode}
+          onFlag={onFlag}
+          onClose={() => setShowTroubleshoot(false)}
+        />
+      )}
     </>
+  );
+}
+
+// ============================================================================
+// TROUBLESHOOT MODAL · self-serve help for "can't hear / can't be heard."
+// most of what causes this lives outside the app entirely — a blocked OS
+// permission, another app holding the mic, a flaky driver, a firewall
+// dropping the traffic — nothing here can reach into someone else's device
+// or network and fix those directly. what this CAN do is turn "explain the
+// fix over chat mid-event" into "click this, follow a few steps," in the
+// order they're actually likely to help, ending in a real escalation path
+// (flagging the host) instead of leaving someone stuck with no next move.
+// ============================================================================
+function TroubleshootModal({ daily, sessionCode, onFlag, onClose }) {
+  const [retrying, setRetrying] = useState(false);
+
+  async function retryMicCam() {
+    if (retrying || !daily) return;
+    setRetrying(true);
+    try {
+      try { await daily.updateInputSettings({ audio: { processor: { type: 'none' } } }); } catch {}
+      await daily.setLocalAudio(true);
+      await daily.setLocalVideo(true);
+    } catch (e) {
+      console.warn('[troubleshoot] retry failed', e);
+    }
+    setTimeout(() => setRetrying(false), 2000);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+      <div className="bg-white text-black rounded-xl p-6 max-w-md w-full shadow-2xl max-h-[85vh] overflow-y-auto">
+        <div className="flex items-start justify-between gap-3 mb-1">
+          <div className="display text-2xl">sorry you're having trouble <span style={{ color: '#01ecf3' }}>*</span></div>
+          <button onClick={onClose} className="text-xl text-neutral-500 hover:text-black leading-none flex-shrink-0">×</button>
+        </div>
+        <p className="text-sm text-neutral-600 mb-5">
+          audio/video trouble is almost always fixable in a minute. here's the stuff most likely to help, roughly in order:
+        </p>
+
+        <div className="space-y-3 mb-5">
+          <div className="rounded-lg p-3" style={{ background: '#f4f4f1' }}>
+            <p className="font-bold text-sm mb-1">1 · check your mic/camera permission</p>
+            <p className="text-xs text-neutral-600 mb-2">click the 🔒 or ⓘ icon in your browser's address bar, set microphone + camera to allow, then try again below — no refresh needed.</p>
+            <button
+              onClick={retryMicCam}
+              disabled={retrying}
+              className="w-full py-2 rounded-md font-bold text-xs disabled:opacity-60"
+              style={{ background: '#01ecf3', color: '#000' }}
+            >
+              {retrying ? 'checking...' : "i fixed it · try again →"}
+            </button>
+          </div>
+
+          <div className="rounded-lg p-3" style={{ background: '#f4f4f1' }}>
+            <p className="font-bold text-sm mb-1">2 · try a different device</p>
+            <p className="text-xs text-neutral-600">use the <strong>▾</strong> next to your mic/camera buttons above to switch — especially if you've got a headset or AirPods connected that might not be selected.</p>
+          </div>
+
+          <div className="rounded-lg p-3" style={{ background: '#f4f4f1' }}>
+            <p className="font-bold text-sm mb-1">3 · close anything else using your mic/camera</p>
+            <p className="text-xs text-neutral-600">another video call, a different tab with this same session open, Zoom/Teams in the background — any of these can quietly hold onto your mic.</p>
+          </div>
+
+          <div className="rounded-lg p-3" style={{ background: '#f4f4f1' }}>
+            <p className="font-bold text-sm mb-1">4 · leave and rejoin</p>
+            <p className="text-xs text-neutral-600 mb-2">a clean reconnect fixes more than you'd expect. your info is saved — rejoining takes one click.</p>
+            <button
+              onClick={() => { window.location.href = sessionCode ? `/r/${sessionCode}` : '/'; }}
+              className="w-full py-2 rounded-md font-bold text-xs border border-black"
+            >
+              leave & rejoin
+            </button>
+          </div>
+
+          <div className="rounded-lg p-3" style={{ background: '#f4f4f1' }}>
+            <p className="font-bold text-sm mb-1">5 · on hotel, work, or public wifi?</p>
+            <p className="text-xs text-neutral-600">some networks block the kind of connection video calls need. if you've got a phone nearby, try switching to its personal hotspot.</p>
+          </div>
+        </div>
+
+        <p className="text-xs text-neutral-500 mb-3">still stuck after that? we've got you — let the host know and they'll help you out directly.</p>
+        <button
+          onClick={() => { onClose(); onFlag?.(); }}
+          className="w-full py-2.5 rounded-md font-bold text-sm border-2"
+          style={{ borderColor: '#d97706', color: '#92400e', background: '#fff7e6' }}
+        >
+          🚩 still stuck · let the host know
+        </button>
+      </div>
+    </div>
   );
 }
 
