@@ -42,6 +42,10 @@ export default function LiveControl({ session: initialSession }) {
   const [broadcastBusy, setBroadcastBusy] = useState(false);
   // reactive mute state: dailySessionId → boolean (true = muted/off)
   const [muteStates, setMuteStates] = useState({});
+  // dailySessionId → boolean: the participant's browser is BLOCKING their mic
+  // (permission denied / no device). distinct from "muted" — they can't fix it
+  // by tapping unmute, so the roster flags it for the host.
+  const [blockedStates, setBlockedStates] = useState({});
   // maps DB participant UUID → Daily session ID (for mute button + badge)
   const [dailySessionByUserId, setDailySessionByUserId] = useState({});
   // recent connection-health events (see /diagnostics route) · shown in a
@@ -260,12 +264,14 @@ export default function LiveControl({ session: initialSession }) {
     if (!callObject) return;
     function updateStates() {
       const mutes = {};
+      const blocked = {};
       const byUserId = {};
       const dps = callObject.participants() || {};
       for (const [sid, p] of Object.entries(dps)) {
         if (sid === 'local') continue;
         if (p?.user_id) byUserId[p.user_id] = sid;
         mutes[sid] = p?.tracks?.audio?.state === 'off';
+        blocked[sid] = p?.tracks?.audio?.state === 'blocked';
 
         if (p?.user_id) {
           const prev = lastParticipantDiagRef.current[p.user_id] || {};
@@ -281,6 +287,7 @@ export default function LiveControl({ session: initialSession }) {
         }
       }
       setMuteStates(mutes);
+      setBlockedStates(blocked);
       setDailySessionByUserId(byUserId);
     }
     updateStates();
@@ -353,6 +360,33 @@ export default function LiveControl({ session: initialSession }) {
     } catch (e) {
       console.warn('[mute] failed', e);
       showToast("couldn't mute · try again", 'error');
+    }
+  }
+
+  // ask a participant to unmute. daily technically lets an owner force someone's
+  // mic back on, but its own docs flag that as a privacy problem — switching on
+  // a mic in a 1:1 conversation without the person's say-so isn't something a
+  // host tool should do silently. instead this sends a private note with a
+  // one-tap "unmute me" button on their side (see DirectMessageBanner).
+  async function requestUnmute(participantId, participantName) {
+    try {
+      const res = await fetch(`/api/sessions/${session.id}/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          participantId,
+          text: "your mic is off right now — tap below to turn it back on so everyone can hear you.",
+          action: 'unmute',
+        }),
+      });
+      if (!res.ok) {
+        showToast((await res.text()) || "couldn't send request", 'error');
+        return;
+      }
+      showToast(`asked ${participantName || 'them'} to unmute`, 'success');
+    } catch {
+      showToast('connection issue · try again', 'error');
     }
   }
 
@@ -590,6 +624,8 @@ export default function LiveControl({ session: initialSession }) {
         hasCall={Boolean(callObject)}
         onKick={kickParticipant}
         onMute={muteParticipant}
+        onRequestUnmute={requestUnmute}
+        blockedStates={blockedStates}
         onPlace={placeParticipant}
         onOpenMessage={(p) => setMessageTarget({ id: p.id, name: p.name, flagText: p.flag_text || null })}
         onAdmit={admitParticipants}
@@ -629,7 +665,7 @@ export default function LiveControl({ session: initialSession }) {
 // ============================================================================
 // inner component (uses daily hooks if wrapped in DailyProvider)
 // ============================================================================
-function LiveControlInner({ session, participants, participantsByName, pairings, pairingsHistory, secondsLeft, busy, action, hasCall, onKick, onMute, onPlace, onOpenMessage, onAdmit, broadcastText, setBroadcastText, sendBroadcast, broadcastBusy, muteStates = {}, dailySessionByUserId = {}, diagnosticEvents = [] }) {
+function LiveControlInner({ session, participants, participantsByName, pairings, pairingsHistory, secondsLeft, busy, action, hasCall, onKick, onMute, onRequestUnmute, onPlace, onOpenMessage, onAdmit, broadcastText, setBroadcastText, sendBroadcast, broadcastBusy, muteStates = {}, blockedStates = {}, dailySessionByUserId = {}, diagnosticEvents = [] }) {
   // waiting list: people in the session whose admitted_at is null while the
   // session is in 'live' status (host has opened but hasn't kicked off yet).
   const waitingList = (session.status === 'live' || session.status === 'draft')
@@ -919,6 +955,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
               {participants.filter((p) => p.is_present && !p.current_room_name).map((p) => {
                 const dSid = dailySessionByUserId[p.id];
                 const isMuted = dSid ? Boolean(muteStates[dSid]) : false;
+                const isMicBlocked = dSid ? Boolean(blockedStates[dSid]) : false;
                 return (
                 <div key={p.id} className="flex items-center gap-2.5 bg-white border border-neutral-200 rounded-md py-2 px-2.5 hover:border-neutral-300">
                   <div className="relative w-8 h-8 flex-shrink-0">
@@ -947,6 +984,15 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                   </div>
                   <div className="text-xs font-medium truncate flex-1 min-w-0 flex items-center gap-1.5">
                     {p.name}
+                    {isMicBlocked && (
+                      <span
+                        className="text-[9px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                        style={{ background: '#fee2e2', color: '#991b1b' }}
+                        title={`${p.name}'s browser is blocking their microphone · they can't unmute until they fix the permission · try messaging them`}
+                      >
+                        mic blocked
+                      </span>
+                    )}
                     {orphanedIds.has(p.id) && (
                       <span
                         className="text-[9px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
@@ -963,9 +1009,9 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                     {dSid && (
                       <button
                         type="button"
-                        onClick={() => !isMuted && onMute?.(p.id, p.name)}
-                        className={`w-7 h-7 rounded-full text-xs flex items-center justify-center leading-none ${isMuted ? 'bg-red-100 text-red-600 cursor-default' : 'bg-neutral-100 hover:bg-orange-100 text-neutral-700 cursor-pointer'}`}
-                        title={isMuted ? `${p.name} is muted` : `mute ${p.name}`}
+                        onClick={() => (isMuted ? onRequestUnmute?.(p.id, p.name) : onMute?.(p.id, p.name))}
+                        className={`w-7 h-7 rounded-full text-xs flex items-center justify-center leading-none ${isMuted ? 'bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer' : 'bg-neutral-100 hover:bg-orange-100 text-neutral-700 cursor-pointer'}`}
+                        title={isMuted ? `${p.name}'s mic is off · click to ask them to unmute` : `mute ${p.name}`}
                       >
                         {isMuted ? '🔇' : '🎤'}
                       </button>

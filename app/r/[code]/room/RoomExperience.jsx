@@ -93,6 +93,13 @@ export default function RoomExperience({ session: initialSession }) {
     if (directMessage?.at) dismissedDirectMessagesRef.current.add(directMessage.at);
     setDirectMessage(null);
   }
+  // one-tap consent for a host's "can you unmute?" request. the host can ask,
+  // but only the participant turns their own mic back on.
+  async function unmuteSelf() {
+    unlockIosAudio();
+    try { await callObject?.setLocalAudio(true); } catch (e) { console.warn('[unmute] failed', e); }
+    dismissDirectMessage();
+  }
   // submit a flag · optional `text` is the participant's note to the host
   // (used both for initial flags and for replies to a host message).
   async function sendFlag(text) {
@@ -456,6 +463,8 @@ export default function RoomExperience({ session: initialSession }) {
         {directMessage && (
           <DirectMessageBanner
             text={directMessage.text}
+            action={directMessage.action}
+            onUnmute={unmuteSelf}
             onClose={dismissDirectMessage}
             onReply={() => setShowFlagComposer(true)}
           />
@@ -493,6 +502,8 @@ export default function RoomExperience({ session: initialSession }) {
         {directMessage && (
           <DirectMessageBanner
             text={directMessage.text}
+            action={directMessage.action}
+            onUnmute={unmuteSelf}
             onClose={dismissDirectMessage}
             onReply={() => setShowFlagComposer(true)}
           />
@@ -553,6 +564,8 @@ export default function RoomExperience({ session: initialSession }) {
         {directMessage && (
           <DirectMessageBanner
             text={directMessage.text}
+            action={directMessage.action}
+            onUnmute={unmuteSelf}
             onClose={dismissDirectMessage}
             onReply={() => setShowFlagComposer(true)}
           />
@@ -586,6 +599,8 @@ export default function RoomExperience({ session: initialSession }) {
       {directMessage && (
         <DirectMessageBanner
           text={directMessage.text}
+            action={directMessage.action}
+            onUnmute={unmuteSelf}
           onClose={dismissDirectMessage}
           onReply={() => setShowFlagComposer(true)}
         />
@@ -1127,6 +1142,12 @@ function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile, onF
   const audioState = useMediaTrack(localId, 'audio');
   const [confirmingLeave, setConfirmingLeave] = useState(false);
   const [showTroubleshoot, setShowTroubleshoot] = useState(false);
+  // mic is "on" but nothing is coming through. two signals: daily reports the
+  // track as interrupted (muted at the OS/hardware level, or another app took
+  // it), or the local audio level has been flat for a long stretch. soft,
+  // dismissible — someone quietly listening looks identical to a dead mic.
+  const [micSilent, setMicSilent] = useState(false);
+  const [silentDismissedAt, setSilentDismissedAt] = useState(0);
 
   const videoOn = videoState?.state === 'sendable' || videoState?.state === 'playable';
   const audioOn = audioState?.state === 'sendable' || audioState?.state === 'playable';
@@ -1145,6 +1166,31 @@ function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile, onF
     try { await daily.setLocalVideo(!videoOn); } catch (e) { console.warn('setLocalVideo failed', e); }
   }
 
+  const micInterrupted = audioState?.state === 'interrupted';
+  useEffect(() => {
+    if (!daily || !audioOn) { setMicSilent(false); return undefined; }
+    let cancelled = false;
+    let started = false;
+    let lastSound = Date.now();
+    const onLevel = (ev) => { if ((ev?.audioLevel || 0) > 0.002) lastSound = Date.now(); };
+    (async () => {
+      try {
+        await daily.startLocalAudioLevelObserver(500);
+        if (cancelled) { try { daily.stopLocalAudioLevelObserver(); } catch {} return; }
+        started = true;
+        daily.on('local-audio-level', onLevel);
+      } catch {}
+    })();
+    const id = setInterval(() => setMicSilent(Date.now() - lastSound > 45000), 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+      try { daily.off('local-audio-level', onLevel); } catch {}
+      if (started) { try { daily.stopLocalAudioLevelObserver(); } catch {} }
+    };
+  }, [daily, audioOn]);
+  const showMicWarning = (micInterrupted || micSilent) && Date.now() - silentDismissedAt > 5 * 60 * 1000;
+
   const light = theme === 'light';
   const footerClass = light ? 'border-neutral-200 bg-white' : 'border-neutral-800 bg-black';
   const onClass = light ? 'bg-neutral-100 border-neutral-300 text-black' : 'bg-neutral-800 border-neutral-700 text-white';
@@ -1156,6 +1202,37 @@ function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile, onF
   return (
     <>
       {audioBlocked && <MicBlockedOverlay daily={daily} />}
+      {showMicWarning && !audioBlocked && (
+        <div
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[150] max-w-md w-[calc(100%-2rem)] rounded-md p-3 sticker"
+          style={{ background: '#fff7e6', border: '2px solid #d97706', color: '#000' }}
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0 text-sm">
+              <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#d97706' }}>* heads up *</div>
+              {micInterrupted
+                ? "your mic is on, but your device isn't sending any sound — it may be muted on your headset/laptop, or another app has it."
+                : "we're not picking up any sound from your mic. totally fine if you're just listening — but if people can't hear you, tap below."}
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => { setSilentDismissedAt(Date.now()); setShowTroubleshoot(true); }}
+                  className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded"
+                  style={{ background: '#d97706', color: '#fff' }}
+                >
+                  fix my mic →
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={() => setSilentDismissedAt(Date.now())}
+              className="text-lg leading-none text-neutral-500 hover:text-black flex-shrink-0"
+              title="dismiss"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
       <footer className={`border-t px-6 py-3 flex items-center justify-center gap-3 flex-wrap ${footerClass}`}>
         <div
           className={`inline-flex items-center rounded-full border ${audioOn ? onClass : offClass}`}
@@ -1425,6 +1502,229 @@ function SplittingTransition({ partnerName, prompt, roomLabel, count, myName }) 
 }
 
 // ============================================================================
+// DEVICE CHECK · runs in the waiting room, BEFORE anyone is let into the call.
+// the point is to surface a bad permission / missing mic / dead mic while the
+// person still has time to fix it, instead of discovering it mid-conversation
+// with a partner staring at them. results are also reported to the host's
+// connection log, so "who's going to have trouble" is visible before round 1.
+// ============================================================================
+function DeviceCheckCard({ sessionId }) {
+  const [mic, setMic] = useState('checking'); // checking | ready | prompt | denied | none
+  const [cam, setCam] = useState('checking');
+  const [testing, setTesting] = useState(false);
+  const [level, setLevel] = useState(0);
+  const [heard, setHeard] = useState('idle'); // idle | listening | yes | no
+  const checkRef = useRef(null);
+  const autoTriedRef = useRef(false);
+  const reportedRef = useRef(new Set());
+  const permsApiRef = useRef(true);
+
+  function report(kind, state) {
+    const key = `${kind}:${state}`;
+    if (reportedRef.current.has(key)) return;
+    reportedRef.current.add(key);
+    reportDiagnostic(sessionId, 'track-state-change', { track: kind, state: `preflight ${state}` });
+  }
+
+  // permissions API is the source of truth for "denied" vs "just not asked yet"
+  // (a dismissed prompt and a real denial both throw NotAllowedError from
+  // getUserMedia, so the error alone can't tell them apart).
+  useEffect(() => {
+    let cancelled = false;
+    const statuses = [];
+    async function query(name) {
+      try {
+        const st = await navigator.permissions.query({ name });
+        statuses.push(st);
+        return st;
+      } catch {
+        permsApiRef.current = false;
+        return null;
+      }
+    }
+    async function check() {
+      let m = 'prompt';
+      let c = 'prompt';
+      const ms = await query('microphone');
+      const cs = await query('camera');
+      if (ms) m = ms.state;
+      if (cs) c = cs.state;
+      let devices = null;
+      try { devices = await navigator.mediaDevices.enumerateDevices(); } catch {}
+      // some browsers return an empty list before permission is granted — only
+      // trust "no device" when the list is non-empty but lacks that kind.
+      const known = devices && devices.length > 0;
+      const hasMic = !known || devices.some((d) => d.kind === 'audioinput');
+      const hasCam = !known || devices.some((d) => d.kind === 'videoinput');
+      if (cancelled) return;
+      // when the browser can't report permission state at all (older Safari,
+      // Firefox for some devices), don't let a re-check clobber the result of a
+      // real getUserMedia test — only device presence is trustworthy then.
+      const apply = (set, has, perm) => {
+        if (!has) { set('none'); return; }
+        if (perm) { set(perm.state === 'granted' ? 'ready' : perm.state); return; }
+        set((prev) => (prev === 'checking' ? 'prompt' : prev));
+      };
+      apply(setMic, hasMic, ms);
+      apply(setCam, hasCam, cs);
+    }
+    checkRef.current = check;
+    check().then(() => {
+      statuses.forEach((st) => { st.onchange = () => check(); });
+    });
+    return () => { cancelled = true; statuses.forEach((st) => { st.onchange = null; }); };
+  }, []);
+
+  useEffect(() => {
+    if (mic === 'denied') report('audio', 'mic permission denied');
+    if (mic === 'none') report('audio', 'no microphone found');
+    if (cam === 'denied') report('video', 'camera permission denied');
+  }, [mic, cam]); // eslint-disable-line
+
+  async function meter(stream) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    try {
+      const src = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      src.connect(analyser);
+      const buf = new Uint8Array(analyser.fftSize);
+      setHeard('listening');
+      let sawSound = false;
+      await new Promise((resolve) => {
+        const started = Date.now();
+        const id = setInterval(() => {
+          analyser.getByteTimeDomainData(buf);
+          let peak = 0;
+          for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i] - 128));
+          const lvl = Math.min(1, peak / 40);
+          setLevel(lvl);
+          if (lvl > 0.1) sawSound = true;
+          if (Date.now() - started > 6000 || (sawSound && Date.now() - started > 1500)) {
+            clearInterval(id);
+            resolve();
+          }
+        }, 100);
+      });
+      setHeard(sawSound ? 'yes' : 'no');
+      if (!sawSound) report('audio', 'mic on but silent');
+    } finally {
+      try { ctx.close(); } catch {}
+    }
+  }
+
+  async function runTest() {
+    if (testing) return;
+    setTesting(true);
+    setHeard('idle');
+    let stream = null;
+    try {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setMic('ready');
+      } catch (e) {
+        if (!permsApiRef.current) setMic(e?.name === 'NotFoundError' ? 'none' : 'denied');
+      }
+      // camera on its own so a missing camera never masks a working mic
+      try {
+        const v = await navigator.mediaDevices.getUserMedia({ video: true });
+        v.getTracks().forEach((t) => t.stop());
+        setCam('ready');
+      } catch (e) {
+        if (!permsApiRef.current) setCam(e?.name === 'NotFoundError' ? 'none' : 'denied');
+      }
+      await checkRef.current?.(); // re-read the real permission state
+      if (stream) await meter(stream);
+    } finally {
+      stream?.getTracks().forEach((t) => t.stop());
+      setLevel(0);
+      setTesting(false);
+    }
+  }
+
+  // ask for permission up front, once, only when the browser says it hasn't been
+  // asked yet — so a first-time joiner sees the prompt while they're waiting,
+  // not the moment they're dropped into a conversation.
+  useEffect(() => {
+    if (autoTriedRef.current) return;
+    if (mic === 'prompt' && permsApiRef.current) {
+      autoTriedRef.current = true;
+      runTest();
+    }
+  }, [mic]); // eslint-disable-line
+
+  const chip = (label, st) => {
+    const map = {
+      checking: { t: 'checking...', c: '#737373', bg: '#f4f4f1' },
+      ready: { t: 'ready', c: '#166534', bg: '#dcfce7' },
+      prompt: { t: 'needs permission', c: '#92400e', bg: '#fef3c7' },
+      denied: { t: 'blocked', c: '#991b1b', bg: '#fee2e2' },
+      none: { t: 'not found', c: '#991b1b', bg: '#fee2e2' },
+    }[st] || { t: st, c: '#737373', bg: '#f4f4f1' };
+    return (
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="font-semibold">{label}</span>
+        <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: map.bg, color: map.c }}>{map.t}</span>
+      </div>
+    );
+  };
+
+  const blocked = mic === 'denied' || cam === 'denied';
+  const allGood = mic === 'ready' && (cam === 'ready' || cam === 'none') && heard === 'yes';
+
+  return (
+    <div className="mt-8 max-w-sm mx-auto text-left rounded-lg p-4 bg-white border border-neutral-200">
+      <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 mb-3">quick check · mic &amp; camera</div>
+      <div className="space-y-2 mb-3">
+        {chip('microphone', mic)}
+        {chip('camera', cam)}
+      </div>
+
+      {(testing || heard !== 'idle') && mic === 'ready' && (
+        <div className="mb-3">
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: '#e5e5e5' }}>
+            <div className="h-full" style={{ width: `${Math.round(level * 100)}%`, background: '#01ecf3', transition: 'width 100ms' }} />
+          </div>
+          <p className="text-xs text-neutral-600 mt-1.5">
+            {heard === 'listening' && 'say something — we're listening...'}
+            {heard === 'yes' && 'we can hear you ✓'}
+            {heard === 'no' && "we didn't pick up any sound. if you spoke, try the device menu once you're in, or check that no other app is using your mic."}
+          </p>
+        </div>
+      )}
+
+      {blocked && (
+        <div className="rounded p-3 mb-3 text-xs" style={{ background: '#fff7e6', border: '1px solid #d97706' }}>
+          <p className="font-bold mb-1">your browser is blocking {mic === 'denied' && cam === 'denied' ? 'your mic and camera' : mic === 'denied' ? 'your mic' : 'your camera'}.</p>
+          <p>click the 🔒 or ⓘ icon in your address bar, set it to <strong>Allow</strong>, then check again. no refresh needed.</p>
+        </div>
+      )}
+      {mic === 'none' && (
+        <div className="rounded p-3 mb-3 text-xs" style={{ background: '#fff7e6', border: '1px solid #d97706' }}>
+          <p className="font-bold mb-1">we can't find a microphone on this device.</p>
+          <p>plug in a headset or mic, or try joining from your phone.</p>
+        </div>
+      )}
+
+      {allGood ? (
+        <p className="text-xs font-bold text-center" style={{ color: '#166534' }}>you're all set — you'll be let in shortly.</p>
+      ) : (
+        <button
+          onClick={runTest}
+          disabled={testing}
+          className="w-full py-2.5 rounded-md font-bold text-sm disabled:opacity-60"
+          style={{ background: '#01ecf3', color: '#000' }}
+        >
+          {testing ? 'checking...' : blocked || mic === 'prompt' ? 'check again →' : 'test my mic →'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 // WAITING ROOM · shown before the host has admitted the participant
 // no daily call · we keep polling state so the moment admitted_at flips, the
 // participant transitions out of this view and into the main room.
@@ -1450,6 +1750,7 @@ function WaitingRoomView({ session, myName, onFlag }) {
           <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#01ecf3' }}></span>
           <span className="text-xs uppercase tracking-widest font-bold text-neutral-700">waiting for the host</span>
         </div>
+        <DeviceCheckCard sessionId={session.id} />
         {onFlag && (
           <div className="mt-8">
             <button
@@ -1484,7 +1785,7 @@ function BroadcastBanner({ text }) {
 // ============================================================================
 // HOST DIRECT MESSAGE banner · dismissible, with optional reply button
 // ============================================================================
-function DirectMessageBanner({ text, onClose, onReply }) {
+function DirectMessageBanner({ text, onClose, onReply, action, onUnmute }) {
   return (
     <div className="fixed top-12 left-1/2 -translate-x-1/2 z-40 max-w-md w-[calc(100%-2rem)] rounded-md p-3 sticker" style={{ background: '#fff7e6', border: '2px solid #d97706', color: '#000' }}>
       <div className="flex items-start gap-3">
@@ -1500,8 +1801,18 @@ function DirectMessageBanner({ text, onClose, onReply }) {
           ×
         </button>
       </div>
-      {onReply && (
-        <div className="flex justify-end mt-2 pt-2 border-t" style={{ borderColor: 'rgba(217, 119, 6, 0.3)' }}>
+      {(onReply || (action === 'unmute' && onUnmute)) && (
+        <div className="flex justify-end gap-2 mt-2 pt-2 border-t" style={{ borderColor: 'rgba(217, 119, 6, 0.3)' }}>
+          {action === 'unmute' && onUnmute && (
+            <button
+              onClick={onUnmute}
+              className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded"
+              style={{ background: '#01ecf3', color: '#000' }}
+            >
+              🎤 unmute me
+            </button>
+          )}
+          {onReply && (
           <button
             onClick={onReply}
             className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded"
@@ -1509,6 +1820,7 @@ function DirectMessageBanner({ text, onClose, onReply }) {
           >
             reply →
           </button>
+          )}
         </div>
       )}
     </div>

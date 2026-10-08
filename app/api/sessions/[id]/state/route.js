@@ -223,7 +223,7 @@ export async function GET(request, { params }) {
     const meRow = rawParticipants.find((p) => p.id === participantId);
     const dm = meRow?.metadata?.host_message;
     if (dm?.text && dm?.at) {
-      directMessage = { text: dm.text, at: dm.at };
+      directMessage = { text: dm.text, at: dm.at, action: dm.action || null };
     }
   }
   const sessionBroadcast = session?.metadata?.broadcast;
