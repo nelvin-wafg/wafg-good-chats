@@ -1688,7 +1688,7 @@ function DeviceCheckCard({ sessionId }) {
             <div className="h-full" style={{ width: `${Math.round(level * 100)}%`, background: '#01ecf3', transition: 'width 100ms' }} />
           </div>
           <p className="text-xs text-neutral-600 mt-1.5">
-            {heard === 'listening' && 'say something — we're listening...'}
+            {heard === 'listening' && "say something — we're listening..."}
             {heard === 'yes' && 'we can hear you ✓'}
             {heard === 'no' && "we didn't pick up any sound. if you spoke, try the device menu once you're in, or check that no other app is using your mic."}
           </p>
