@@ -17,13 +17,19 @@ export async function POST(request, { params }) {
   const auth = await getApprovedHost();
   if (!auth) return new NextResponse('forbidden', { status: 403 });
 
-  let sessionId, participantId, text;
+  let sessionId, participantId, text, action;
   try {
     sessionId = validateUuid(params.id, 'session id');
     const body = await request.json();
     participantId = validateUuid(body?.participantId, 'participant id');
     text = String(body?.text || '').trim();
     if (text.length > 500) text = text.slice(0, 500);
+    // optional machine-readable action attached to the message. 'unmute' turns
+    // it into a consent-based request: the participant's banner gets a one-tap
+    // "unmute me" button. we deliberately do NOT force-unmute people remotely —
+    // daily allows it, but turning someone's mic on without their say-so in a
+    // 1:1 conversation is a privacy problem; asking is the right default.
+    action = body?.action === 'unmute' ? 'unmute' : null;
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
     return new NextResponse('bad request', { status: 400 });
@@ -41,7 +47,7 @@ export async function POST(request, { params }) {
   const prev = existing.metadata || {};
   const { flag_at, flag_text, ...rest } = prev; // host responded/acknowledged → clear the flag
   const metadata = text
-    ? { ...rest, host_message: { text, at: new Date().toISOString() } }
+    ? { ...rest, host_message: { text, at: new Date().toISOString(), ...(action ? { action } : {}) } }
     : rest;
 
   const { error } = await admin
