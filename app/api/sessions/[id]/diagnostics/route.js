@@ -10,6 +10,12 @@ const ALLOWED_EVENT_TYPES = new Set([
   'network-quality-change',
   'network-connection',
   'track-state-change',
+  // a participant's own report of their local mic ({ state: on | muted | blocked |
+  // interrupted | silent }). the host dashboard only sits in the MAIN daily room,
+  // so it can't see anyone's mic once they're paired into a round room · this
+  // self-report is the only way the host sees mic state during a round. kept out
+  // of the default log listing (see GET) so it can't crowd out real events.
+  'mic-state',
 ]);
 
 // POST /api/sessions/:id/diagnostics  body: { eventType, payload?, subjectParticipantId? }
@@ -88,17 +94,54 @@ export async function GET(request, { params }) {
     return new NextResponse('bad request', { status: 400 });
   }
 
+  // optional filters so a host can pull ONE person's history (or one event type)
+  // after the fact. without them the plain "last 100" window is dominated by the
+  // chattiest connections and, after a long event, only reaches back a minute or
+  // two · that is exactly what made the first live event's log useless.
+  //   ?participantId=<uuid>  ?eventType=<type>  ?since=<iso>  ?limit=<1..500>
+  const url = new URL(request.url);
+  let participantId = null;
+  let eventType = null;
+  let since = null;
+  let limit = 100;
+  try {
+    const pid = url.searchParams.get('participantId');
+    if (pid) participantId = validateUuid(pid, 'participant id');
+    const et = url.searchParams.get('eventType');
+    if (et) {
+      if (!ALLOWED_EVENT_TYPES.has(et)) return new NextResponse('unknown event type', { status: 400 });
+      eventType = et;
+    }
+    const s = url.searchParams.get('since');
+    if (s) {
+      const t = new Date(s);
+      if (Number.isNaN(t.getTime())) return new NextResponse('bad since', { status: 400 });
+      since = t.toISOString();
+    }
+    const l = parseInt(url.searchParams.get('limit') || '', 10);
+    if (Number.isFinite(l)) limit = Math.min(500, Math.max(1, l));
+  } catch (err) {
+    if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
+    return new NextResponse('bad request', { status: 400 });
+  }
+
   const admin = adminClient();
-  const { data: events = [] } = await admin
+  let query = admin
     .from('connection_events')
     .select('id, participant_id, role, event_type, payload, created_at, participants(name)')
     .eq('session_id', sessionId)
     .order('created_at', { ascending: false })
-    .limit(100);
+    .limit(limit);
+  if (participantId) query = query.eq('participant_id', participantId);
+  if (eventType) query = query.eq('event_type', eventType);
+  else query = query.neq('event_type', 'mic-state'); // high-volume self-reports · ask for them explicitly
+  if (since) query = query.gte('created_at', since);
+  const { data: events = [] } = await query;
 
   return NextResponse.json({
     events: (events || []).map((e) => ({
       id: e.id,
+      participantId: e.participant_id,
       name: e.participants?.name || (e.role === 'host' ? 'host' : 'unknown'),
       role: e.role,
       eventType: e.event_type,

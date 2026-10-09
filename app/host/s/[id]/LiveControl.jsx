@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DailyProvider, DailyAudio, useDaily, useParticipantIds, useLocalSessionId, useMediaTrack, useParticipantProperty, useActiveSpeakerId } from '@daily-co/daily-react';
 import DailyIframe from '@daily-co/daily-js';
 import { colorForName, initials } from '@/lib/brand';
+import { networkQualityPayload, isNetworkStateChange, BAD_NETWORK_STATES } from '@/lib/network-diag';
 import CopyLink from '@/components/CopyLink';
 import ChatPanel from '@/components/ChatPanel';
 import DeviceMenu from '@/components/DeviceMenu';
@@ -58,7 +59,7 @@ export default function LiveControl({ session: initialSession }) {
     let cancelled = false;
     async function poll() {
       try {
-        const res = await fetch(`/api/sessions/${session.id}/diagnostics`, { credentials: 'same-origin' });
+        const res = await fetch(`/api/sessions/${session.id}/diagnostics?limit=200`, { credentials: 'same-origin' });
         if (!res.ok || cancelled) return;
         const data = await res.json();
         if (!cancelled) setDiagnosticEvents(data.events || []);
@@ -229,11 +230,12 @@ export default function LiveControl({ session: initialSession }) {
   // connection-state changes (see the /diagnostics route's comment).
   useEffect(() => {
     if (!callObject) return;
+    let lastState = null;
     function onQuality(ev) {
-      reportDiagnostic(session.id, 'network-quality-change', {
-        networkState: ev?.networkState,
-        reasons: ev?.networkStateReasons,
-      });
+      const payload = networkQualityPayload(ev);
+      if (!isNetworkStateChange(lastState, payload)) return;
+      lastState = payload.state;
+      reportDiagnostic(session.id, 'network-quality-change', payload);
     }
     function onConnection(ev) {
       reportDiagnostic(session.id, 'network-connection', {
@@ -278,7 +280,7 @@ export default function LiveControl({ session: initialSession }) {
           const networkQualityState = p.networkQualityState;
           const audioState = p?.tracks?.audio?.state;
           if (networkQualityState && networkQualityState !== prev.networkQualityState) {
-            reportDiagnostic(session.id, 'network-quality-change', { networkQualityState }, p.user_id);
+            reportDiagnostic(session.id, 'network-quality-change', { state: networkQualityState }, p.user_id);
           }
           if (audioState && audioState !== prev.audioState) {
             reportDiagnostic(session.id, 'track-state-change', { track: 'audio', state: audioState }, p.user_id);
@@ -708,6 +710,47 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
     }
   }
 
+
+  // best available mic status for a participant: 'blocked' | 'muted' | 'interrupted'
+  // | 'silent' | 'on' | null (no information yet).
+  // two sources: (1) the host's own daily connection, which only contains people in
+  // the MAIN room (the host never joins round rooms), and (2) the participant's own
+  // self-report (p.mic, see ParticipantControlBar), which works in every room. a
+  // live daily reading of blocked/muted wins; otherwise a non-"on" self-report wins,
+  // so a mic problem is never hidden by an optimistic "on".
+  function micStatusFor(p) {
+    const dSid = dailySessionByUserId[p.id];
+    if (dSid) {
+      if (blockedStates[dSid]) return 'blocked';
+      if (muteStates[dSid]) return 'muted';
+    }
+    const reported = p.mic?.state || null;
+    if (reported && reported !== 'on') return reported;
+    if (dSid) return 'on';
+    return reported;
+  }
+
+  // people who are here but in no pairing this round. the pairing step only picks
+  // people whose heartbeat was fresh at that instant, and rounds auto-advance from
+  // this tab, so someone can be left out with no signal at all · they just sit in
+  // the main room list looking like any late joiner.
+  const pairedIds = new Set();
+  for (const pa of pairings) {
+    if (pa.participant_a_id) pairedIds.add(pa.participant_a_id);
+    if (pa.participant_b_id) pairedIds.add(pa.participant_b_id);
+  }
+  // someone who joined AFTER the round started is legitimately waiting to be placed,
+  // so only flag people who were already here when the round was paired.
+  const roundStartMs = session.current_round_started_at ? new Date(session.current_round_started_at).getTime() : null;
+  const unpairedPresent = isRunning
+    ? participants.filter((p) => (
+        p.is_present &&
+        !pairedIds.has(p.id) &&
+        !orphanedIds.has(p.id) &&
+        (roundStartMs === null || new Date(p.joined_at).getTime() < roundStartMs)
+      ))
+    : [];
+
   return (
     <main className="min-h-screen flex flex-col" style={{ background: '#f4f4f1', color: '#000' }}>
       <header className="border-b border-neutral-200 bg-white px-6 py-3 flex items-center justify-between">
@@ -955,7 +998,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
               {participants.filter((p) => p.is_present && !p.current_room_name).map((p) => {
                 const dSid = dailySessionByUserId[p.id];
                 const isMuted = dSid ? Boolean(muteStates[dSid]) : false;
-                const isMicBlocked = dSid ? Boolean(blockedStates[dSid]) : false;
+                const micStatus = micStatusFor(p);
                 return (
                 <div key={p.id} className="flex items-center gap-2.5 bg-white border border-neutral-200 rounded-md py-2 px-2.5 hover:border-neutral-300">
                   <div className="relative w-8 h-8 flex-shrink-0">
@@ -982,15 +1025,16 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                       </button>
                     )}
                   </div>
-                  <div className="text-xs font-medium truncate flex-1 min-w-0 flex items-center gap-1.5">
+                  <div className="text-sm font-medium flex-1 min-w-0 flex items-center gap-1.5 flex-wrap break-words">
                     {p.name}
-                    {isMicBlocked && (
+                    <MicPill status={micStatus} name={p.name} compact />
+                    {isRunning && unpairedPresent.some((u) => u.id === p.id) && (
                       <span
                         className="text-[9px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
-                        style={{ background: '#fee2e2', color: '#991b1b' }}
-                        title={`${p.name}'s browser is blocking their microphone · they can't unmute until they fix the permission · try messaging them`}
+                        style={{ background: '#fef3c7', color: '#92400e' }}
+                        title={`${p.name} was here when this round was paired but isn't in any room · use place to put them in one`}
                       >
-                        mic blocked
+                        not paired this round
                       </span>
                     )}
                     {orphanedIds.has(p.id) && (
@@ -1056,80 +1100,56 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
           {pairings.length > 0 && isRunning && (
             <div>
               <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">live pairings</div>
-              <div className="space-y-2">
+              {unpairedPresent.length > 0 && (
+                <div
+                  className="rounded-md p-3 mb-3 text-sm"
+                  style={{ background: '#fef3c7', border: '1px solid #d97706', color: '#78350f' }}
+                >
+                  <strong>
+                    {unpairedPresent.map((p) => p.name).join(', ')}
+                  </strong>{' '}
+                  {unpairedPresent.length === 1 ? "is here but wasn't paired this round" : "are here but weren't paired this round"}
+                  {' '}— they're sitting in the main room. use <strong>place</strong> in the main room list to put them in a room.
+                </div>
+              )}
+              <div className="space-y-3">
                 {pairings.map((pa) => {
                   const isWithHost = !pa.participant_b_name;
+                  const a = participants.find((p) => p.id === pa.participant_a_id);
+                  const b = pa.participant_b_id ? participants.find((p) => p.id === pa.participant_b_id) : null;
                   return (
                     <div
                       key={pa.id}
-                      className={`rounded p-3 text-sm border ${isWithHost ? '' : 'bg-white border-neutral-200'}`}
+                      className={`rounded-md p-3 text-sm border ${isWithHost ? '' : 'bg-white border-neutral-200'}`}
                       style={isWithHost ? { background: 'rgba(1,236,243,0.12)', borderColor: '#01ecf3' } : {}}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="font-medium truncate">{pa.participant_a_name}</span>
-                          {participants.find((p) => p.id === pa.participant_a_id)?.flag_at && (
-                            <button
-                              type="button"
-                              onClick={() => onOpenMessage?.({ id: pa.participant_a_id, name: pa.participant_a_name, flag_text: participants.find((p) => p.id === pa.participant_a_id)?.flag_text || null })}
-                              className="w-4 h-4 rounded-full bg-amber-400 text-black text-[10px] font-bold flex items-center justify-center leading-none flex-shrink-0 animate-pulse"
-                              title={`${pa.participant_a_name} raised a flag · click to message`}
-                            >
-                              !
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => onOpenMessage?.({ id: pa.participant_a_id, name: pa.participant_a_name })}
-                            className="w-4 h-4 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[9px] font-bold flex items-center justify-center leading-none flex-shrink-0"
-                            title={`send ${pa.participant_a_name} a private message`}
-                          >
-                            ✉
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onKick?.(pa.participant_a_id, pa.participant_a_name)}
-                            className="w-4 h-4 rounded-full bg-red-100 hover:bg-red-600 text-red-600 hover:text-white text-[10px] font-bold flex items-center justify-center leading-none flex-shrink-0"
-                            title={`remove ${pa.participant_a_name} from the session`}
-                          >
-                            ×
-                          </button>
-                          <span className="text-neutral-400">·</span>
-                          <span className="font-medium truncate">
-                            {isWithHost ? 'you (host)' : pa.participant_b_name}
-                          </span>
-                          {!isWithHost && pa.participant_b_id && participants.find((p) => p.id === pa.participant_b_id)?.flag_at && (
-                            <button
-                              type="button"
-                              onClick={() => onOpenMessage?.({ id: pa.participant_b_id, name: pa.participant_b_name, flag_text: participants.find((p) => p.id === pa.participant_b_id)?.flag_text || null })}
-                              className="w-4 h-4 rounded-full bg-amber-400 text-black text-[10px] font-bold flex items-center justify-center leading-none flex-shrink-0 animate-pulse"
-                              title={`${pa.participant_b_name} raised a flag · click to message`}
-                            >
-                              !
-                            </button>
-                          )}
-                          {!isWithHost && pa.participant_b_id && (
-                            <button
-                              type="button"
-                              onClick={() => onOpenMessage?.({ id: pa.participant_b_id, name: pa.participant_b_name })}
-                              className="w-4 h-4 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[9px] font-bold flex items-center justify-center leading-none flex-shrink-0"
-                              title={`send ${pa.participant_b_name} a private message`}
-                            >
-                              ✉
-                            </button>
-                          )}
-                          {!isWithHost && pa.participant_b_id && (
-                            <button
-                              type="button"
-                              onClick={() => onKick?.(pa.participant_b_id, pa.participant_b_name)}
-                              className="w-4 h-4 rounded-full bg-red-100 hover:bg-red-600 text-red-600 hover:text-white text-[10px] font-bold flex items-center justify-center leading-none flex-shrink-0"
-                              title={`remove ${pa.participant_b_name} from the session`}
-                            >
-                              ×
-                            </button>
-                          )}
-                        </div>
-                        <span className="text-[10px] whitespace-nowrap text-neutral-600">* {pa.room_label}</span>
+                      <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 mb-2">* {pa.room_label}</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                        <PairingPerson
+                          id={pa.participant_a_id}
+                          name={pa.participant_a_name}
+                          participant={a}
+                          micStatus={a ? micStatusFor(a) : null}
+                          onOpenMessage={onOpenMessage}
+                          onKick={onKick}
+                          onRequestUnmute={onRequestUnmute}
+                        />
+                        {isWithHost ? (
+                          <div className="min-w-0">
+                            <div className="font-semibold text-base leading-tight">you (host)</div>
+                            <div className="text-[11px] text-neutral-500 mt-0.5">in the main room</div>
+                          </div>
+                        ) : (
+                          <PairingPerson
+                            id={pa.participant_b_id}
+                            name={pa.participant_b_name}
+                            participant={b}
+                            micStatus={b ? micStatusFor(b) : null}
+                            onOpenMessage={onOpenMessage}
+                            onKick={onKick}
+                            onRequestUnmute={onRequestUnmute}
+                          />
+                        )}
                       </div>
                     </div>
                   );
@@ -1390,17 +1410,130 @@ function RoundHistoryPanel({ pairingsHistory, currentRound }) {
   );
 }
 
+// small status chip for a participant's microphone. `status` comes from
+// micStatusFor() in LiveControlInner. compact mode (the dense roster) hides the
+// happy path so only problems draw the eye; the pairings view shows everything.
+const MIC_PILL = {
+  blocked: { label: 'mic blocked', bg: '#fee2e2', fg: '#991b1b', tip: "the browser is blocking their microphone · they can't unmute until they fix the permission · message them" },
+  muted: { label: 'muted', bg: '#fee2e2', fg: '#991b1b', tip: 'their mic is off · ask them to unmute' },
+  interrupted: { label: 'no sound from mic', bg: '#fef3c7', fg: '#92400e', tip: "their mic is on but their device isn't sending sound · another app may have it, or it is muted at the headset/laptop" },
+  silent: { label: 'mic silent', bg: '#fef3c7', fg: '#92400e', tip: "we haven't picked up any sound from their mic for a while · could be a dead mic, or they could just be listening" },
+  on: { label: 'mic on', bg: '#dcfce7', fg: '#166534', tip: 'their mic is on' },
+};
+function MicPill({ status, name, compact = false }) {
+  if (!status) {
+    if (compact) return null;
+    return (
+      <span
+        className="text-[9px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
+        style={{ background: '#f3f4f6', color: '#6b7280' }}
+        title={`no mic report from ${name || 'them'} yet`}
+      >
+        mic ?
+      </span>
+    );
+  }
+  if (compact && status === 'on') return null;
+  const s = MIC_PILL[status];
+  if (!s) return null;
+  return (
+    <span
+      className="text-[9px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
+      style={{ background: s.bg, color: s.fg }}
+      title={`${name || 'they'}: ${s.tip}`}
+    >
+      {s.label}
+    </span>
+  );
+}
+
+// one person inside a live-pairings card: full name (wraps, never truncated), their
+// mic status, and clearly labelled actions. the old row crammed two names and four
+// tiny unlabelled icons onto one line, which ellipsised names ("Jordan Vidm…") and
+// made the controls unreadable mid-round.
+function PairingPerson({ id, name, participant, micStatus, onOpenMessage, onKick, onRequestUnmute }) {
+  const flagged = Boolean(participant?.flag_at);
+  const btn = 'text-[11px] font-semibold rounded-md border px-2 py-1 leading-none whitespace-nowrap';
+  return (
+    <div className="min-w-0">
+      <div className="flex items-start gap-1.5 flex-wrap">
+        <span className="font-semibold text-base leading-tight break-words min-w-0">{name}</span>
+        {flagged && (
+          <button
+            type="button"
+            onClick={() => onOpenMessage?.({ id, name, flag_text: participant?.flag_text || null })}
+            className="w-5 h-5 rounded-full bg-amber-400 text-black text-xs font-bold flex items-center justify-center leading-none flex-shrink-0 animate-pulse"
+            title={`${name} raised a flag · click to message`}
+          >
+            !
+          </button>
+        )}
+      </div>
+      <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+        <MicPill status={micStatus} name={name} />
+        <button
+          type="button"
+          onClick={() => onOpenMessage?.({ id, name })}
+          className={`${btn} border-neutral-300 bg-white hover:bg-neutral-100 text-neutral-800`}
+          title={`send ${name} a private message`}
+        >
+          ✉ message
+        </button>
+        {micStatus === 'muted' && (
+          <button
+            type="button"
+            onClick={() => onRequestUnmute?.(id, name)}
+            className={`${btn} border-red-300 bg-red-50 hover:bg-red-100 text-red-700`}
+            title={`ask ${name} to unmute · they get a one-tap button`}
+          >
+            🎤 ask to unmute
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => onKick?.(id, name)}
+          className={`${btn} border-red-200 bg-white hover:bg-red-600 hover:text-white text-red-600`}
+          title={`remove ${name} from the session`}
+        >
+          × remove
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // connection log · recent WebRTC health events (network quality, connection
 // drops, track state changes) reported by participants' clients and the
 // host's own client. turns "someone couldn't hear anyone" into a lookup:
 // scan for their name and see whether their connection ever actually
 // stabilized, instead of relying on a verbal report alone.
 function ConnectionLogPanel({ events }) {
+  const [who, setWho] = useState('everyone');
+  const [problemsOnly, setProblemsOnly] = useState(false);
   if (!events || events.length === 0) return null;
+
+  // the network state lives under different keys depending on who logged it and
+  // which daily-js version was running: `state` (current), `networkQualityState` /
+  // `networkState` / `threshold` (older rows).
+  function networkOf(e) {
+    const p = e.payload || {};
+    return p.state || p.networkQualityState || p.networkState || p.threshold || null;
+  }
+  function isProblem(e) {
+    if (e.eventType === 'network-quality-change') return BAD_NETWORK_STATES.has(networkOf(e));
+    if (e.eventType === 'network-connection') return e.payload?.event === 'interrupted';
+    if (e.eventType === 'track-state-change') {
+      const s = String(e.payload?.state || '');
+      return ['blocked', 'interrupted', 'off'].includes(s) || /denied|no microphone|silent|blocked/.test(s);
+    }
+    return false;
+  }
 
   function describe(e) {
     if (e.eventType === 'network-quality-change') {
-      return `network: ${e.payload?.networkQualityState || e.payload?.networkState || 'unknown'}`;
+      const net = networkOf(e);
+      const reasons = Array.isArray(e.payload?.reasons) && e.payload.reasons.length ? ` (${e.payload.reasons.join(', ')})` : '';
+      return `network: ${net || 'unknown'}${reasons}`;
     }
     if (e.eventType === 'network-connection') {
       return `connection ${e.payload?.event || 'changed'} (${e.payload?.type || 'sfu'})`;
@@ -1419,13 +1552,36 @@ function ConnectionLogPanel({ events }) {
     return `${Math.floor(mins / 60)}h ago`;
   }
 
+  const names = Array.from(new Set(events.map((e) => e.name))).sort((a, b) => a.localeCompare(b));
+  const shown = events
+    .filter((e) => who === 'everyone' || e.name === who)
+    .filter((e) => !problemsOnly || isProblem(e))
+    .slice(0, 60);
+
   return (
     <div className="border-t border-neutral-200 pt-5">
-      <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">connection log</div>
-      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-        {events.slice(0, 30).map((e) => (
+      <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+        <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">connection log</div>
+        <div className="flex items-center gap-2">
+          <label className="text-[11px] text-neutral-600 flex items-center gap-1 cursor-pointer">
+            <input type="checkbox" checked={problemsOnly} onChange={(e) => setProblemsOnly(e.target.checked)} />
+            problems only
+          </label>
+          <select
+            value={who}
+            onChange={(e) => setWho(e.target.value)}
+            className="text-[11px] border border-neutral-300 rounded px-1.5 py-0.5 bg-white"
+          >
+            <option value="everyone">everyone</option>
+            {names.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+        {shown.length === 0 && <div className="text-xs text-neutral-500 italic">[nothing matches]</div>}
+        {shown.map((e) => (
           <div key={e.id} className="text-xs text-neutral-600 flex items-center justify-between gap-2">
-            <span className="truncate">
+            <span className="min-w-0 break-words" style={isProblem(e) ? { color: '#b91c1c' } : {}}>
               <strong className="text-black">{e.name}</strong> · {describe(e)}
             </span>
             <span className="text-neutral-400 flex-shrink-0 whitespace-nowrap">{timeAgo(e.createdAt)}</span>
