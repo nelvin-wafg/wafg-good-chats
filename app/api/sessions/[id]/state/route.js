@@ -89,8 +89,30 @@ export async function GET(request, { params }) {
     .select('id, name, is_present, current_room_name, joined_at, last_seen, metadata, kicked_at, profiles(linkedin_url, avatar_url)')
     .eq('session_id', session.id)
     .order('joined_at', { ascending: true });
+  // host view only: each participant's latest SELF-REPORTED mic state. the host
+  // dashboard sits in the main daily room, so once people are paired into round
+  // rooms it has no way to observe their mics directly. newest-first, first row
+  // seen per participant wins. best-effort: a failure here just means no mic info.
+  const micByParticipant = {};
+  if (isHostView) {
+    try {
+      const { data: micRows } = await admin
+        .from('connection_events')
+        .select('participant_id, payload, created_at')
+        .eq('session_id', session.id)
+        .eq('event_type', 'mic-state')
+        .order('created_at', { ascending: false })
+        .limit(400);
+      for (const r of micRows || []) {
+        if (!r.participant_id || micByParticipant[r.participant_id]) continue;
+        micByParticipant[r.participant_id] = { state: r.payload?.state || null, at: r.created_at };
+      }
+    } catch {}
+  }
+
   const participants = (rawParticipants || []).map((p) => ({
     id: p.id,
+    mic: micByParticipant[p.id] || null,
     name: p.name,
     is_present: p.is_present,
     current_room_name: p.current_room_name,

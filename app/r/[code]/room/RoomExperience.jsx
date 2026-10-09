@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DailyProvider, DailyAudio, useDaily, useParticipantIds, useLocalSessionId, useMediaTrack, useParticipantProperty, useActiveSpeakerId } from '@daily-co/daily-react';
 import DailyIframe from '@daily-co/daily-js';
 import { colorForName, initials } from '@/lib/brand';
+import { networkQualityPayload, isNetworkStateChange } from '@/lib/network-diag';
 import { showToast } from '@/components/Toast';
 import ChatPanel from '@/components/ChatPanel';
 import DeviceMenu from '@/components/DeviceMenu';
@@ -291,11 +292,12 @@ export default function RoomExperience({ session: initialSession }) {
   // points at their network/firewall rather than anything in this app.
   useEffect(() => {
     if (!callObject) return;
+    let lastState = null;
     function onQuality(ev) {
-      reportDiagnostic(initialSession.id, 'network-quality-change', {
-        networkState: ev?.networkState,
-        reasons: ev?.networkStateReasons,
-      });
+      const payload = networkQualityPayload(ev);
+      if (!isNetworkStateChange(lastState, payload)) return;
+      lastState = payload.state;
+      reportDiagnostic(initialSession.id, 'network-quality-change', payload);
     }
     function onConnection(ev) {
       reportDiagnostic(initialSession.id, 'network-connection', {
@@ -783,7 +785,7 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
 
       </div>
 
-      {withVideo && <ParticipantControlBar sessionCode={session?.code} theme="light" onEditProfile={onEditProfile} onFlag={onFlag} />}
+      {withVideo && <ParticipantControlBar sessionCode={session?.code} sessionId={session?.id} theme="light" onEditProfile={onEditProfile} onFlag={onFlag} />}
 
       {!withVideo && (
         <footer className="border-t border-neutral-200 bg-white px-6 py-3 flex items-center justify-between">
@@ -1004,7 +1006,7 @@ function PairRoomView({ assignment, session, myName, myLinkedin, myAvatarUrl, tr
         />
       </div>
 
-      <ParticipantControlBar sessionCode={session?.code} theme="light" onEditProfile={onEditProfile} onFlag={onFlag} />
+      <ParticipantControlBar sessionCode={session?.code} sessionId={session?.id} theme="light" onEditProfile={onEditProfile} onFlag={onFlag} />
     </main>
   );
 }
@@ -1135,7 +1137,7 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverri
 // ============================================================================
 // participant control bar (mic / cam / leave) · used wherever there's a daily call
 // ============================================================================
-function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile, onFlag }) {
+function ParticipantControlBar({ sessionCode, sessionId, theme = 'dark', onEditProfile, onFlag }) {
   const daily = useDaily();
   const localId = useLocalSessionId();
   const videoState = useMediaTrack(localId, 'video');
@@ -1190,6 +1192,31 @@ function ParticipantControlBar({ sessionCode, theme = 'dark', onEditProfile, onF
     };
   }, [daily, audioOn]);
   const showMicWarning = (micInterrupted || micSilent) && Date.now() - silentDismissedAt > 5 * 60 * 1000;
+
+  // tell the server what our mic is doing, so the host can see it. the host's own
+  // daily connection only covers the MAIN room, which means during a round it can't
+  // see anyone's mic at all (that's why the "mic blocked" tag never appeared on a
+  // paired person). this self-report is the host's only view into a round room.
+  // 'loading' (a transient state while a track starts) is skipped, the report is
+  // debounced so a flicker doesn't spam, and it only fires when the state changes.
+  const micReportState = audioBlocked
+    ? 'blocked'
+    : micInterrupted
+      ? 'interrupted'
+      : audioOn
+        ? (micSilent ? 'silent' : 'on')
+        : audioState?.state === 'off'
+          ? 'muted'
+          : null;
+  const lastMicReportRef = useRef(null);
+  useEffect(() => {
+    if (!sessionId || !micReportState || micReportState === lastMicReportRef.current) return undefined;
+    const t = setTimeout(() => {
+      lastMicReportRef.current = micReportState;
+      reportDiagnostic(sessionId, 'mic-state', { state: micReportState });
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [sessionId, micReportState]);
 
   const light = theme === 'light';
   const footerClass = light ? 'border-neutral-200 bg-white' : 'border-neutral-800 bg-black';
