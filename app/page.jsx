@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { joinWindow, formatCountdown } from '@/lib/join-window';
 
 // Public landing page for Good Chats. Three jobs:
 //  1. Explain what this is (hero + why + how it works).
@@ -11,6 +12,10 @@ import Link from 'next/link';
 export default function Landing() {
   const [nextSession, setNextSession] = useState(null);
   const [loadedNext, setLoadedNext] = useState(false);
+  // the countdown runs on the SERVER's clock: clockOffset = server time - this computer's
+  // time, measured once when /api/landing answers. `now` then ticks once a second.
+  const [clockOffset, setClockOffset] = useState(0);
+  const [now, setNow] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -19,11 +24,21 @@ export default function Landing() {
       .then((d) => {
         if (cancelled) return;
         setNextSession(d?.next || null);
+        if (d?.serverNow) setClockOffset(d.serverNow - Date.now());
         setLoadedNext(true);
       })
       .catch(() => { if (!cancelled) setLoadedNext(true); });
     return () => { cancelled = true; };
   }, []);
+
+  // tick once a second while there's a session to count down to
+  useEffect(() => {
+    if (!nextSession) return undefined;
+    const tick = () => setNow(Date.now() + clockOffset);
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [nextSession, clockOffset]);
 
   return (
     <main className="min-h-screen" style={{ background: '#f4f4f1', color: '#000' }}>
@@ -44,6 +59,7 @@ export default function Landing() {
             <br />
             One good person at a time.
           </p>
+          {loadedNext && nextSession && <NextSessionCard session={nextSession} now={now} />}
         </div>
         <div className="pb-10 md:pb-14">
           <button
@@ -62,7 +78,7 @@ export default function Landing() {
 
       {/* next session pill · fixed top-right · subtle indicator, not a hero */}
       {loadedNext && nextSession && (
-        <NextSessionPill session={nextSession} />
+        <NextSessionPill session={nextSession} now={now} />
       )}
 
       {/* why · same min-h-screen pattern as the hero · content centered, scroll
@@ -170,9 +186,67 @@ export default function Landing() {
 }
 
 // ============================================================================
+// Next session card · in the hero, right under the tagline. the countdown runs on the
+// SERVER's clock (see /api/landing) so a wrong computer clock can't show the wrong time.
+// ============================================================================
+function NextSessionCard({ session, now }) {
+  const t = now ?? Date.now();
+  const win = joinWindow(session.startsAt, t);
+  const isLive = session.status === 'running_round' || session.status === 'closing' || session.status === 'live';
+  const startsAt = win.startsAtMs ? new Date(win.startsAtMs) : null;
+  const when = startsAt
+    ? startsAt.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+    : null;
+  const opensAtLabel = win.opensAtMs
+    ? new Date(win.opensAtMs).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    : null;
+
+  let eyebrow;
+  let big;
+  let cta;
+  let note = null;
+  if (isLive && (!win.gated || win.open)) {
+    eyebrow = 'happening now';
+    big = 'come on in';
+    cta = 'join now';
+  } else if (win.gated && win.open && t < win.startsAtMs) {
+    eyebrow = 'doors are open';
+    big = `starts in ${formatCountdown(win.startsAtMs - t)}`;
+    cta = 'join the room';
+  } else if (win.gated && !win.open) {
+    eyebrow = 'next session';
+    big = `starts in ${formatCountdown(win.startsAtMs - t)}`;
+    cta = 'save your spot';
+    note = opensAtLabel ? `doors open at ${opensAtLabel}, 5 minutes before` : null;
+  } else if (win.gated) {
+    eyebrow = 'starting now';
+    big = 'come on in';
+    cta = 'join now';
+  } else {
+    eyebrow = 'next session';
+    big = 'date coming soon';
+    cta = 'see details';
+  }
+
+  return (
+    <div className="mt-10 inline-block sticker bg-white rounded-md px-8 py-6 text-center" style={{ minWidth: '18rem', maxWidth: '100%' }}>
+      <div className="text-xs uppercase tracking-widest font-bold mb-2" style={{ color: '#01ecf3' }}>{eyebrow}</div>
+      <div className="text-sm text-neutral-500 mb-1">{session.name}</div>
+      <div className="display text-4xl md:text-5xl mb-1" aria-live="off">{big}</div>
+      {when && <div className="text-sm text-neutral-600 mb-1">{when}</div>}
+      {note && <div className="text-xs text-neutral-500 mb-3">{note}</div>}
+      <Link href={`/r/${session.code}`} className="btn-cyan inline-block mt-3 px-6 py-3 text-base rounded-md no-underline">
+        {cta} →
+      </Link>
+    </div>
+  );
+}
+
+// ============================================================================
 // Next session pill · fixed top-right corner · subtle indicator
 // ============================================================================
-function NextSessionPill({ session }) {
+function NextSessionPill({ session, now }) {
+  const win = joinWindow(session.startsAt, now ?? Date.now());
   const isLive = session.status === 'running_round' || session.status === 'closing' || session.status === 'live';
   const startsAt = session.startsAt ? new Date(session.startsAt) : null;
   const startsLabel = startsAt && !Number.isNaN(startsAt.getTime())
@@ -187,9 +261,11 @@ function NextSessionPill({ session }) {
 
   const label = isLive
     ? 'happening now'
-    : startsLabel
-      ? startsLabel
-      : 'session coming up';
+    : win.gated && (now ?? Date.now()) < win.startsAtMs
+      ? `starts in ${formatCountdown(win.startsAtMs - (now ?? Date.now()))}`
+      : startsLabel
+        ? startsLabel
+        : 'session coming up';
 
   return (
     <Link
