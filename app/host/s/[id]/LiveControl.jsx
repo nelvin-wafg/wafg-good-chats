@@ -1476,7 +1476,9 @@ function GoLiveEmailCard({ sessionId }) {
     const n = info.eligible;
     const ok = confirm(
       `send the "we're live" email to ${n} ${n === 1 ? 'person' : 'people'}?\n\n` +
-      `they signed up on the homepage and haven't joined a session before. this can't be undone.`
+      `${info.eligibleRsvps ? `${info.eligibleRsvps} saved their spot for this session` : ''}` +
+      `${info.eligibleRsvps && info.eligibleHomepage ? ' and ' : ''}` +
+      `${info.eligibleHomepage ? `${info.eligibleHomepage} signed up on the homepage and haven't joined a session before` : ''}. this can't be undone.`
     );
     if (!ok) return;
     setBusy(true);
@@ -1526,7 +1528,10 @@ function GoLiveEmailCard({ sessionId }) {
         <>
           <p className="text-xs text-neutral-600 mb-2">
             {info.eligible > 0
-              ? <><strong>{info.eligible}</strong> {info.eligible === 1 ? 'person' : 'people'} signed up on the homepage and {info.eligible === 1 ? "hasn't" : "haven't"} joined before.</>
+              ? <><strong>{info.eligible}</strong> {info.eligible === 1 ? 'person' : 'people'}:{' '}
+                  {info.eligibleRsvps > 0 && <>{info.eligibleRsvps} saved their spot for this session</>}
+                  {info.eligibleRsvps > 0 && info.eligibleHomepage > 0 && ', '}
+                  {info.eligibleHomepage > 0 && <>{info.eligibleHomepage} from the homepage list who haven't joined before</>}.</>
               : 'no new signups to email right now.'}
             {info.alreadySent > 0 && <> {info.alreadySent} already emailed for this session.</>}
             {info.failed > 0 && <> {info.failed} failed earlier and will be retried.</>}
