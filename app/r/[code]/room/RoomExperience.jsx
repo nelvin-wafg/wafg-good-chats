@@ -57,6 +57,9 @@ function reportDiagnostic(sessionId, eventType, payload, subjectParticipantId) {
   } catch {}
 }
 
+// see the note at the join effect: noise cancellation (Krisp) is opt-in.
+const NOISE_CANCELLATION = process.env.NEXT_PUBLIC_NOISE_CANCELLATION === '1';
+
 // participant experience.
 // state machine: lobby → main_room → splitting → pair_room → returning → main_room → ... → ended
 // participant is in the main daily.co room whenever they're in the "with everyone" state,
@@ -234,12 +237,21 @@ export default function RoomExperience({ session: initialSession }) {
   // an unintentional disconnect, even though targetRoom/targetName haven't
   // changed (we're still supposed to be in the same room).
   const [reconnectNonce, setReconnectNonce] = useState(0);
+  const noiseCancelAppliedRef = useRef(false);
 
   // create the call object exactly once, reuse it for the whole session.
   useEffect(() => {
     let co = null;
     try {
-      co = DailyIframe.getCallInstance() || DailyIframe.createCallObject({ videoSource: true, audioSource: true });
+      // useDevicePreferenceCookies: remember the mic/camera/speaker a person picked and
+      // reselect it on later joins. nothing here stored that choice before, so someone
+      // who switched to their headset mic in round 1 could land back on the browser's
+      // default mic when the next round re-joined a new room.
+      co = DailyIframe.getCallInstance() || DailyIframe.createCallObject({
+        videoSource: true,
+        audioSource: true,
+        dailyConfig: { useDevicePreferenceCookies: true },
+      });
     } catch {
       // an instance already exists (e.g. a fast remount) · reuse it.
       co = DailyIframe.getCallInstance() || null;
@@ -395,8 +407,15 @@ export default function RoomExperience({ session: initialSession }) {
       // videoSource/audioSource:true on the call object alone.
       try { await callObject.setLocalVideo(true); } catch (e) { console.warn('[daily] setLocalVideo failed', e); }
       try { await callObject.setLocalAudio(true); } catch (e) { console.warn('[daily] setLocalAudio failed', e); }
-      // attempt daily's krisp noise cancellation; falls back to browser-native if not on plan
-      try { await callObject.updateInputSettings({ audio: { processor: { type: 'noise-cancellation' } } }); } catch (e) { console.warn('[daily] noise-cancellation init failed', e); }
+      // krisp noise cancellation is now OPT-IN and applied once per page load. it used to be
+      // re-applied on every room join, re-initializing a CPU-heavy audio-processing pipeline
+      // six times in a six-round event, and it was the one audio-only step we ran per join.
+      // browsers already apply their own noise suppression to the mic by default. set
+      // NEXT_PUBLIC_NOISE_CANCELLATION=1 to turn it back on.
+      if (NOISE_CANCELLATION && !noiseCancelAppliedRef.current) {
+        noiseCancelAppliedRef.current = true;
+        try { await callObject.updateInputSettings({ audio: { processor: { type: 'noise-cancellation' } } }); } catch (e) { console.warn('[daily] noise-cancellation init failed', e); }
+      }
 
       joinedNameRef.current = target.name;
       setCurrentRoom({ name: target.name, isPair: target.isPair });
@@ -909,6 +928,50 @@ function PairRoomView({ assignment, session, myName, myLinkedin, myAvatarUrl, tr
   const [timeAnnouncement, setTimeAnnouncement] = useState('');
   const announcedRef = useRef(new Set());
 
+  // how long has our partner been missing from the room? people switch rooms a few
+  // seconds apart, and on Oct 9 some joined 8-70s late. the partner who got there first
+  // saw an empty room with no explanation, which reads as "I can't hear anyone". count
+  // the wait, say what's happening, and tell the host once it gets long.
+  const [waitS, setWaitS] = useState(0);
+  const waitStartRef = useRef(null);
+  const waitReportedRef = useRef(false);
+  const nextWaitReportRef = useRef(15); // seconds waited at which the next host report is due
+  const partnerHere = remoteIds.length > 0;
+  useEffect(() => {
+    // new room / new partner: start over
+    waitStartRef.current = null;
+    waitReportedRef.current = false;
+    nextWaitReportRef.current = 15;
+    setWaitS(0);
+  }, [assignment.roomName]);
+  useEffect(() => {
+    if (partnerHere) {
+      // they arrived. if we had told the host we were waiting, tell them it's resolved.
+      if (waitReportedRef.current) {
+        waitReportedRef.current = false;
+        const waited = waitStartRef.current ? Math.round((Date.now() - waitStartRef.current) / 1000) : 0;
+        reportDiagnostic(session.id, 'partner-wait', { state: 'joined', partner: assignment.partnerName, room: assignment.roomName || null, seconds: waited });
+      }
+      waitStartRef.current = null;
+      nextWaitReportRef.current = 15;
+      setWaitS(0);
+      return undefined;
+    }
+    if (!waitStartRef.current) waitStartRef.current = Date.now();
+    const id = setInterval(() => {
+      const s = Math.round((Date.now() - waitStartRef.current) / 1000);
+      setWaitS(s);
+      // report at 15s, then every 30s while still waiting, so the host's view stays fresh.
+      // threshold-based (not an exact-second match) so timer drift can't skip a report.
+      if (s >= nextWaitReportRef.current) {
+        nextWaitReportRef.current += 30;
+        waitReportedRef.current = true;
+        reportDiagnostic(session.id, 'partner-wait', { state: 'waiting', partner: assignment.partnerName, room: assignment.roomName || null, seconds: s });
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [partnerHere, assignment.roomName]); // eslint-disable-line
+
   useEffect(() => {
     setSecondsLeft(Math.max(0, assignment.secondsRemaining || 0));
     announcedRef.current = new Set();
@@ -991,7 +1054,13 @@ function PairRoomView({ assignment, session, myName, myLinkedin, myAvatarUrl, tr
             <div className="rounded-md bg-neutral-900 border-2 border-dashed border-neutral-700 flex items-center justify-center">
               <div className="text-center">
                 <div className="display text-2xl mb-2">{assignment.partnerName}</div>
-                <p className="text-sm text-neutral-500">[connecting · hang tight]</p>
+                {waitS < 6 && <p className="text-sm text-neutral-500">[connecting · hang tight]</p>}
+                {waitS >= 6 && waitS < 25 && (
+                  <p className="text-sm text-neutral-400 px-6">waiting for {assignment.partnerName} to join… people switch rooms a few seconds apart, so they should be along any moment.</p>
+                )}
+                {waitS >= 25 && (
+                  <p className="text-sm px-6" style={{ color: '#fbbf24' }}>still waiting for {assignment.partnerName}. they may be having trouble connecting. the host can see you're waiting and will help.</p>
+                )}
               </div>
             </div>
           )}

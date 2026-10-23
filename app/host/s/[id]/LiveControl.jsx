@@ -165,7 +165,11 @@ export default function LiveControl({ session: initialSession }) {
 
       let co;
       try {
-        co = DailyIframe.getCallInstance() || DailyIframe.createCallObject({ videoSource: true, audioSource: true });
+        co = DailyIframe.getCallInstance() || DailyIframe.createCallObject({
+          videoSource: true,
+          audioSource: true,
+          dailyConfig: { useDevicePreferenceCookies: true }, // remember the host's chosen devices too
+        });
       } catch {
         co = DailyIframe.getCallInstance() || null;
       }
@@ -1117,6 +1121,14 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                   const isWithHost = !pa.participant_b_name;
                   const a = participants.find((p) => p.id === pa.participant_a_id);
                   const b = pa.participant_b_id ? participants.find((p) => p.id === pa.participant_b_id) : null;
+                  // someone sitting alone in this room, waiting for their partner to show up.
+                  // only trust a 'waiting' report for THIS room and a fresh one (they re-report
+                  // every 30s while it lasts); a later 'joined' report clears it server-side.
+                  const waiters = [[a, b], [b, a]]
+                    .filter(([w]) => w && w.wait && w.wait.state === 'waiting'
+                      && w.wait.room === pa.room_name
+                      && Date.now() - new Date(w.wait.at).getTime() < 75_000)
+                    .map(([w, other]) => ({ w, other }));
                   return (
                     <div
                       key={pa.id}
@@ -1124,6 +1136,16 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                       style={isWithHost ? { background: 'rgba(1,236,243,0.12)', borderColor: '#01ecf3' } : {}}
                     >
                       <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 mb-2">* {pa.room_label}</div>
+                      {waiters.map(({ w, other }) => (
+                        <div
+                          key={w.id}
+                          className="mb-2 rounded px-2.5 py-1.5 text-xs font-semibold"
+                          style={{ background: '#fef3c7', border: '1px solid #d97706', color: '#78350f' }}
+                        >
+                          ⏳ {w.name} has been waiting {w.wait.seconds}s for {other?.name || w.wait.partner || 'their partner'} to join.
+                          {other ? ` try messaging ${String(other.name).split(' ')[0]}.` : ''}
+                        </div>
+                      ))}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                         <PairingPerson
                           id={pa.participant_a_id}
@@ -1520,6 +1542,7 @@ function ConnectionLogPanel({ events }) {
     return p.state || p.networkQualityState || p.networkState || p.threshold || null;
   }
   function isProblem(e) {
+    if (e.eventType === 'partner-wait') return e.payload?.state === 'waiting';
     if (e.eventType === 'network-quality-change') return BAD_NETWORK_STATES.has(networkOf(e));
     if (e.eventType === 'network-connection') return e.payload?.event === 'interrupted';
     if (e.eventType === 'track-state-change') {
@@ -1530,6 +1553,12 @@ function ConnectionLogPanel({ events }) {
   }
 
   function describe(e) {
+    if (e.eventType === 'partner-wait') {
+      const p = e.payload || {};
+      return p.state === 'joined'
+        ? `partner ${p.partner || ''} joined after ${p.seconds || '?'}s`.replace('  ', ' ')
+        : `waiting for ${p.partner || 'partner'} · ${p.seconds || '?'}s`;
+    }
     if (e.eventType === 'network-quality-change') {
       const net = networkOf(e);
       const reasons = Array.isArray(e.payload?.reasons) && e.payload.reasons.length ? ` (${e.payload.reasons.join(', ')})` : '';

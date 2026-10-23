@@ -110,9 +110,37 @@ export async function GET(request, { params }) {
     } catch {}
   }
 
+  // host view only: who is sitting in a pair room with nobody there, per their own
+  // 'partner-wait' reports (the host dashboard can't see inside pair rooms). the latest
+  // report per participant wins, so a later 'joined' clears an earlier 'waiting'.
+  // best-effort, like the mic query above.
+  const waitByParticipant = {};
+  if (isHostView) {
+    try {
+      const { data: waitRows } = await admin
+        .from('connection_events')
+        .select('participant_id, payload, created_at')
+        .eq('session_id', session.id)
+        .eq('event_type', 'partner-wait')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      for (const r of waitRows || []) {
+        if (!r.participant_id || waitByParticipant[r.participant_id]) continue;
+        waitByParticipant[r.participant_id] = {
+          state: r.payload?.state || null,
+          partner: r.payload?.partner || null,
+          room: r.payload?.room || null,
+          seconds: Number(r.payload?.seconds) || 0,
+          at: r.created_at,
+        };
+      }
+    } catch {}
+  }
+
   const participants = (rawParticipants || []).map((p) => ({
     id: p.id,
     mic: micByParticipant[p.id] || null,
+    wait: waitByParticipant[p.id] || null,
     name: p.name,
     is_present: p.is_present,
     current_room_name: p.current_room_name,
