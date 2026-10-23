@@ -42,6 +42,14 @@ export default function JoinForm({ session, knownProfile, serverNow }) {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [serverNow]);
+  // someone who saved their spot comes back to the same link when the doors open: have their
+  // email waiting in the join form instead of making them retype it.
+  useEffect(() => {
+    try {
+      const saved = window.sessionStorage.getItem(`rsvp:${session.id}`);
+      if (saved) setEmail((cur) => cur || saved);
+    } catch {}
+  }, [session.id]);
   const win = joinWindow(session.startsAt, now);
   const showNotOpen = win.gated && (serverSaysEarly || (!win.open && !earlyPreview));
   const eyebrow = win.gated && now < win.startsAtMs ? 'Good Chats · doors are open' : 'Good Chats · happening now';
@@ -115,7 +123,7 @@ export default function JoinForm({ session, knownProfile, serverNow }) {
   }
 
   if (showNotOpen) {
-    return <NotOpenYet session={session} win={win} now={now} mounted={mounted} />;
+    return <NotOpenYet session={session} win={win} now={now} mounted={mounted} knownProfile={knownProfile} />;
   }
 
   // ─── COMPACT WELCOME-BACK VIEW ───
@@ -298,13 +306,50 @@ export default function JoinForm({ session, knownProfile, serverNow }) {
 // shown instead of the join form until the doors open (5 minutes before the published
 // start). the announcement email's "save your spot" lands here, so it has to make sense on
 // its own: what it is, when it starts, when you can get in, and a one-tap way to save it.
-function NotOpenYet({ session, win, now, mounted }) {
+function NotOpenYet({ session, win, now, mounted, knownProfile }) {
   const startsAt = new Date(win.startsAtMs);
-  const opensAt = new Date(win.opensAtMs);
+
+  // "save my spot": records the email for THIS session and sends a confirmation. a
+  // recognized returning person just taps once; everyone else gives an email.
+  const [rsvpEmail, setRsvpEmail] = useState('');
+  const [rsvpName, setRsvpName] = useState('');
+  const [rsvpStatus, setRsvpStatus] = useState('idle'); // idle | saving | saved
+  const [rsvpError, setRsvpError] = useState(null);
+  const [savedEmail, setSavedEmail] = useState('');
+  const [useOtherEmail, setUseOtherEmail] = useState(false);
+  const firstNameOf = (full) => String(full || '').trim().split(/\s+/)[0] || '';
+
+  async function saveSpot(email, firstName) {
+    if (rsvpStatus === 'saving') return;
+    setRsvpStatus('saving');
+    setRsvpError(null);
+    try {
+      const res = await fetch(`/api/sessions/${session.id}/rsvp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: String(email).trim().toLowerCase(), firstName: firstName || null }),
+      });
+      if (res.status === 409) {
+        // the doors opened while they were typing: reload into the join form
+        window.location.reload();
+        return;
+      }
+      if (!res.ok) {
+        setRsvpError((await res.text()) || "couldn't save your spot · try again");
+        setRsvpStatus('idle');
+        return;
+      }
+      try { window.sessionStorage.setItem(`rsvp:${session.id}`, String(email).trim().toLowerCase()); } catch {}
+      setSavedEmail(String(email).trim().toLowerCase());
+      setRsvpStatus('saved');
+    } catch {
+      setRsvpError("couldn't save your spot · check your connection and try again");
+      setRsvpStatus('idle');
+    }
+  }
   const fmtWhen = (d) => d.toLocaleString(undefined, {
     weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
   });
-  const fmtTime = (d) => d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   const fmtCal = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 
   // end of the calendar block: the rounds themselves plus ~10 minutes of hanging out
@@ -365,10 +410,69 @@ function NotOpenYet({ session, win, now, mounted }) {
         <div className="sticker bg-white rounded-md p-6 mb-5">
           <div className="text-xs uppercase tracking-widest font-bold mb-2" style={{ color: '#01ecf3' }}>doors open in</div>
           <div className="display text-5xl mb-3" aria-live="off">{formatCountdown(win.msUntilOpen)}</div>
-          <p className="text-sm text-neutral-600">
-            {mounted ? <>you can join from <strong>{fmtTime(opensAt)}</strong>, 5 minutes before we start. </> : null}
-            leave this page open and it will let you in on its own.
-          </p>
+        </div>
+
+        <div className="sticker bg-white rounded-md p-5 mb-5">
+          {rsvpStatus === 'saved' ? (
+            <div className="text-center">
+              <div className="text-xs uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>you're on the list *</div>
+              <p className="text-sm text-neutral-700">
+                we sent a confirmation to <strong>{savedEmail}</strong>. use this same link when the doors open.
+              </p>
+            </div>
+          ) : knownProfile && !useOtherEmail ? (
+            <div className="text-center">
+              <div className="text-xs uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>welcome back</div>
+              <div className="display text-2xl mb-3">{knownProfile.displayName} *</div>
+              <button
+                type="button"
+                onClick={() => saveSpot(knownProfile.email, firstNameOf(knownProfile.displayName))}
+                disabled={rsvpStatus === 'saving'}
+                className="w-full btn-cyan py-3 text-base rounded-md disabled:opacity-50"
+              >
+                {rsvpStatus === 'saving' ? 'saving...' : 'save my spot *'}
+              </button>
+              <p className="text-xs text-neutral-500 mt-2">
+                we'll send a confirmation to {knownProfile.email} ·{' '}
+                <button type="button" onClick={() => setUseOtherEmail(true)} className="underline">use a different email</button>
+              </p>
+              {rsvpError && <p className="text-sm text-red-600 mt-2">{rsvpError}</p>}
+            </div>
+          ) : (
+            <form
+              onSubmit={(e) => { e.preventDefault(); if (rsvpEmail.trim()) saveSpot(rsvpEmail, rsvpName.trim()); }}
+              className="text-left"
+            >
+              <div className="text-xs uppercase tracking-widest font-bold mb-3 text-center" style={{ color: '#01ecf3' }}>save your spot</div>
+              <input
+                type="email"
+                value={rsvpEmail}
+                onChange={(e) => setRsvpEmail(e.target.value)}
+                placeholder="you@yourwork.com"
+                className="w-full border-2 border-black rounded px-4 py-3 text-base mb-3 focus:outline-none focus:ring-2 focus:ring-wafg-cyan"
+                required
+                autoComplete="email"
+              />
+              <input
+                type="text"
+                value={rsvpName}
+                onChange={(e) => setRsvpName(e.target.value)}
+                placeholder="first name (optional)"
+                className="w-full border-2 border-black rounded px-4 py-3 text-base mb-3 focus:outline-none focus:ring-2 focus:ring-wafg-cyan"
+                maxLength={48}
+                autoComplete="given-name"
+              />
+              <button
+                type="submit"
+                disabled={rsvpStatus === 'saving' || !rsvpEmail.trim()}
+                className="w-full btn-cyan py-3 text-base rounded-md disabled:opacity-50"
+              >
+                {rsvpStatus === 'saving' ? 'saving...' : 'save my spot *'}
+              </button>
+              <p className="text-xs text-neutral-500 mt-2 text-center">[we'll email you a confirmation and a link. that's it.]</p>
+              {rsvpError && <p className="text-sm text-red-600 mt-2 text-center">{rsvpError}</p>}
+            </form>
+          )}
         </div>
 
         <div className="flex items-center justify-center gap-3 mb-6">

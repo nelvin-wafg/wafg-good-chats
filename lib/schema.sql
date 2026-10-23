@@ -254,6 +254,25 @@ create index if not exists idx_session_notifications_session on session_notifica
 alter table session_notifications enable row level security;
 
 -- ============================================================================
+-- SESSION_RSVPS · people who saved their spot for a session before its doors opened
+-- (the "coming up" page). one row per (session, email). they get a confirmation email
+-- and are included in that session's go-live email even if they've joined before.
+-- deliberately separate from notify_signups: saving a spot for ONE session is not
+-- consent to be emailed about every future one.
+-- ============================================================================
+create table if not exists session_rsvps (
+  id uuid primary key default uuid_generate_v4(),
+  session_id uuid not null references sessions(id) on delete cascade,
+  email text not null,
+  first_name text,
+  created_at timestamptz default now(),
+  confirmation_sent_at timestamptz,
+  unique (session_id, email)
+);
+create index if not exists idx_session_rsvps_session on session_rsvps(session_id);
+alter table session_rsvps enable row level security;
+
+-- ============================================================================
 -- RATE_LIMITS · sliding-window request tracking per IP/key
 -- ============================================================================
 create table if not exists rate_limits (

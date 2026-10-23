@@ -45,6 +45,8 @@ export async function GET(request, { params }) {
     const st = await goLiveStatus(admin, sessionId);
     return NextResponse.json({
       eligible: st.eligible.length,
+      eligibleRsvps: st.eligibleRsvps,
+      eligibleHomepage: st.eligibleHomepage,
       alreadySent: st.alreadySent,
       failed: st.failedCount,
       configured: Boolean(process.env.RESEND_API_KEY),
