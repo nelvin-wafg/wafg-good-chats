@@ -254,6 +254,18 @@ create index if not exists idx_session_notifications_session on session_notifica
 alter table session_notifications enable row level security;
 
 -- ============================================================================
+-- EMAIL_UNSUBSCRIBES · addresses that clicked "unsubscribe" in a Good Chats email.
+-- checked before every announcement / go-live send, for every kind of recipient (homepage
+-- signups and saved spots alike). signing up again on the homepage clears the row.
+-- ============================================================================
+create table if not exists email_unsubscribes (
+  email text primary key,                     -- always lowercased
+  unsubscribed_at timestamptz default now(),
+  source text                                 -- e.g. 'link', 'one-click'
+);
+alter table email_unsubscribes enable row level security;
+
+-- ============================================================================
 -- SESSION_RSVPS · people who saved their spot for a session before its doors opened
 -- (the "coming up" page). one row per (session, email). they get a confirmation email
 -- and are included in that session's go-live email even if they've joined before.

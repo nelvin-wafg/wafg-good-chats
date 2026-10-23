@@ -47,6 +47,12 @@ export async function POST(request) {
     console.warn('[notify] supabase insert failed', e?.message);
   }
 
+  // signing up here again is a deliberate fresh yes: clear an earlier unsubscribe so they
+  // actually get the announcements they just asked for. best-effort.
+  try {
+    await adminClient().from('email_unsubscribes').delete().eq('email', email);
+  } catch {}
+
   // only push to Kit if they checked "add me to The Weekly"
   if (subscribeToWeekly) {
     const result = await addSubscriberToKit({
