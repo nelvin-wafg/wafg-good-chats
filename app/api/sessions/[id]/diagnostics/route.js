@@ -10,6 +10,10 @@ const ALLOWED_EVENT_TYPES = new Set([
   'network-quality-change',
   'network-connection',
   'track-state-change',
+  // a participant sitting in a pair room with nobody else there, and later the resolution.
+  // { state: 'waiting' | 'joined', partner, room, seconds }. powers the host's "X is
+  // waiting for Y" alert, since the host dashboard can't see inside pair rooms.
+  'partner-wait',
   // a participant's own report of their local mic ({ state: on | muted | blocked |
   // interrupted | silent }). the host dashboard only sits in the MAIN daily room,
   // so it can't see anyone's mic once they're paired into a round room · this
