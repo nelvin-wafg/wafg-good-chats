@@ -13,6 +13,9 @@ import {
   ValidationError,
 } from '@/lib/validate';
 
+// the announcement blast is paced (resend rate limit) so a big list can take a while
+export const maxDuration = 60;
+
 // PATCH /api/sessions/:id  — update a draft's config. optionally go live (start_now).
 // only draft or pre-round (live, no rounds started) sessions can be edited.
 export async function PATCH(request, { params }) {
@@ -70,7 +73,7 @@ export async function PATCH(request, { params }) {
   // saving the same published-and-notified draft again never double-sends).
   const effectiveNotifyList = hasNotifyListKey ? notifyList : Boolean(session.metadata?.notify_list);
   const shouldNotify = effectiveNotifyList && !session.metadata?.notify_sent_at;
-  if (shouldNotify) newMetadata.notify_sent_at = new Date().toISOString();
+  // notify_sent_at is stamped after the emails go out (see below), not up front.
 
   const updates = {
     name,
@@ -104,10 +107,23 @@ export async function PATCH(request, { params }) {
     return new NextResponse('could not update session', { status: 500 });
   }
 
+  // wait for the sends (fire-and-forget got dropped when the function froze after
+  // replying) and only mark the session announced once they actually went out.
+  let notify = null;
   if (shouldNotify) {
-    notifyPendingSignups({ sessionName: name, sessionCode: code, startsAt: newMetadata.starts_at }).catch((e) =>
-      console.error('[notify] announcement blast failed', e?.message || e)
-    );
+    try {
+      notify = await notifyPendingSignups({ sessionName: name, sessionCode: code, startsAt: newMetadata.starts_at });
+      const done = (notify.attempted === 0 || notify.sent > 0) && !notify.more;
+      if (done) {
+        await admin
+          .from('sessions')
+          .update({ metadata: { ...newMetadata, notify_sent_at: new Date().toISOString() } })
+          .eq('id', session.id);
+      }
+    } catch (e) {
+      console.error('[notify] announcement blast failed', e?.message || e);
+      notify = { error: true };
+    }
   }
 
   if (updates.status === 'live') {
@@ -119,7 +135,7 @@ export async function PATCH(request, { params }) {
     });
   }
 
-  return NextResponse.json({ id: session.id });
+  return NextResponse.json({ id: session.id, notify });
 }
 
 // DELETE /api/sessions/:id  — any approved host can delete a session.

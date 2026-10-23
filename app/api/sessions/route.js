@@ -12,6 +12,9 @@ import {
   ValidationError,
 } from '@/lib/validate';
 
+// the announcement blast is paced (resend rate limit) so a big list can take a while
+export const maxDuration = 60;
+
 // POST /api/sessions  — host creates a new session
 export async function POST(request) {
   const supabase = createClient();
@@ -58,9 +61,9 @@ export async function POST(request) {
     return new NextResponse('bad request', { status: 400 });
   }
 
-  // notify_list fires once, right away, at creation — stamp notify_sent_at
-  // immediately so a rapid double-submit (or a later edit) can't double-send.
-  const notifySentAt = notifyList ? new Date().toISOString() : null;
+  // notify_list fires at creation. notify_sent_at is stamped only AFTER the emails
+  // actually went out (below): it used to be stamped up front, so a send that never
+  // ran still left the session marked "already sent" and it could never retry.
 
   // always insert as draft first; if start_now, provision the daily room then flip to live.
   // doing it in two steps so the daily call doesn't block session creation if it fails.
@@ -74,7 +77,7 @@ export async function POST(request) {
       round_seconds: roundSeconds,
       prompts,
       status: 'draft',
-      metadata: { is_published: isPublished, starts_at: startsAt, notify_list: notifyList, notify_sent_at: notifySentAt },
+      metadata: { is_published: isPublished, starts_at: startsAt, notify_list: notifyList, notify_sent_at: null },
     })
     .select('id, code')
     .single();
@@ -86,10 +89,25 @@ export async function POST(request) {
     return new NextResponse('could not create session', { status: 500 });
   }
 
+  // wait for the sends: a serverless function can be frozen as soon as it replies,
+  // which silently dropped the emails when this was fire-and-forget.
+  let notify = null;
   if (notifyList) {
-    notifyPendingSignups({ sessionName: name, sessionCode: code, startsAt }).catch((e) =>
-      console.error('[notify] announcement blast failed', e?.message || e)
-    );
+    try {
+      notify = await notifyPendingSignups({ sessionName: name, sessionCode: code, startsAt });
+      // mark as announced only if nobody was waiting, or at least some went out, and
+      // there isn't a backlog left over. otherwise leave it open so saving again retries.
+      const done = (notify.attempted === 0 || notify.sent > 0) && !notify.more;
+      if (done) {
+        await admin
+          .from('sessions')
+          .update({ metadata: { is_published: isPublished, starts_at: startsAt, notify_list: true, notify_sent_at: new Date().toISOString() } })
+          .eq('id', data.id);
+      }
+    } catch (e) {
+      console.error('[notify] announcement blast failed', e?.message || e);
+      notify = { error: true };
+    }
   }
 
   // if the host clicked "go live now *", provision the daily.co main room and flip status
@@ -118,5 +136,5 @@ export async function POST(request) {
     metadata: { code: data.code, startNow: Boolean(startNow) },
   });
 
-  return NextResponse.json({ id: data.id, code: data.code });
+  return NextResponse.json({ id: data.id, code: data.code, notify });
 }
