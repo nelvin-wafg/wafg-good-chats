@@ -7,7 +7,7 @@ export default async function JoinPage({ params }) {
   const supabase = adminClient();
   const { data: session } = await supabase
     .from('sessions')
-    .select('id, code, name, status, rounds_total, round_seconds')
+    .select('id, code, name, status, rounds_total, round_seconds, metadata')
     .eq('code', params.code)
     .single();
 
@@ -45,5 +45,15 @@ export default async function JoinPage({ params }) {
     }
   }
 
-  return <JoinForm session={session} knownProfile={knownProfile} />;
+  // the form only needs the start time (not the rest of metadata). serverNow lets the
+  // countdown use the SERVER's clock, so a participant whose computer clock is off still
+  // sees the right "opens in" time and flips to the join form at the right moment.
+  const { metadata, ...publicSession } = session;
+  return (
+    <JoinForm
+      session={{ ...publicSession, startsAt: metadata?.starts_at || null }}
+      serverNow={Date.now()}
+      knownProfile={knownProfile}
+    />
+  );
 }

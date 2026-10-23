@@ -22,6 +22,8 @@ import {
 import { addSubscriberToKit } from '@/lib/kit';
 import { signEmailVerifyToken } from '@/lib/email-verify-token';
 import { sendVerificationEmail } from '@/lib/resend';
+import { getApprovedHost } from '@/lib/auth';
+import { joinWindow } from '@/lib/join-window';
 
 // POST /api/sessions/:id/join
 // body: { name, email, linkedinUrl?, newsletterOptIn }
@@ -32,10 +34,13 @@ export async function POST(request, { params }) {
   const allowed = await rateLimitByIp(request, 'join', { limit: 10, windowSeconds: 60 });
   if (!allowed) return new NextResponse('too many join attempts · slow down for a minute', { status: 429 });
 
-  let sessionId, name, email, linkedinUrl, newsletterOptIn;
+  let sessionId, name, email, linkedinUrl, newsletterOptIn, hostPreview = false;
   try {
     sessionId = validateUuid(params.id, 'session id');
     const body = await request.json();
+    // an approved host can ask to get in early (to test the participant flow); it is only
+    // honored below if the caller really is a logged-in approved host.
+    hostPreview = body?.hostPreview === true;
     name = validateParticipantName(body?.name);
     email = validateEmail(body?.email);
     linkedinUrl = validateLinkedinUrl(body?.linkedinUrl);
@@ -52,11 +57,31 @@ export async function POST(request, { params }) {
   const admin = adminClient();
   const { data: session } = await admin
     .from('sessions')
-    .select('id, status')
+    .select('id, status, metadata')
     .eq('id', sessionId)
     .maybeSingle();
   if (!session) return new NextResponse('session not found', { status: 404 });
   if (session.status === 'ended') return new NextResponse('this session already ended', { status: 400 });
+
+  // doors open 5 minutes before the published start time. before that nobody gets a
+  // participant row or cookie, so nobody can end up stuck in a waiting room for an event
+  // that is hours or days away. enforced HERE (not just in the page) so it can't be skipped.
+  const win = joinWindow(session.metadata?.starts_at);
+  if (win.gated && !win.open) {
+    const hostOverride = hostPreview ? Boolean(await getApprovedHost()) : false;
+    if (!hostOverride) {
+      return NextResponse.json(
+        {
+          error: 'too_early',
+          message: "this session isn't open yet · doors open 5 minutes before it starts",
+          opensAt: new Date(win.opensAtMs).toISOString(),
+          startsAt: new Date(win.startsAtMs).toISOString(),
+          serverNow: Date.now(),
+        },
+        { status: 425 }
+      );
+    }
+  }
 
   // waiting room semantics:
   // - status='live' (host has opened the room but rounds haven't started yet)
