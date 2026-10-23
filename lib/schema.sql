@@ -234,6 +234,26 @@ create index if not exists idx_notify_signups_notified on notify_signups(notifie
 alter table notify_signups add column if not exists notified_at timestamptz;
 
 -- ============================================================================
+-- SESSION_NOTIFICATIONS · who we emailed for which session (go-live emails)
+-- one row per (session, email, kind). the unique constraint is what makes it safe
+-- to click "send now" twice: a second click can never email the same person again.
+-- status: 'pending' (claimed, being sent) | 'sent' | 'failed' (retried on the next send)
+-- ============================================================================
+create table if not exists session_notifications (
+  id uuid primary key default uuid_generate_v4(),
+  session_id uuid not null references sessions(id) on delete cascade,
+  email text not null,
+  kind text not null,                          -- 'go-live'
+  status text not null default 'pending',
+  error text,
+  attempted_at timestamptz default now(),
+  sent_at timestamptz,
+  unique (session_id, email, kind)
+);
+create index if not exists idx_session_notifications_session on session_notifications(session_id, kind, status);
+alter table session_notifications enable row level security;
+
+-- ============================================================================
 -- RATE_LIMITS · sliding-window request tracking per IP/key
 -- ============================================================================
 create table if not exists rate_limits (

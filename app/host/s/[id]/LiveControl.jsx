@@ -915,6 +915,10 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
         {/* right rail · relative z-10 ensures dropdowns here stack above the video panel on the left */}
         <aside className="bg-white border-l border-neutral-200 p-6 overflow-y-auto flex flex-col gap-5 relative z-10">
 
+          {(session.status === 'live' || session.status === 'running_round') && (
+            <GoLiveEmailCard sessionId={session.id} />
+          )}
+
           {/* waiting room · only relevant before the host kicks off */}
           {waitingList.length > 0 && (
             <div className="rounded-md border-2 p-3 sticker-sm" style={{ borderColor: '#01ecf3', background: 'rgba(1,236,243,0.1)' }}>
@@ -1428,6 +1432,125 @@ function RoundHistoryPanel({ pairingsHistory, currentRound }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// "we're live" email to homepage signups who have never joined a session. the host
+// presses the button; it shows the count, asks to confirm, then sends. nothing is ever
+// emailed automatically, and the server refuses to email anyone twice for a session.
+function GoLiveEmailCard({ sessionId }) {
+  const [info, setInfo] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  async function refresh() {
+    try {
+      const r = await fetch(`/api/sessions/${sessionId}/notify-live`, { credentials: 'same-origin' });
+      if (r.ok) setInfo(await r.json());
+    } catch {}
+  }
+  useEffect(() => { refresh(); }, [sessionId]); // eslint-disable-line
+
+  async function sendTest() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/notify-live`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ test: true }),
+      });
+      if (!res.ok) { showToast((await res.text()) || "couldn't send the test", 'error'); return; }
+      const d = await res.json();
+      showToast(`test sent to ${d.sentTo} · check your inbox`, 'success');
+    } catch {
+      showToast('connection issue · try again', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function send() {
+    if (busy || !info || !info.eligible) return;
+    const n = info.eligible;
+    const ok = confirm(
+      `send the "we're live" email to ${n} ${n === 1 ? 'person' : 'people'}?\n\n` +
+      `they signed up on the homepage and haven't joined a session before. this can't be undone.`
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/notify-live`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ expected: n }),
+      });
+      if (res.status === 409) {
+        const d = await res.json().catch(() => null);
+        if (d?.mismatch) {
+          showToast('the list just changed · check the new count and press send again', 'error');
+          await refresh();
+          return;
+        }
+        showToast((d && d.message) || 'go live first, then send', 'error');
+        return;
+      }
+      if (!res.ok) {
+        showToast((await res.text()) || "couldn't send", 'error');
+        return;
+      }
+      const d = await res.json();
+      showToast(
+        `emailed ${d.sent} ${d.sent === 1 ? 'person' : 'people'}` +
+        `${d.failed ? ` · ${d.failed} failed, press send to retry them` : ''}` +
+        `${d.remaining ? ` · ${d.remaining} more waiting, press send again` : ''}`,
+        d.failed ? 'error' : 'success'
+      );
+      await refresh();
+    } catch {
+      showToast('connection issue · nothing was emailed twice, safe to try again', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!info) return null;
+  return (
+    <div className="rounded-md border border-neutral-200 bg-white p-3">
+      <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 mb-1.5">email new signups</div>
+      {info.setupNeeded ? (
+        <p className="text-xs text-neutral-600">one-time setup needed: the email log table hasn't been created yet. ask claude for the sql.</p>
+      ) : (
+        <>
+          <p className="text-xs text-neutral-600 mb-2">
+            {info.eligible > 0
+              ? <><strong>{info.eligible}</strong> {info.eligible === 1 ? 'person' : 'people'} signed up on the homepage and {info.eligible === 1 ? "hasn't" : "haven't"} joined before.</>
+              : 'no new signups to email right now.'}
+            {info.alreadySent > 0 && <> {info.alreadySent} already emailed for this session.</>}
+            {info.failed > 0 && <> {info.failed} failed earlier and will be retried.</>}
+          </p>
+          <button
+            type="button"
+            onClick={send}
+            disabled={busy || !info.eligible || !info.configured}
+            className="w-full py-2 rounded-md text-xs font-bold disabled:opacity-50"
+            style={{ background: '#01ecf3', color: '#000' }}
+            title={info.configured ? 'emails them a link to join right now' : 'email is not configured on the server'}
+          >
+            {busy ? 'sending…' : `send "we're live" to ${info.eligible || 0} →`}
+          </button>
+          <button
+            type="button"
+            onClick={sendTest}
+            disabled={busy || !info.configured}
+            className="mt-1.5 w-full text-[11px] underline text-neutral-500 hover:text-black disabled:opacity-50"
+          >
+            send me a test first
+          </button>
+        </>
+      )}
     </div>
   );
 }

@@ -157,7 +157,13 @@ function NewSessionInner() {
         }),
       });
       if (!res.ok) throw new Error(await res.text());
-      const { id } = await res.json();
+      const { id, notify } = await res.json();
+      // the announcement now reports what actually happened instead of failing silently
+      if (notify) {
+        if (notify.error) showToast("saved · but the announcement emails couldn't be sent. save again to retry.", 'error');
+        else if (notify.attempted === 0) showToast('saved · nobody is waiting on the notify list right now', 'success');
+        else showToast(`announcement emailed to ${notify.sent} ${notify.sent === 1 ? 'person' : 'people'}${notify.failed ? ` · ${notify.failed} failed (will retry next time)` : ''}${notify.more ? ' · more are waiting, save again to send the rest' : ''}`, notify.failed || notify.more ? 'error' : 'success');
+      }
       router.push(startNow ? `/host/s/${id || editId}` : '/host');
     } catch (e) {
       setError(e.message);
