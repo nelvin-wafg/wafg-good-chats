@@ -6,7 +6,8 @@ export const dynamic = 'force-dynamic';
 
 // GET /api/host/dashboard
 // returns all the aggregated data the host dashboard needs in one fetch.
-// scoped to the calling host's primary sessions (sessions.host_id = user.id).
+// covers EVERY session, shared across approved hosts (co-hosts see exactly the same
+// dashboard). per-session `canDelete` says whether the caller created that session.
 export async function GET() {
   const auth = await getApprovedHost();
   if (!auth) return new NextResponse('forbidden', { status: 403 });
@@ -14,12 +15,22 @@ export async function GET() {
 
   const admin = adminClient();
 
-  // primary sessions owned by this host
+  // all sessions (shared workspace): the old `.eq('host_id', userId)` here gave a co-host an
+  // empty dashboard and made each host's totals differ. deleting stays creator-only: see
+  // canDelete below and the DELETE route, which enforces it on the server.
   const { data: sessions = [] } = await admin
     .from('sessions')
     .select('*')
-    .eq('host_id', userId)
     .order('created_at', { ascending: false });
+
+  // creator names, so a session someone else made says so ("by Jon")
+  const creatorIds = [...new Set(sessions.map((s) => s.host_id).filter(Boolean))];
+  const { data: creators = [] } = creatorIds.length
+    ? await admin.from('hosts').select('id, display_name, email').in('id', creatorIds)
+    : { data: [] };
+  const creatorName = Object.fromEntries(
+    (creators || []).map((h) => [h.id, h.display_name || String(h.email || '').split('@')[0]])
+  );
   const sessionIds = sessions.map((s) => s.id);
   const safeIds = sessionIds.length > 0 ? sessionIds : ['00000000-0000-0000-0000-000000000000'];
 
@@ -155,6 +166,8 @@ export async function GET() {
     id: s.id,
     code: s.code,
     name: s.name,
+    canDelete: s.host_id === userId,
+    createdBy: creatorName[s.host_id] || null,
     created_at: s.created_at,
     ended_at: s.ended_at,
     rounds_total: s.rounds_total,
@@ -176,11 +189,18 @@ export async function GET() {
       yearLabel: new Date().getFullYear(),
     },
     newsletter: { syncedThisMonth, lastSyncedAt: lastSync },
+    // only an admin can delete a person across every session (enforced in /api/host/people)
+    viewer: { isAdmin: Boolean(auth.host.is_admin) },
     live: live.map((s) => ({
       id: s.id, code: s.code, name: s.name, status: s.status,
       current_round: s.current_round, rounds_total: s.rounds_total,
+      createdBy: creatorName[s.host_id] || null,
     })),
-    drafts: drafts.map((s) => ({ id: s.id, code: s.code, name: s.name })),
+    drafts: drafts.map((s) => ({
+      id: s.id, code: s.code, name: s.name,
+      canDelete: s.host_id === userId,
+      createdBy: creatorName[s.host_id] || null,
+    })),
     past,
     topConnectors,
     trends: { captures: trendsCaptures, attendance: trendsAttendance, minutes: trendsMinutes },

@@ -254,17 +254,22 @@ export default function HostDashboard() {
                 <div className="flex items-center justify-between mb-3 gap-4">
                   <div className="min-w-0">
                     <div className="font-semibold truncate">{s.name}</div>
-                    <div className="text-xs text-neutral-500">draft · publish before sharing</div>
+                    <div className="text-xs text-neutral-500">
+                      draft · publish before sharing{!s.canDelete && s.createdBy ? ` · by ${s.createdBy}` : ''}
+                    </div>
                   </div>
                   <div className="flex items-center gap-3 text-sm flex-shrink-0">
                     <Link href={`/host/new?id=${s.id}`} className="underline whitespace-nowrap">edit →</Link>
-                    <button
-                      onClick={() => confirmDeleteSession(s.id, s.name)}
-                      className="text-red-500 hover:text-red-700 underline"
-                      title="delete draft"
-                    >
-                      delete
-                    </button>
+                    {/* only the host who created a session can delete it (the server enforces this too) */}
+                    {s.canDelete && (
+                      <button
+                        onClick={() => confirmDeleteSession(s.id, s.name)}
+                        className="text-red-500 hover:text-red-700 underline"
+                        title="delete draft"
+                      >
+                        delete
+                      </button>
+                    )}
                   </div>
                 </div>
                 <CopyLink code={s.code} variant="light" label="participant link (works once you go live)" />
@@ -290,13 +295,17 @@ export default function HostDashboard() {
                     <div className="text-sm font-bold" style={{ color: '#01ecf3' }}>
                       {c.captures} {c.captures === 1 ? 'capture' : 'captures'}
                     </div>
-                    <button
-                      onClick={() => confirmDeletePerson(c)}
-                      className="text-xs text-red-500 hover:text-red-700 underline pl-4 ml-1 border-l border-neutral-200"
-                      title={`permanently delete ${c.name}`}
-                    >
-                      delete
-                    </button>
+                    {/* removing a person from every session is admin-only (the server enforces it);
+                        a connector with no profile is just one participant row, open to any host */}
+                    {(data.viewer?.isAdmin || !c.profile_id) && (
+                      <button
+                        onClick={() => confirmDeletePerson(c)}
+                        className="text-xs text-red-500 hover:text-red-700 underline pl-4 ml-1 border-l border-neutral-200"
+                        title={`permanently delete ${c.name}`}
+                      >
+                        delete
+                      </button>
+                    )}
                   </div>
                 </li>
               ))}
@@ -323,7 +332,7 @@ export default function HostDashboard() {
                   <div className="min-w-0">
                     <div className="font-semibold truncate">{s.name}</div>
                     <div className="text-xs text-neutral-500">
-                      {new Date(s.created_at).toLocaleDateString()} · {s.rounds_total} round{s.rounds_total === 1 ? '' : 's'}
+                      {new Date(s.created_at).toLocaleDateString()} · {s.rounds_total} round{s.rounds_total === 1 ? '' : 's'}{!s.canDelete && s.createdBy ? ` · by ${s.createdBy}` : ''}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 text-sm flex-shrink-0">
@@ -335,13 +344,15 @@ export default function HostDashboard() {
                     >
                       csv
                     </a>
-                    <button
-                      onClick={() => confirmDeleteSession(s.id, s.name)}
-                      className="text-red-500 hover:text-red-700 underline pl-3 ml-1 border-l border-neutral-200"
-                      title="delete session"
-                    >
-                      delete
-                    </button>
+                    {s.canDelete && (
+                      <button
+                        onClick={() => confirmDeleteSession(s.id, s.name)}
+                        className="text-red-500 hover:text-red-700 underline pl-3 ml-1 border-l border-neutral-200"
+                        title="delete session"
+                      >
+                        delete
+                      </button>
+                    )}
                   </div>
                 </div>
 
