@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase-server';
 import { getApprovedHost } from '@/lib/auth';
+import { loadNotifyList } from '@/lib/notify-list';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/host/dashboard/details?kind=sessions|captures|people|newsletter|minutes
+// GET /api/host/dashboard/details?kind=sessions|captures|people|newsletter|minutes|notify
 // Returns the row list backing a clicked stat card on the host dashboard.
 // Shared across approved hosts: covers every session, not just the caller's.
 export async function GET(request) {
@@ -15,6 +16,19 @@ export async function GET(request) {
   const kind = url.searchParams.get('kind');
 
   const admin = adminClient();
+
+  // the homepage notify list lives in its own table (not tied to a session), so it doesn't need
+  // the session queries below
+  if (kind === 'notify') {
+    try {
+      const { rows, summary } = await loadNotifyList(admin);
+      return NextResponse.json({ kind, rows, summary });
+    } catch (e) {
+      console.error('[details/notify] failed', e?.message || e);
+      return new NextResponse("couldn't load the notify list", { status: 500 });
+    }
+  }
+
   const { data: sessions = [] } = await admin
     .from('sessions')
     .select('id, name, code, created_at, ended_at, rounds_total, round_seconds, status')
