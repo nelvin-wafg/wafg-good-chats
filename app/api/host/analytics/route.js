@@ -5,17 +5,15 @@ import { getApprovedHost } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 // GET /api/host/analytics
-// returns trend data for the analytics page · scoped to your primary sessions.
+// returns trend data for the analytics page · covers every session (shared across approved hosts).
 export async function GET() {
   const auth = await getApprovedHost();
   if (!auth) return new NextResponse('forbidden', { status: 403 });
-  const userId = auth.user.id;
 
   const admin = adminClient();
   const { data: sessions = [] } = await admin
     .from('sessions')
     .select('id, code, name, status, rounds_total, round_seconds, created_at, ended_at, prompts')
-    .eq('host_id', userId)
     .eq('status', 'ended')
     .order('ended_at', { ascending: true });
 

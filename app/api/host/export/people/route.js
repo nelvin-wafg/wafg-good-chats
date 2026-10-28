@@ -11,13 +11,11 @@ import { toCSV, csvResponse } from '@/lib/csv';
 export async function GET() {
   const auth = await getApprovedHost();
   if (!auth) return new NextResponse('forbidden', { status: 403 });
-  const userId = auth.user.id;
 
   const admin = adminClient();
   const { data: sessions = [] } = await admin
     .from('sessions')
-    .select('id')
-    .eq('host_id', userId);
+    .select('id');
 
   const sessionIds = sessions.map((s) => s.id);
   const safe = sessionIds.length > 0 ? sessionIds : ['00000000-0000-0000-0000-000000000000'];

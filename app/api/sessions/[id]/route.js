@@ -138,7 +138,8 @@ export async function PATCH(request, { params }) {
   return NextResponse.json({ id: session.id, notify });
 }
 
-// DELETE /api/sessions/:id  — any approved host can delete a session.
+// DELETE /api/sessions/:id  — ONLY the host who created the session can delete it (checked below; co-hosts
+// and even admins get a 403). this comment used to say "any approved host", which was wrong.
 // hard delete · cascades to remove participants, pairings, rounds, captures.
 // also cleans up any active daily.co rooms.
 export async function DELETE(_request, { params }) {

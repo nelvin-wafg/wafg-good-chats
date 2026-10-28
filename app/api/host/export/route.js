@@ -9,13 +9,11 @@ import { toCSV, csvResponse } from '@/lib/csv';
 export async function GET() {
   const auth = await getApprovedHost();
   if (!auth) return new NextResponse('forbidden', { status: 403 });
-  const userId = auth.user.id;
 
   const admin = adminClient();
   const { data: sessions = [] } = await admin
     .from('sessions')
     .select('id, name, code, created_at')
-    .eq('host_id', userId)
     .order('created_at', { ascending: false });
 
   const sessionIds = sessions.map((s) => s.id);

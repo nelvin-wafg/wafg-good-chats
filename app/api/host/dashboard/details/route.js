@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 // GET /api/host/dashboard/details?kind=sessions|captures|people|newsletter|minutes
 // Returns the row list backing a clicked stat card on the host dashboard.
-// Always scoped to the calling host's sessions (host_id = user.id).
+// Shared across approved hosts: covers every session, not just the caller's.
 export async function GET(request) {
   const auth = await getApprovedHost();
   if (!auth) return new NextResponse('forbidden', { status: 403 });
@@ -18,7 +18,6 @@ export async function GET(request) {
   const { data: sessions = [] } = await admin
     .from('sessions')
     .select('id, name, code, created_at, ended_at, rounds_total, round_seconds, status')
-    .eq('host_id', auth.user.id)
     .order('created_at', { ascending: false });
   const sessionIds = sessions.map((s) => s.id);
   const safe = sessionIds.length > 0 ? sessionIds : ['00000000-0000-0000-0000-000000000000'];
