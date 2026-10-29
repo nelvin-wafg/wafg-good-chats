@@ -173,11 +173,6 @@ export default function Landing() {
               professionals who are changing the world.
             </p>
           </div>
-          <div className="flex items-center gap-4 text-xs text-neutral-500">
-            <Link href="/host/login" className="hover:text-black underline">
-              host login →
-            </Link>
-          </div>
         </div>
       </footer>
     </main>
