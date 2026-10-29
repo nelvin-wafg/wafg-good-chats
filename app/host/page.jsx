@@ -224,6 +224,27 @@ export default function HostDashboard() {
         />
       </div>
 
+      {/* notify list: homepage signups who get announcements. lives in Supabase (notify_signups);
+          only people who ticked "The Weekly" are also in Kit. */}
+      {data.notify && (
+        <div className="sticker-sm bg-white rounded-md p-4 mb-3 flex items-center justify-between gap-4 flex-wrap">
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">notify list (homepage signups)</div>
+            <div className="text-sm mt-1">
+              <strong style={{ color: '#01ecf3' }}>{data.notify.total}</strong> {data.notify.total === 1 ? 'person' : 'people'}
+              <span className="text-neutral-500">
+                {' '}· {data.notify.waiting} waiting for the next announcement · {data.notify.emailed} already emailed
+                {data.notify.unsubscribed > 0 ? ` · ${data.notify.unsubscribed} unsubscribed` : ''}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-sm flex-shrink-0">
+            <button type="button" onClick={() => setActiveStat('notify')} className="underline whitespace-nowrap">view list →</button>
+            <a href="/api/host/export/notify" download className="underline whitespace-nowrap text-neutral-600 hover:text-black">csv</a>
+          </div>
+        </div>
+      )}
+
       {/* newsletter sync card */}
       <div className="sticker-sm bg-white rounded-md p-4 mb-8 flex items-center justify-between gap-4 flex-wrap">
         <div className="min-w-0">
@@ -485,6 +506,7 @@ function StatDetailsModal({ kind, details, loading, onClose }) {
     people: 'unique people',
     newsletter: 'newsletter opt-ins',
     minutes: 'minutes hosted',
+    notify: 'notify list',
   }[kind] || kind;
 
   function fmtDate(iso) {
@@ -507,6 +529,22 @@ function StatDetailsModal({ kind, details, loading, onClose }) {
         </div>
         <div className="p-5">
           {loading && <p className="text-sm text-neutral-500 italic">[loading...]</p>}
+          {kind === 'notify' && !loading && details?.summary && (
+            <div className="mb-5">
+              <div className="flex flex-wrap gap-2 text-xs mb-3">
+                <Stat label="on the list" value={details.summary.total} highlight />
+                <Stat label="waiting for the next announcement" value={details.summary.waiting} />
+                <Stat label="already emailed" value={details.summary.emailed} />
+                <Stat label="unsubscribed" value={details.summary.unsubscribed} />
+                <Stat label="also in Kit (The Weekly)" value={details.summary.inKitWeekly} />
+              </div>
+              <p className="text-xs text-neutral-500">
+                one row per person, even if they signed up more than once. "waiting" people get the announcement the next time you create a session with "announce to the notify list" ticked.
+                this list is stored in Supabase; only people who ticked "add me to The Weekly" are also in Kit.{' '}
+                <a href="/api/host/export/notify" download className="underline">download csv</a>
+              </p>
+            </div>
+          )}
           {!loading && details && details.rows && details.rows.length === 0 && (
             <p className="text-sm text-neutral-500 italic">[nothing to show yet]</p>
           )}
@@ -566,6 +604,45 @@ function StatDetailsModal({ kind, details, loading, onClose }) {
                         <td className="py-2 pr-3">{r.events_attended}</td>
                         <td className="py-2 pr-3">{r.newsletter_opt_in ? 'yes' : 'no'}</td>
                         <td className="py-2 text-neutral-500">{fmtDate(r.last_seen)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {kind === 'notify' && (
+                <table className="w-full text-sm">
+                  <thead className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 text-left">
+                    <tr><th className="py-2 pr-3">name</th><th className="py-2 pr-3">email</th><th className="py-2 pr-3">signed up</th><th className="py-2 pr-3">status</th><th className="py-2 pr-3">kit</th><th className="py-2">how they heard</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200">
+                    {details.rows.map((r) => (
+                      <tr key={r.email}>
+                        <td className="py-2 pr-3 font-semibold">
+                          {r.linkedin ? (
+                            <a href={r.linkedin} target="_blank" rel="noopener noreferrer" className="underline">{r.name || '(no name)'}</a>
+                          ) : (r.name || '(no name)')}
+                        </td>
+                        <td className="py-2 pr-3 text-neutral-500">
+                          {r.email}
+                          {r.signups > 1 && <span className="text-xs text-neutral-400"> · signed up {r.signups}×</span>}
+                        </td>
+                        <td className="py-2 pr-3 text-neutral-500 whitespace-nowrap">{fmtDate(r.firstSignedUp)}</td>
+                        <td className="py-2 pr-3 whitespace-nowrap">
+                          <span
+                            className="text-[10px] uppercase tracking-wide font-bold px-2 py-0.5 rounded-full"
+                            style={
+                              r.status === 'waiting' ? { background: 'rgba(1,236,243,0.2)', color: '#00838f' }
+                                : r.status === 'unsubscribed' ? { background: '#fee2e2', color: '#991b1b' }
+                                  : { background: '#f3f4f6', color: '#6b7280' }
+                            }
+                            title={r.lastEmailedAt ? `last emailed ${fmtDate(r.lastEmailedAt)}` : undefined}
+                          >
+                            {r.status}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-3">{r.inKitWeekly ? 'yes' : 'no'}</td>
+                        <td className="py-2 text-neutral-500 text-xs"><div className="truncate" style={{ maxWidth: '16rem' }} title={r.source || ''}>{r.source || ''}</div></td>
                       </tr>
                     ))}
                   </tbody>

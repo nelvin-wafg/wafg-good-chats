@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase-server';
 import { getApprovedHost } from '@/lib/auth';
+import { loadNotifyList } from '@/lib/notify-list';
 
 export const dynamic = 'force-dynamic';
 
@@ -157,6 +158,15 @@ export async function GET() {
   const trendsAttendance = recentEnded.map((s) => sessionStats[s.id]?.attendance || 0);
   const trendsMinutes = recentEnded.map((s) => Math.round((s.rounds_total || 0) * ((s.round_seconds || 0) / 60)));
 
+  // the homepage notify list: just the counts for the dashboard card (the full list loads when
+  // the card is opened). best-effort: a failure here must never break the dashboard.
+  let notify = null;
+  try {
+    notify = (await loadNotifyList(admin)).summary;
+  } catch (e) {
+    console.error('[dashboard] notify list summary failed', e?.message || e);
+  }
+
   // categorize sessions
   const live = sessions.filter((s) =>
     ['live', 'running_round', 'closing'].includes(s.status)
@@ -189,6 +199,7 @@ export async function GET() {
       yearLabel: new Date().getFullYear(),
     },
     newsletter: { syncedThisMonth, lastSyncedAt: lastSync },
+    notify,
     // only an admin can delete a person across every session (enforced in /api/host/people)
     viewer: { isAdmin: Boolean(auth.host.is_admin) },
     live: live.map((s) => ({
