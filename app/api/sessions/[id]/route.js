@@ -138,8 +138,8 @@ export async function PATCH(request, { params }) {
   return NextResponse.json({ id: session.id, notify });
 }
 
-// DELETE /api/sessions/:id  — ONLY the host who created the session can delete it (checked below; co-hosts
-// and even admins get a 403). this comment used to say "any approved host", which was wrong.
+// DELETE /api/sessions/:id  — the host who created the session, or an admin, can delete it (checked below;
+// any other co-host gets a 403).
 // hard delete · cascades to remove participants, pairings, rounds, captures.
 // also cleans up any active daily.co rooms.
 export async function DELETE(_request, { params }) {
@@ -154,10 +154,11 @@ export async function DELETE(_request, { params }) {
     .maybeSingle();
   if (!session) return new NextResponse('session not found', { status: 404 });
 
-  // delete is destructive · only the primary host (creator) can do it.
-  // co-hosts can manage the session live but can't permanently destroy data.
-  if (session.host_id !== auth.user.id) {
-    return new NextResponse('only the primary host can delete this session', { status: 403 });
+  // delete is destructive · only the creator or an admin can do it.
+  // other co-hosts can manage the session live but can't permanently destroy data.
+  const isCreator = session.host_id === auth.user.id;
+  if (!isCreator && !auth.host.is_admin) {
+    return new NextResponse('only the host who created this session (or an admin) can delete it', { status: 403 });
   }
 
   // log BEFORE deleting: the FK requires the session to still exist at insert
@@ -169,7 +170,8 @@ export async function DELETE(_request, { params }) {
     actorId: auth.user.id,
     actorLabel: auth.host.display_name || auth.host.email,
     sessionId: session.id,
-    metadata: { code: session.code, name: session.name },
+    // `byAdmin` marks an admin removing a session somebody else created
+    metadata: { code: session.code, name: session.name, creatorId: session.host_id, byAdmin: !isCreator },
   });
 
   // best-effort daily room cleanup (don't block delete on these)

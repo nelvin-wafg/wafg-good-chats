@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase-server';
 import { getApprovedHost } from '@/lib/auth';
 import { loadNotifyList } from '@/lib/notify-list';
+import { rankConnectors } from '@/lib/connectors';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/host/dashboard/details?kind=sessions|captures|people|newsletter|minutes|notify
+// GET /api/host/dashboard/details?kind=sessions|captures|people|newsletter|minutes|notify|connectors
 // Returns the row list backing a clicked stat card on the host dashboard.
 // Shared across approved hosts: covers every session, not just the caller's.
 export async function GET(request) {
@@ -116,6 +117,17 @@ export async function GET(request) {
     if (kind === 'newsletter') rows = rows.filter((r) => r.newsletter_opt_in);
     rows.sort((a, b) => (b.last_seen || '').localeCompare(a.last_seen || ''));
     return NextResponse.json({ kind, rows });
+  }
+
+  if (kind === 'connectors') {
+    const [{ data: captures = [] }, { data: participants = [] }] = await Promise.all([
+      admin.from('captures').select('id, session_id, capturer_id').in('session_id', safe),
+      admin.from('participants').select('id, session_id, profile_id, name').in('session_id', safe),
+    ]);
+    const profileIds = [...new Set(participants.filter((p) => p.profile_id).map((p) => p.profile_id))];
+    const safeProf = profileIds.length > 0 ? profileIds : ['00000000-0000-0000-0000-000000000000'];
+    const { data: profiles = [] } = await admin.from('profiles').select('id, email').in('id', safeProf);
+    return NextResponse.json({ kind, rows: rankConnectors(captures, participants, profiles) });
   }
 
   if (kind === 'minutes') {

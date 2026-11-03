@@ -55,10 +55,12 @@ export default function HostDashboard() {
   }, []);
 
   function confirmDeleteSession(sessionId, name) {
+    const s = [...(data?.drafts || []), ...(data?.past || [])].find((x) => x.id === sessionId);
+    const theirs = s && s.createdBy && !s.mine;
     setPendingDelete({
       kind: 'session',
       label: name,
-      detail: 'this removes all participants, pairings, and captures from the database.',
+      detail: `${theirs ? `this session was created by ${s.createdBy}, not you. ` : ''}this removes all participants, pairings, and captures from the database.`,
       run: () => runDeleteSession(sessionId),
     });
   }
@@ -224,6 +226,30 @@ export default function HostDashboard() {
         />
       </div>
 
+      {/* top connectors: a clickable card (the full ranked list opens in a window) */}
+      {data.topConnectors?.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setActiveStat('connectors')}
+          title="view all top connectors"
+          className="w-full text-left sticker-sm bg-white rounded-md p-4 mb-3 flex items-center justify-between gap-4 hover:opacity-90 transition-opacity cursor-pointer"
+        >
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">top connectors</div>
+            <div className="text-sm mt-1 truncate">
+              {data.topConnectors.slice(0, 3).map((c, i) => (
+                <span key={i}>
+                  {i > 0 && <span className="text-neutral-400"> · </span>}
+                  <strong>{c.name}</strong>{' '}
+                  <span style={{ color: '#01ecf3' }} className="font-bold">{c.captures}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+          <span className="text-sm underline whitespace-nowrap flex-shrink-0">view all →</span>
+        </button>
+      )}
+
       {/* notify list: homepage signups who get announcements. lives in Supabase (notify_signups);
           only people who ticked "The Weekly" are also in Kit. */}
       {data.notify && (
@@ -245,26 +271,6 @@ export default function HostDashboard() {
         </div>
       )}
 
-      {/* newsletter sync card */}
-      <div className="sticker-sm bg-white rounded-md p-4 mb-8 flex items-center justify-between gap-4 flex-wrap">
-        <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">newsletter sync (kit)</div>
-          <div className="text-sm mt-1">
-            <strong style={{ color: '#01ecf3' }}>{data.newsletter.syncedThisMonth}</strong> emails synced this month
-            {data.newsletter.lastSyncedAt && (
-              <span className="text-neutral-500 ml-2">
-                · last sync {new Date(data.newsletter.lastSyncedAt).toLocaleString()}
-              </span>
-            )}
-          </div>
-        </div>
-        {data.newsletter.syncedThisMonth === 0 && (
-          <span className="text-xs text-neutral-500 italic">
-            [no syncs yet this month]
-          </span>
-        )}
-      </div>
-
       {/* drafts */}
       {data.drafts.length > 0 && (
         <section className="mb-10">
@@ -276,12 +282,12 @@ export default function HostDashboard() {
                   <div className="min-w-0">
                     <div className="font-semibold truncate">{s.name}</div>
                     <div className="text-xs text-neutral-500">
-                      draft · publish before sharing{!s.canDelete && s.createdBy ? ` · by ${s.createdBy}` : ''}
+                      draft · publish before sharing{!s.mine && s.createdBy ? ` · by ${s.createdBy}` : ''}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 text-sm flex-shrink-0">
                     <Link href={`/host/new?id=${s.id}`} className="underline whitespace-nowrap">edit →</Link>
-                    {/* only the host who created a session can delete it (the server enforces this too) */}
+                    {/* the creator or an admin can delete a session (the server enforces this too) */}
                     {s.canDelete && (
                       <button
                         onClick={() => confirmDeleteSession(s.id, s.name)}
@@ -296,41 +302,6 @@ export default function HostDashboard() {
                 <CopyLink code={s.code} variant="light" label="participant link (works once you go live)" />
               </div>
             ))}
-          </div>
-        </section>
-      )}
-
-      {/* top connectors */}
-      {data.topConnectors?.length > 0 && (
-        <section className="mb-10">
-          <h2 className="display text-xl mb-3">top connectors</h2>
-          <div className="bg-white rounded-md border border-neutral-200 overflow-hidden">
-            <ul className="divide-y divide-neutral-200">
-              {data.topConnectors.map((c, i) => (
-                <li key={i} className="px-4 py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-semibold truncate">{c.name}</div>
-                    {c.email && <div className="text-xs text-neutral-500 truncate">{c.email}</div>}
-                  </div>
-                  <div className="flex items-center gap-4 flex-shrink-0">
-                    <div className="text-sm font-bold" style={{ color: '#01ecf3' }}>
-                      {c.captures} {c.captures === 1 ? 'capture' : 'captures'}
-                    </div>
-                    {/* removing a person from every session is admin-only (the server enforces it);
-                        a connector with no profile is just one participant row, open to any host */}
-                    {(data.viewer?.isAdmin || !c.profile_id) && (
-                      <button
-                        onClick={() => confirmDeletePerson(c)}
-                        className="text-xs text-red-500 hover:text-red-700 underline pl-4 ml-1 border-l border-neutral-200"
-                        title={`permanently delete ${c.name}`}
-                      >
-                        delete
-                      </button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
           </div>
         </section>
       )}
@@ -353,7 +324,7 @@ export default function HostDashboard() {
                   <div className="min-w-0">
                     <div className="font-semibold truncate">{s.name}</div>
                     <div className="text-xs text-neutral-500">
-                      {new Date(s.created_at).toLocaleDateString()} · {s.rounds_total} round{s.rounds_total === 1 ? '' : 's'}{!s.canDelete && s.createdBy ? ` · by ${s.createdBy}` : ''}
+                      {new Date(s.created_at).toLocaleDateString()} · {s.rounds_total} round{s.rounds_total === 1 ? '' : 's'}{!s.mine && s.createdBy ? ` · by ${s.createdBy}` : ''}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 text-sm flex-shrink-0">
@@ -398,6 +369,8 @@ export default function HostDashboard() {
           details={details}
           loading={detailsLoading}
           onClose={() => setActiveStat(null)}
+          isAdmin={Boolean(data.viewer?.isAdmin)}
+          onDeletePerson={(c) => { setActiveStat(null); confirmDeletePerson(c); }}
         />
       )}
 
@@ -499,7 +472,7 @@ function Stat({ label, value, highlight }) {
 }
 
 // modal that backs each clickable stat card
-function StatDetailsModal({ kind, details, loading, onClose }) {
+function StatDetailsModal({ kind, details, loading, onClose, onDeletePerson, isAdmin }) {
   const title = {
     sessions: 'sessions hosted',
     captures: 'connections made',
@@ -507,6 +480,7 @@ function StatDetailsModal({ kind, details, loading, onClose }) {
     newsletter: 'newsletter opt-ins',
     minutes: 'minutes hosted',
     notify: 'notify list',
+    connectors: 'top connectors',
   }[kind] || kind;
 
   function fmtDate(iso) {
@@ -604,6 +578,39 @@ function StatDetailsModal({ kind, details, loading, onClose }) {
                         <td className="py-2 pr-3">{r.events_attended}</td>
                         <td className="py-2 pr-3">{r.newsletter_opt_in ? 'yes' : 'no'}</td>
                         <td className="py-2 text-neutral-500">{fmtDate(r.last_seen)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {kind === 'connectors' && (
+                <table className="w-full text-sm">
+                  <thead className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 text-left">
+                    <tr><th className="py-2 pr-3">#</th><th className="py-2 pr-3">name</th><th className="py-2 pr-3">email</th><th className="py-2 pr-3">sessions</th><th className="py-2 pr-3">connections</th><th className="py-2"></th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200">
+                    {details.rows.map((r, i) => (
+                      <tr key={r.profile_id || r.participant_id || i}>
+                        <td className="py-2 pr-3 text-neutral-400">{i + 1}</td>
+                        <td className="py-2 pr-3 font-semibold">{r.name}</td>
+                        <td className="py-2 pr-3 text-neutral-500">{r.email || ''}</td>
+                        <td className="py-2 pr-3">{r.sessions}</td>
+                        <td className="py-2 pr-3 font-bold" style={{ color: '#01ecf3' }}>{r.captures}</td>
+                        <td className="py-2 text-right">
+                          {/* removing a person from every session is admin-only (the server enforces it);
+                              a connector with no profile is just one participant row, open to any host */}
+                          {(isAdmin || !r.profile_id) && (
+                            <button
+                              type="button"
+                              onClick={() => onDeletePerson?.(r)}
+                              className="text-xs text-red-500 hover:text-red-700 underline"
+                              title={`permanently delete ${r.name}`}
+                            >
+                              delete
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
