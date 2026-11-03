@@ -284,6 +284,11 @@ create table if not exists session_rsvps (
 create index if not exists idx_session_rsvps_session on session_rsvps(session_id);
 alter table session_rsvps enable row level security;
 
+-- added later: an optional LinkedIn on "save my spot", and a stamp so the day-of reminder
+-- email goes to each person once. safe to run on a table that already has them.
+alter table session_rsvps add column if not exists linkedin_url text;
+alter table session_rsvps add column if not exists reminder_sent_at timestamptz;
+
 -- ============================================================================
 -- RATE_LIMITS · sliding-window request tracking per IP/key
 -- ============================================================================

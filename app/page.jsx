@@ -393,7 +393,7 @@ function NotifyForm() {
         </button>
 
         <p className="text-xs text-neutral-500 text-center">
-          We send to your inbox via Kit. Unsubscribe anytime.
+          We'll email you when a session is scheduled. Unsubscribe anytime.
         </p>
       </form>
     </div>
