@@ -302,6 +302,21 @@ export default function JoinForm({ session, knownProfile, serverNow }) {
   );
 }
 
+// the optional "tell me about the next one" tick on the save-your-spot forms
+function FutureSessionsBox({ checked, onChange }) {
+  return (
+    <label className="flex items-start gap-3 text-sm text-neutral-700 text-left mt-3 mb-3 cursor-pointer">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-1 h-4 w-4 flex-shrink-0 accent-black"
+      />
+      <span>also let me know when the next session is scheduled</span>
+    </label>
+  );
+}
+
 // ─── "NOT OPEN YET" SCREEN ───
 // shown instead of the join form until the doors open (5 minutes before the published
 // start). the announcement email's "save your spot" lands here, so it has to make sense on
@@ -313,6 +328,10 @@ function NotOpenYet({ session, win, now, mounted, knownProfile }) {
   // recognized returning person just taps once; everyone else gives an email.
   const [rsvpEmail, setRsvpEmail] = useState('');
   const [rsvpName, setRsvpName] = useState('');
+  const [rsvpLinkedin, setRsvpLinkedin] = useState('');
+  // unticked by default: saving a spot is not consent to hear about every future session
+  const [rsvpFuture, setRsvpFuture] = useState(false);
+  const [savedFuture, setSavedFuture] = useState(false);
   const [rsvpStatus, setRsvpStatus] = useState('idle'); // idle | saving | saved
   const [rsvpError, setRsvpError] = useState(null);
   const [savedEmail, setSavedEmail] = useState('');
@@ -327,7 +346,12 @@ function NotOpenYet({ session, win, now, mounted, knownProfile }) {
       const res = await fetch(`/api/sessions/${session.id}/rsvp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: String(email).trim().toLowerCase(), firstName: firstName || null }),
+        body: JSON.stringify({
+          email: String(email).trim().toLowerCase(),
+          firstName: firstName || null,
+          linkedinUrl: rsvpLinkedin.trim() || null,
+          joinNotifyList: rsvpFuture,
+        }),
       });
       if (res.status === 409) {
         // the doors opened while they were typing: reload into the join form
@@ -341,6 +365,7 @@ function NotOpenYet({ session, win, now, mounted, knownProfile }) {
       }
       try { window.sessionStorage.setItem(`rsvp:${session.id}`, String(email).trim().toLowerCase()); } catch {}
       setSavedEmail(String(email).trim().toLowerCase());
+      setSavedFuture(rsvpFuture);
       setRsvpStatus('saved');
     } catch {
       setRsvpError("couldn't save your spot · check your connection and try again");
@@ -418,6 +443,7 @@ function NotOpenYet({ session, win, now, mounted, knownProfile }) {
               <div className="text-xs uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>you're on the list *</div>
               <p className="text-sm text-neutral-700">
                 we sent a confirmation to <strong>{savedEmail}</strong>. use this same link when the doors open.
+                {savedFuture && ' we\'ll also let you know when the next session is scheduled.'}
               </p>
             </div>
           ) : knownProfile && !useOtherEmail ? (
@@ -432,6 +458,7 @@ function NotOpenYet({ session, win, now, mounted, knownProfile }) {
               >
                 {rsvpStatus === 'saving' ? 'saving...' : 'save my spot *'}
               </button>
+              <FutureSessionsBox checked={rsvpFuture} onChange={setRsvpFuture} />
               <p className="text-xs text-neutral-500 mt-2">
                 we'll send a confirmation to {knownProfile.email} ·{' '}
                 <button type="button" onClick={() => setUseOtherEmail(true)} className="underline">use a different email</button>
@@ -462,6 +489,16 @@ function NotOpenYet({ session, win, now, mounted, knownProfile }) {
                 maxLength={48}
                 autoComplete="given-name"
               />
+              <input
+                type="text"
+                value={rsvpLinkedin}
+                onChange={(e) => setRsvpLinkedin(e.target.value)}
+                placeholder="linkedin.com/in/you (optional)"
+                className="w-full border-2 border-black rounded px-4 py-3 text-base mb-3 focus:outline-none focus:ring-2 focus:ring-wafg-cyan"
+                maxLength={200}
+                autoComplete="off"
+              />
+              <FutureSessionsBox checked={rsvpFuture} onChange={setRsvpFuture} />
               <button
                 type="submit"
                 disabled={rsvpStatus === 'saving' || !rsvpEmail.trim()}

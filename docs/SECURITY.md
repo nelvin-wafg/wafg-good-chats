@@ -168,7 +168,7 @@ Environment variables holding sensitive configuration:
 - `SESSION_SECRET` (server-only, signs participant identity + profile cookies via HMAC-SHA256)
 - `KIT_API_KEY` (server-only, newsletter sync — optional; absence disables sync)
 - `KIT_FORM_ID` (server-only, Kit form to subscribe joiners to)
-- `CRON_SECRET` (server-only, optional — protects the scheduled cleanup endpoint; Vercel cron sends it as a bearer token)
+- `CRON_SECRET` (server-only — protects both scheduled endpoints, `/api/cron/cleanup` and `/api/cron/reminders` (the day-of reminder email to people who saved a spot); Vercel cron sends it as a bearer token, and with it unset both refuse every request)
 
 All secrets are stored in Vercel's encrypted environment variable store. None are committed to the repository. The `.env.example` file documents the required keys with placeholder values only. The `.gitignore` excludes `.env`, `.env.local`, and similar files.
 
