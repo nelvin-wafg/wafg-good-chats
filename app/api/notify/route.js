@@ -3,6 +3,7 @@ import { addSubscriberToKit } from '@/lib/kit';
 import { validateEmail, validateParticipantName, validateLinkedinUrl, ValidationError } from '@/lib/validate';
 import { rateLimitByIp } from '@/lib/rate-limit';
 import { adminClient } from '@/lib/supabase-server';
+import { escHtml } from '@/lib/resend';
 
 // POST /api/notify
 // body: { email, firstName, linkedinUrl?, source? }
@@ -71,7 +72,9 @@ export async function POST(request) {
   const resendKey = process.env.RESEND_API_KEY;
   const notifyTo = process.env.NOTIFY_EMAIL;
   if (resendKey && notifyTo) {
-    const linkedinLine = linkedinUrl ? `<br><a href="${linkedinUrl}">${linkedinUrl}</a>` : '';
+    // everything below was typed by a stranger: escape it so a name like  <a href=...>  can't
+    // put a live link or markup into the email that lands in the host's inbox
+    const linkedinLine = linkedinUrl ? `<br><a href="${escHtml(linkedinUrl)}">${escHtml(linkedinUrl)}</a>` : '';
     fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -79,7 +82,7 @@ export async function POST(request) {
         from: process.env.RESEND_FROM || 'Good Chats <goodchats@weareforgood.com>',
         to: [notifyTo],
         subject: `✦ ${firstName} just signed up for Good Chats`,
-        html: `<p><strong>${firstName}</strong> (${email}) signed up for Good Chats notifications.${linkedinLine}</p><p>${subscribeToWeekly ? '✓ opted in to The Weekly' : '✗ did not opt in to The Weekly'}</p>`,
+        html: `<p><strong>${escHtml(firstName)}</strong> (${escHtml(email)}) signed up for Good Chats notifications.${linkedinLine}</p><p>${subscribeToWeekly ? '✓ opted in to The Weekly' : '✗ did not opt in to The Weekly'}</p>`,
       }),
     }).catch((e) => console.warn('[notify] host email failed', e?.message));
   }
