@@ -1,6 +1,6 @@
 'use client';
 
-// small 3-button pill that switches between video tile layouts.
+// small 4-button pill that switches between video tile layouts (see lib/tile-layout.js).
 // theme 'dark' for the host console, 'light' for the participant main room.
 export default function ViewModeToggle({ mode, onChange, theme = 'dark' }) {
   const light = theme === 'light';
@@ -16,6 +16,7 @@ export default function ViewModeToggle({ mode, onChange, theme = 'dark' }) {
     { id: 'gallery', label: 'gallery' },
     { id: 'speaker', label: 'speaker' },
     { id: 'large', label: 'large' },
+    { id: 'small', label: 'small' },
   ];
 
   return (
