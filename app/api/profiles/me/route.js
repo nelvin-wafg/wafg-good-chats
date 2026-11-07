@@ -3,6 +3,10 @@ import { cookies } from 'next/headers';
 import { adminClient } from '@/lib/supabase-server';
 import { getParticipantFromCookies } from '@/lib/participant-token';
 import { getProfileFromCookies } from '@/lib/profile-cookie';
+import { getSignInFromCookies } from '@/lib/signin-cookie';
+import { buildProfileHistory } from '@/lib/profile-history';
+import { noShowRooms } from '@/lib/recap-partners';
+import { rippleFor } from '@/lib/ripple';
 import { rateLimitByIp } from '@/lib/rate-limit';
 import {
   validateParticipantName,
@@ -18,8 +22,15 @@ import {
 // returns profile fields + private stats + private history. never exposed to
 // anyone but the profile owner — no public leaderboard, per design.
 export async function GET() {
-  const me = getProfileFromCookies(cookies());
+  const cookieStore = cookies();
+  const signedInCookie = getSignInFromCookies(cookieStore);
+  const me = getProfileFromCookies(cookieStore) || signedInCookie;
   if (!me?.profileId) return new NextResponse('unauthorized', { status: 401 });
+
+  // "signed in" = they clicked a one-time link sent to the profile's own inbox. the plain
+  // profile cookie is handed out by the join form to anyone who types an email, with no proof
+  // they own it, so it must NOT unlock anything that reveals who someone talked to.
+  const signedIn = Boolean(signedInCookie && signedInCookie.profileId === me.profileId);
 
   const admin = adminClient();
   const { data: profile } = await admin
@@ -37,24 +48,34 @@ export async function GET() {
   const participantIds = myParticipants.map((p) => p.id);
   const sessionIds = [...new Set(myParticipants.map((p) => p.session_id))];
 
-  let goodChats = 0;
   let connectionsMade = 0;
   let history = [];
+  let hist = { calls: 0, peopleMet: 0, sessions: [] };
 
   if (participantIds.length > 0) {
-    const [{ data: pairings = [] }, { data: captures = [] }, { data: sessions = [] }] = await Promise.all([
+    const [{ data: pairings = [] }, { data: captures = [] }, { data: sessions = [] }, { data: rounds = [] }, { data: sessionParticipants = [] }, { data: waitEvents = [] }] = await Promise.all([
       admin.from('pairings')
-        .select('id, participant_a_id, participant_b_id')
-        .or(`participant_a_id.in.(${participantIds.join(',')}),participant_b_id.in.(${participantIds.join(',')})`),
+        .select('round_id, participant_a_id, participant_b_id, room_name, room_label')
+        .in('session_id', sessionIds),
       admin.from('captures')
-        .select('id, capturer_id, session_id')
+        .select('capturer_id, captured_id, captured_linkedin_url, session_id')
         .in('capturer_id', participantIds),
       admin.from('sessions')
         .select('id, name, ended_at, created_at')
         .in('id', sessionIds),
+      admin.from('rounds')
+        .select('id, round_number')
+        .in('session_id', sessionIds),
+      admin.from('participants')
+        .select('id, name, kicked_at, profile_id')
+        .in('session_id', sessionIds),
+      admin.from('connection_events')
+        .select('payload')
+        .in('session_id', sessionIds)
+        .eq('event_type', 'partner-wait')
+        .limit(5000),
     ]);
 
-    goodChats = pairings.length;
     connectionsMade = captures.length;
 
     const capturesBySession = captures.reduce((acc, c) => {
@@ -70,7 +91,21 @@ export async function GET() {
         capturedCount: capturesBySession[s.id] || 0,
       }))
       .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // calls = real pairings that happened (no sit-outs, no-shows or removed partners), the
+    // number behind ripple levels. the same rules as the recap email.
+    hist = buildProfileHistory({
+      myParticipants,
+      sessions,
+      pairings,
+      rounds,
+      participants: sessionParticipants,
+      captures,
+      noShows: noShowRooms(waitEvents),
+    });
   }
+
+  const ripple = rippleFor(hist.calls);
 
   return NextResponse.json({
     profile: {
@@ -83,10 +118,21 @@ export async function GET() {
       createdAt: profile.created_at,
     },
     stats: {
-      goodChats,
+      goodChats: hist.calls,
       connectionsMade,
       eventsAttended: sessionIds.length,
+      peopleMet: hist.peopleMet,
     },
+    ripple: {
+      count: ripple.count,
+      level: ripple.level ? { name: ripple.level.name, emoji: ripple.level.emoji, calls: ripple.level.calls } : null,
+      next: ripple.next ? { name: ripple.next.name, emoji: ripple.next.emoji, calls: ripple.next.calls } : null,
+      toNext: ripple.toNext,
+      progress: ripple.progress,
+    },
+    signedIn,
+    // who they were paired with, per session · only for a signed-in (inbox-verified) browser
+    people: signedIn ? hist.sessions : null,
     history,
   });
 }

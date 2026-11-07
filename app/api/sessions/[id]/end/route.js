@@ -5,6 +5,7 @@ import { deleteRoom } from '@/lib/daily';
 import { sendRecapEmail } from '@/lib/resend';
 import { logAuditEvent } from '@/lib/audit';
 import { buildPartnerLists, noShowRooms } from '@/lib/recap-partners';
+import { createLoginTokens, loginUrl, RECAP_LINK_TTL_MS } from '@/lib/login-link';
 
 // POST /api/sessions/:id/end  — any approved host ends the session
 export async function POST(_request, { params }) {
@@ -42,7 +43,7 @@ export async function POST(_request, { params }) {
   try {
     const [{ data: participants }, { data: captures }, { data: rounds }, { data: pairingRows }, { data: waitEvents }] = await Promise.all([
       admin.from('participants')
-        .select('id, name, kicked_at, profiles(email, email_verified_at)')
+        .select('id, name, kicked_at, profile_id, profiles(email, email_verified_at)')
         .eq('session_id', session.id),
       admin.from('captures')
         .select('capturer_id, captured_id, captured_name, captured_linkedin_url')
@@ -81,9 +82,16 @@ export async function POST(_request, { params }) {
     // only email participants whose profile email is verified — either a
     // brand-new email that's been confirmed via /api/profiles/verify, or a
     // pre-existing profile grandfathered in as trusted (see schema.sql).
-    const emailPromises = (participants || [])
-      .filter((p) => p.profiles?.email && p.profiles?.email_verified_at)
+    const recipients = (participants || []).filter((p) => p.profiles?.email && p.profiles?.email_verified_at);
+
+    // each recap's "see your history" button is a one-time sign-in link to that person's
+    // profile. best-effort: if the tokens can't be made (e.g. the login_tokens SQL hasn't been
+    // run yet) the button falls back to the plain /profile page and the recap still goes out.
+    const links = await createLoginTokens(admin, recipients.map((p) => p.profile_id), RECAP_LINK_TTL_MS);
+
+    const emailPromises = recipients
       .map((p) => sendRecapEmail({
+        historyUrl: links.tokens[p.profile_id] ? loginUrl(links.tokens[p.profile_id]) : null,
         to: p.profiles.email,
         participantName: p.name,
         sessionName: session.name,
