@@ -4,6 +4,7 @@ import { getApprovedHost } from '@/lib/auth';
 import { deleteRoom } from '@/lib/daily';
 import { sendRecapEmail } from '@/lib/resend';
 import { logAuditEvent } from '@/lib/audit';
+import { buildPartnerLists, noShowRooms } from '@/lib/recap-partners';
 
 // POST /api/sessions/:id/end  — any approved host ends the session
 export async function POST(_request, { params }) {
@@ -39,18 +40,37 @@ export async function POST(_request, { params }) {
 
   // fire recap emails to all participants who have a profile email · non-blocking
   try {
-    const [{ data: participants }, { data: captures }, { data: rounds }] = await Promise.all([
+    const [{ data: participants }, { data: captures }, { data: rounds }, { data: pairingRows }, { data: waitEvents }] = await Promise.all([
       admin.from('participants')
-        .select('id, name, profiles(email, email_verified_at)')
+        .select('id, name, kicked_at, profiles(email, email_verified_at)')
         .eq('session_id', session.id),
       admin.from('captures')
-        .select('capturer_id, captured_name, captured_linkedin_url')
+        .select('capturer_id, captured_id, captured_name, captured_linkedin_url')
         .eq('session_id', session.id),
       admin.from('rounds')
-        .select('round_number, prompt_text')
+        .select('id, round_number, prompt_text')
         .eq('session_id', session.id)
         .order('round_number', { ascending: true }),
+      // the pairings (who sat with whom) and the "waiting for partner" log, so the recap can
+      // list everyone each person was paired with. both are best-effort: if either query fails
+      // the email just goes out without the "everyone you were paired with" section.
+      admin.from('pairings')
+        .select('round_id, participant_a_id, participant_b_id, room_name, room_label')
+        .eq('session_id', session.id),
+      admin.from('connection_events')
+        .select('payload')
+        .eq('session_id', session.id)
+        .eq('event_type', 'partner-wait')
+        .limit(1000),
     ]);
+
+    const partnersByParticipant = buildPartnerLists({
+      pairings: pairingRows || [],
+      rounds: rounds || [],
+      participants: participants || [],
+      captures: captures || [],
+      noShows: noShowRooms(waitEvents || []),
+    });
 
     const capturesByParticipant = (captures || []).reduce((acc, c) => {
       if (!acc[c.capturer_id]) acc[c.capturer_id] = [];
@@ -69,6 +89,7 @@ export async function POST(_request, { params }) {
         sessionName: session.name,
         captures: capturesByParticipant[p.id] || [],
         prompts: rounds || [],
+        partners: partnersByParticipant[p.id] || [],
       }).catch((e) => console.error('[end] recap email failed for participant', p.id, e?.message)));
 
     // don't await — let emails send in the background so the host isn't blocked
