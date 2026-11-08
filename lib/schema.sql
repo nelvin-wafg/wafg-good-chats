@@ -438,6 +438,28 @@ create index if not exists idx_referral_events_referrer on referral_events(refer
 alter table referral_events enable row level security;
 
 -- ============================================================================
+-- FOLLOW-UP EMAIL + LINK CLICKS · measure whether people act on a call after it ends.
+--   participants.followup_sent_at  the day-after email goes to each person once
+--   link_clicks                    one row per click on a tracked email link (/go/<token>);
+--                                  kind = recap-linkedin | followup-linkedin | ...
+-- run once; until then follow-ups wait (the daily job reports setupNeeded) and clicks aren't counted.
+-- ============================================================================
+alter table participants add column if not exists followup_sent_at timestamptz;
+
+create table if not exists link_clicks (
+  id uuid primary key default uuid_generate_v4(),
+  profile_id uuid references profiles(id) on delete set null,
+  session_id uuid references sessions(id) on delete set null,
+  kind text not null,
+  target_host text,
+  is_bot boolean default false,
+  created_at timestamptz default now()
+);
+create index if not exists idx_link_clicks_kind on link_clicks(kind, created_at);
+create index if not exists idx_link_clicks_session on link_clicks(session_id);
+alter table link_clicks enable row level security;
+
+-- ============================================================================
 -- EMAIL VERIFICATION BACKFILL · run this ONCE, right after adding the
 -- email_verified_at column above (i.e. the first time this section of the
 -- file is deployed). grandfathers in every profile that already existed as

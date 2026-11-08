@@ -5,6 +5,7 @@ import CopyLink from '@/components/CopyLink';
 import Sparkline from '@/components/Sparkline';
 import StoryModal from '@/components/StoryModal';
 import { showToast } from '@/components/Toast';
+import EngagementCard from '@/components/EngagementCard';
 
 export default function HostDashboard() {
   const [data, setData] = useState(null);
@@ -249,6 +250,8 @@ export default function HostDashboard() {
           <span className="text-sm underline whitespace-nowrap flex-shrink-0">view all →</span>
         </button>
       )}
+
+      <EngagementCard />
 
       {/* notify list: homepage signups who get announcements. lives in Supabase (notify_signups);
           only people who ticked "The Weekly" are also in Kit. */}
