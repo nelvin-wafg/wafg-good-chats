@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { colorForName, initials } from '@/lib/brand';
 import { showToast } from '@/components/Toast';
+import NextCallCard from '@/components/NextCallCard';
+import InviteCard from '@/components/InviteCard';
 
 // standalone "my profile" page · authenticated by the 6-month profile cookie
 // (same one that powers "welcome back" on the join form). private to the
@@ -144,7 +146,7 @@ export default function ProfilePage() {
     );
   }
 
-  const { profile, stats, history, ripple, signedIn, people } = data;
+  const { profile, stats, history, signedIn, people, moments } = data;
 
   return (
     <main className="min-h-screen p-6 md:p-8 max-w-3xl mx-auto" style={{ background: '#f4f4f1' }}>
@@ -230,43 +232,16 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* the one-stop part: what's next, and bringing someone along */}
+      <NextCallCard profile={profile} />
+      <InviteCard moments={moments || []} />
+
       {/* stats · private to this profile only */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         <StatTile label="good chats" value={stats.goodChats} highlight />
         <StatTile label="people met" value={stats.peopleMet ?? 0} />
         <StatTile label="events attended" value={stats.eventsAttended} />
       </div>
-
-      {/* ripple level · how far their calls have rippled */}
-      {ripple && (
-        <div className="rounded-md p-5 mb-6 border-2" style={{ background: '#effdfe', borderColor: '#01ecf3' }}>
-          <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">your ripple level</div>
-          {ripple.level ? (
-            <div className="display text-3xl mt-1" style={{ color: '#00b8be' }}>{ripple.level.emoji} {ripple.level.name}</div>
-          ) : (
-            <div className="display text-2xl mt-1">your first connection is waiting <span style={{ color: '#01ecf3' }}>*</span></div>
-          )}
-          <p className="text-sm text-neutral-700 mt-1">
-            {ripple.count === 0
-              ? 'join a session and get paired to start your ripple.'
-              : `you've been on ${ripple.count} ${ripple.count === 1 ? 'call' : 'calls'}.`}
-          </p>
-          {ripple.next ? (
-            <>
-              <div className="flex justify-between text-xs font-bold text-neutral-500 mt-3 mb-1">
-                <span>{ripple.count} / {ripple.next.calls} toward {ripple.next.name}</span>
-                <span>{ripple.toNext} more {ripple.toNext === 1 ? 'call' : 'calls'} to go</span>
-              </div>
-              <div className="h-2 rounded-full bg-neutral-200 overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: `${Math.round(ripple.progress * 100)}%`, background: '#01ecf3' }} />
-              </div>
-              <div className="text-xs text-neutral-500 mt-2">next: {ripple.next.emoji} {ripple.next.name} at {ripple.next.calls} calls</div>
-            </>
-          ) : (
-            <div className="text-xs text-neutral-500 mt-3">top of the ladder. you're a force for good.</div>
-          )}
-        </div>
-      )}
 
       {/* people you've met · private. needs the optional email sign-in, because the plain profile
           cookie can be handed out by the join form to anyone who types an email. */}

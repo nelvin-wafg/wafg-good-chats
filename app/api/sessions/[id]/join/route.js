@@ -21,6 +21,7 @@ import {
   PROFILE_COOKIE_OPTIONS,
 } from '@/lib/profile-cookie';
 import { isTrustedForProfile } from '@/lib/profile-trust';
+import { REF_COOKIE, attributeJoin } from '@/lib/referral';
 import { addSubscriberToKit } from '@/lib/kit';
 import { signEmailVerifyToken } from '@/lib/email-verify-token';
 import { sendVerificationEmail } from '@/lib/resend';
@@ -240,6 +241,13 @@ export async function POST(request, { params }) {
       return new NextResponse('could not join session', { status: 500 });
     }
     participant = created;
+  }
+
+  // joined after arriving through someone's invite link: if this is their first call ever, the
+  // inviter gets credit (best-effort, never blocks the join). see lib/referral.js.
+  const refCode = cookies().get(REF_COOKIE)?.value;
+  if (refCode) {
+    await attributeJoin(admin, { code: refCode, profileId, participantId: participant.id, sessionId: session.id });
   }
 
   // sync to Kit if opted in (fire-and-forget; don't block the join on Kit availability).

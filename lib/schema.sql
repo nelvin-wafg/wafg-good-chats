@@ -413,6 +413,31 @@ create index if not exists idx_login_tokens_expires on login_tokens(expires_at);
 alter table login_tokens enable row level security;
 
 -- ============================================================================
+-- INVITES + REFERRAL TRACKER · a member's personal invite link (/i/<code>) and credit for the
+-- people it brings in. run once; until it exists the invite card shows "not set up yet" and
+-- everything else keeps working.
+--   profiles.invite_code    the code in /i/<code> (public, revocable by making a new one)
+--   profiles.referred_by    who brought this person to their FIRST call (first touch, first-timers only)
+--   referral_events         visit / signup / rsvp / joined, one row per (inviter, visitor, event)
+-- ============================================================================
+alter table profiles add column if not exists invite_code text unique;
+alter table profiles add column if not exists referred_by uuid references profiles(id) on delete set null;
+create index if not exists idx_profiles_referred_by on profiles(referred_by);
+
+create table if not exists referral_events (
+  id uuid primary key default uuid_generate_v4(),
+  referrer_id uuid not null references profiles(id) on delete cascade,
+  visitor_key text not null,                     -- random per-browser id for visits, a hashed email or profile id later
+  event text not null check (event in ('visit', 'signup', 'rsvp', 'joined')),
+  invitee_profile_id uuid references profiles(id) on delete set null,
+  session_id uuid references sessions(id) on delete set null,
+  created_at timestamptz default now(),
+  unique (referrer_id, visitor_key, event)
+);
+create index if not exists idx_referral_events_referrer on referral_events(referrer_id, event);
+alter table referral_events enable row level security;
+
+-- ============================================================================
 -- EMAIL VERIFICATION BACKFILL · run this ONCE, right after adding the
 -- email_verified_at column above (i.e. the first time this section of the
 -- file is deployed). grandfathers in every profile that already existed as

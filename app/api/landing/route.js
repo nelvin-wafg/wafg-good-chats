@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase-server';
 import { getApprovedHost } from '@/lib/auth';
+import { pickNextSession } from '@/lib/next-session';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -10,10 +11,6 @@ export const fetchCache = 'force-no-store';
 // never let a browser or the CDN hold on to this: it's the homepage's "next session" and
 // it changes the moment a host publishes, goes live, or ends a session.
 const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' };
-
-// a published DRAFT whose start time passed long ago is a leftover, not an upcoming
-// session · don't keep advertising it with a countdown that has run out.
-const STALE_DRAFT_MS = 12 * 60 * 60 * 1000;
 
 // GET /api/landing
 // Public · returns the currently-published "next session" for the homepage, plus the
@@ -40,19 +37,7 @@ export async function GET(request) {
   if (error) console.error('[landing] sessions query failed', error.message);
 
   const rows = Array.isArray(data) ? data : [];
-  const published = rows.filter((s) => s?.metadata?.is_published === true);
-  const upcoming = published.filter((s) => {
-    if (s.status !== 'draft') return true;
-    const t = s.metadata?.starts_at ? new Date(s.metadata.starts_at).getTime() : NaN;
-    return !(Number.isFinite(t) && now - t > STALE_DRAFT_MS);
-  });
-
-  // soonest start first; sessions without a start time come after, newest first
-  const withStart = upcoming.filter((s) => s.metadata?.starts_at);
-  const withoutStart = upcoming.filter((s) => !s.metadata?.starts_at);
-  withStart.sort((a, b) => new Date(a.metadata.starts_at).getTime() - new Date(b.metadata.starts_at).getTime());
-  withoutStart.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  const chosen = withStart[0] || withoutStart[0] || null;
+  const { chosen, published, upcoming } = pickNextSession(rows, now);
 
   const body = {
     next: chosen
