@@ -245,10 +245,10 @@ export async function POST(request, { params }) {
 
   // joined after arriving through someone's invite link: if this is their first call ever, the
   // inviter gets credit (best-effort, never blocks the join). see lib/referral.js.
-  const refCode = cookies().get(REF_COOKIE)?.value;
-  if (refCode) {
-    await attributeJoin(admin, { code: refCode, profileId, participantId: participant.id, sessionId: session.id });
-  }
+  // (cookie from the link, or the email they signed up with after opening it, so a link opened on
+  // a phone still counts when they join from a laptop)
+  const refCode = cookies().get(REF_COOKIE)?.value || null;
+  await attributeJoin(admin, { code: refCode, email, profileId, participantId: participant.id, sessionId: session.id });
 
   // sync to Kit if opted in (fire-and-forget; don't block the join on Kit availability).
   // only for existing (trusted) profiles — a brand-new email's sync is deferred
