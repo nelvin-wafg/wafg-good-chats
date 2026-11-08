@@ -393,6 +393,26 @@ left join captures c on c.session_id = s.id
 group by s.id;
 
 -- ============================================================================
+-- LOGIN_TOKENS · one-time "sign in" links (optional passwordless sign-in for the profile page)
+-- only the SHA-256 hash of a token is stored, never the token itself. a token works once
+-- (used_at) and until expires_at. deny-by-default RLS like every other table: only the
+-- server (service role) touches it. expired rows are purged by /api/cron/cleanup.
+-- run this once; until it exists, "sign in" shows a friendly "not set up yet" and the recap
+-- email's history button falls back to the plain /profile link.
+-- ============================================================================
+create table if not exists login_tokens (
+  id uuid primary key default uuid_generate_v4(),
+  profile_id uuid not null references profiles(id) on delete cascade,
+  token_hash text not null unique,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  created_at timestamptz default now()
+);
+create index if not exists idx_login_tokens_profile on login_tokens(profile_id);
+create index if not exists idx_login_tokens_expires on login_tokens(expires_at);
+alter table login_tokens enable row level security;
+
+-- ============================================================================
 -- EMAIL VERIFICATION BACKFILL · run this ONCE, right after adding the
 -- email_verified_at column above (i.e. the first time this section of the
 -- file is deployed). grandfathers in every profile that already existed as

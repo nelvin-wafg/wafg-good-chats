@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 // GET /api/cron/cleanup
 // scheduled daily by vercel.json. two jobs:
-//   1. prune the rate_limits table (rows older than 1 hour)
+//   1. prune the rate_limits table (rows older than 1 hour) and expired sign-in tokens
 //   2. reap stale sessions · active sessions where everyone's been gone for >1 hour,
 //      or empty sessions created >6 hours ago. ends them + frees daily rooms.
 //
@@ -35,6 +35,14 @@ export async function GET(request) {
     result.rateLimitsPruned = true;
   } catch (e) {
     console.error('[cron] rate_limits cleanup failed', e?.message || e);
+  }
+
+  // 1b. purge sign-in tokens that expired more than a day ago (best-effort · the table may
+  //     not exist yet if the login_tokens SQL hasn't been run)
+  try {
+    await admin.from('login_tokens').delete().lt('expires_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+  } catch (e) {
+    console.error('[cron] login_tokens cleanup failed', e?.message || e);
   }
 
   // 2. reap stale active sessions

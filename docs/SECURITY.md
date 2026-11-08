@@ -64,6 +64,8 @@ Out of scope for the current implementation:
 - The token is set as an `HttpOnly`, `SameSite=Lax`, `Secure` (in production) cookie. The participant client cannot read or modify it.
 - Server-side handlers verify the cookie's signature and expiry on every authenticated request. Token TTL is 8 hours.
 - The signing key (`SESSION_SECRET`) is a 32+ character random string stored only in Vercel's environment variable store.
+- **Optional passwordless sign-in (profile page).** Nothing requires it; guests join exactly as before. A participant can ask for a one-time link at `/signin` (or use the "see your history" button in a recap email), sent to the profile's own inbox. Links are 32 random bytes; only the SHA-256 hash is stored (`login_tokens`), each works once and expires (15 minutes when asked for on `/signin`, 30 days when in a recap email). The link only opens a page: the token is spent by a button press (POST), so email scanners that pre-open links cannot use it up. The request endpoint gives the same answer whether or not a profile exists, and is limited per IP and per address. Using a link also marks the email verified.
+- Two profile cookies, on purpose: `wafg_pf` (6 months) is handed out by the join form to anyone who types an email, with **no proof they own it**, so it unlocks only low-sensitivity profile data. `wafg_si` (90 days, signed with a separate `signin:` prefix) exists only after a one-time link was used and is required for the private "people you've met" list.
 
 ---
 
@@ -107,6 +109,7 @@ All traffic to the application is HTTPS via Vercel's automatic TLS. Daily.co vid
 
 ### Cookies
 - Participant identity cookie: `HttpOnly`, `SameSite=Lax`, `Secure` in production, 8-hour expiry, scoped to the app domain.
+- Profile cookie `wafg_pf` (6 months) and signed-in cookie `wafg_si` (90 days): both `HttpOnly`, `SameSite=Lax`, `Secure` in production, HMAC-signed. `wafg_si` is only issued after a one-time sign-in link is used.
 - Supabase auth cookies: managed by `@supabase/ssr` with similar protections.
 
 ### Personal data
@@ -202,6 +205,7 @@ The following items are known to be incomplete. They reflect the "small, private
 | **No backup/recovery plan for participant cookies** | Participants whose cookie is cleared mid-session must rejoin. A persistent profile cookie (6-month, HMAC-signed) now recognizes returning users on the same device. | Optional: support a recover-by-link flow if requested. |
 | **Single shared `SESSION_SECRET`** | Rotating the secret invalidates all in-flight participant cookies. | For future, support multiple active signing keys with kid-based rotation. |
 | **Hobby plan gates collaboration on private repos** | Commits authored by accounts other than the project owner are blocked from deploying. Operationally confusing rather than insecure. | Upgrade to Pro plan, or make the repo public, or use only nelvin-wafg as the commit author. |
+| **Join form trusts any typed email** | Typing an existing profile's email on the join form returns that profile's `wafg_pf` cookie and overwrites its saved name, LinkedIn and newsletter setting, with no proof of inbox ownership. Impact is limited because the private "people you've met" list needs the inbox-verified `wafg_si` cookie, but the overwrite (name/LinkedIn shown in recaps) is a vandalism risk. | Only update an existing profile from the join form when the caller holds that profile's cookie; otherwise keep the stored profile and use the typed name for that session only. |
 
 Items not listed above are explicitly out of scope for v1.
 
@@ -236,6 +240,7 @@ For legal review, the following points are relevant. **Note: the data collected 
 | 2026-04-29 | Lead-gen + features: profiles (email + LinkedIn), Kit newsletter sync, persistent profile cookie, co-host model (any approved host can run any session; only primary host can delete), participant + host recap views, CSV export, analytics page, presence heartbeat, ghost-participant eject by unique ID, scheduled cleanup/reaper cron, draft editing. **Privacy profile expanded — see section 13.** | Nelvin Johnson |
 | 2026-11-04 | Hardening pass: dropped the `sessions host all` row-level-security policy (all session writes go through the API's service key), added response headers + report-only CSP, Next.js 14.2.35, CSV formula neutralizing, escaped the host sign-up email, image optimizer off. | Nelvin Johnson |
 | 2026-10-29 | Session deletion widened from creator-only to creator **or admin**; audit log marks `byAdmin` and `creatorId`. Non-admin co-hosts remain creator-only. | Nelvin Johnson |
+| 2026-11-06 | Optional passwordless sign-in for the profile page (one-time email links, hashed in `login_tokens`, spent by POST), separate inbox-verified `wafg_si` cookie gating the private "people you've met" list; recap email lists every partner by name (LinkedIn still only for starred); sign-in pages not frameable. Found and documented the join-form overwrite gap (section 12). | Nelvin Johnson |
 
 ---
 

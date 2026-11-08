@@ -18,6 +18,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
+  const [linkStatus, setLinkStatus] = useState('idle'); // idle | busy | sent
 
   useEffect(() => {
     load();
@@ -61,6 +62,35 @@ export default function ProfilePage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  // optional passwordless sign-in: emails a one-time link to the profile's own address.
+  // signing in unlocks the private "people you've met" list.
+  async function sendSignInLink() {
+    if (!data?.profile?.email || linkStatus === 'busy') return;
+    setLinkStatus('busy');
+    try {
+      const res = await fetch('/api/auth/request-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ email: data.profile.email }),
+      });
+      if (!res.ok) {
+        showToast((await res.text()) || "couldn't send a link right now", 'error');
+        setLinkStatus('idle');
+        return;
+      }
+      setLinkStatus('sent');
+    } catch {
+      showToast('connection issue · try again', 'error');
+      setLinkStatus('idle');
+    }
+  }
+
+  async function signOut() {
+    try { await fetch('/api/profiles/signout', { method: 'POST', credentials: 'same-origin' }); } catch {}
+    window.location.href = '/';
   }
 
   async function handleAvatarPick(e) {
@@ -114,7 +144,7 @@ export default function ProfilePage() {
     );
   }
 
-  const { profile, stats, history } = data;
+  const { profile, stats, history, ripple, signedIn, people } = data;
 
   return (
     <main className="min-h-screen p-6 md:p-8 max-w-3xl mx-auto" style={{ background: '#f4f4f1' }}>
@@ -203,8 +233,95 @@ export default function ProfilePage() {
       {/* stats · private to this profile only */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         <StatTile label="good chats" value={stats.goodChats} highlight />
-        <StatTile label="connections made" value={stats.connectionsMade} />
+        <StatTile label="people met" value={stats.peopleMet ?? 0} />
         <StatTile label="events attended" value={stats.eventsAttended} />
+      </div>
+
+      {/* ripple level · how far their calls have rippled */}
+      {ripple && (
+        <div className="rounded-md p-5 mb-6 border-2" style={{ background: '#effdfe', borderColor: '#01ecf3' }}>
+          <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">your ripple level</div>
+          {ripple.level ? (
+            <div className="display text-3xl mt-1" style={{ color: '#00b8be' }}>{ripple.level.emoji} {ripple.level.name}</div>
+          ) : (
+            <div className="display text-2xl mt-1">your first connection is waiting <span style={{ color: '#01ecf3' }}>*</span></div>
+          )}
+          <p className="text-sm text-neutral-700 mt-1">
+            {ripple.count === 0
+              ? 'join a session and get paired to start your ripple.'
+              : `you've been on ${ripple.count} ${ripple.count === 1 ? 'call' : 'calls'}.`}
+          </p>
+          {ripple.next ? (
+            <>
+              <div className="flex justify-between text-xs font-bold text-neutral-500 mt-3 mb-1">
+                <span>{ripple.count} / {ripple.next.calls} toward {ripple.next.name}</span>
+                <span>{ripple.toNext} more {ripple.toNext === 1 ? 'call' : 'calls'} to go</span>
+              </div>
+              <div className="h-2 rounded-full bg-neutral-200 overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${Math.round(ripple.progress * 100)}%`, background: '#01ecf3' }} />
+              </div>
+              <div className="text-xs text-neutral-500 mt-2">next: {ripple.next.emoji} {ripple.next.name} at {ripple.next.calls} calls</div>
+            </>
+          ) : (
+            <div className="text-xs text-neutral-500 mt-3">top of the ladder. you're a force for good.</div>
+          )}
+        </div>
+      )}
+
+      {/* people you've met · private. needs the optional email sign-in, because the plain profile
+          cookie can be handed out by the join form to anyone who types an email. */}
+      <div className="bg-white rounded-md border border-neutral-200 overflow-hidden mb-6">
+        <div className="px-5 py-3 border-b border-neutral-200">
+          <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">people you've met · private, only you see this</div>
+        </div>
+        {signedIn ? (
+          !people || people.length === 0 ? (
+            <p className="text-sm text-neutral-500 italic px-5 py-4">[nobody yet · your pairings show up here after a session]</p>
+          ) : (
+            <div className="divide-y divide-neutral-200">
+              {people.map((sess) => (
+                <div key={sess.sessionId} className="px-5 py-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <div className="font-semibold truncate">{sess.sessionName}</div>
+                    <div className="text-xs text-neutral-500 flex-shrink-0">{new Date(sess.date).toLocaleDateString()}</div>
+                  </div>
+                  <ul className="mt-2 space-y-1.5">
+                    {sess.partners.map((pt, i) => (
+                      <li key={i} className="flex items-center justify-between gap-3 text-sm">
+                        <span className="min-w-0">
+                          <span className="font-medium">{pt.name}</span>
+                          {pt.starred && <span style={{ color: '#01ecf3' }} className="font-bold"> ✦</span>}
+                          <span className="text-xs text-neutral-500">
+                            {' '}· {[pt.round ? `round ${pt.round}` : null, pt.roomLabel].filter(Boolean).join(' · ')}
+                          </span>
+                        </span>
+                        {pt.linkedinUrl && (
+                          <a href={pt.linkedinUrl} target="_blank" rel="noopener noreferrer"
+                             className="flex-shrink-0 text-xs font-bold text-white rounded px-3 py-1" style={{ background: '#0a66c2' }}>
+                            LinkedIn →
+                          </a>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )
+        ) : (
+          <div className="px-5 py-5 text-center">
+            <p className="text-sm text-neutral-700">sign in to see everyone you've been paired with, across every session.</p>
+            <p className="text-xs text-neutral-500 mt-1 mb-4">optional · no password. we email a one-time link to {profile.email}.</p>
+            {linkStatus === 'sent' ? (
+              <p className="text-sm font-semibold" style={{ color: '#00838f' }}>check your inbox · the link works once and expires in 15 minutes.</p>
+            ) : (
+              <button type="button" onClick={sendSignInLink} disabled={linkStatus === 'busy'}
+                      className="bg-black text-white font-bold rounded-md px-5 py-2 text-sm disabled:opacity-50">
+                {linkStatus === 'busy' ? 'sending...' : 'email me a sign-in link →'}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* history */}
@@ -235,7 +352,13 @@ export default function ProfilePage() {
         )}
       </div>
 
-      <p className="text-xs text-neutral-500 mt-6 text-center">
+      <div className="text-center mt-6">
+        <button type="button" onClick={signOut} className="text-xs underline text-neutral-500 hover:text-black">
+          sign out of this browser
+        </button>
+      </div>
+
+      <p className="text-xs text-neutral-500 mt-4 text-center">
         [only you can see this page · nothing here is shown to other participants except your name, photo, and linkedin during a live session]
       </p>
     </main>
