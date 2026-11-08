@@ -55,6 +55,8 @@ const nextConfig = {
       { source: '/:path*', headers: baseHeaders },
       { source: '/host/:path*', headers: noFraming },
       { source: '/unsubscribe', headers: noFraming },
+      { source: '/signin', headers: noFraming },
+      { source: '/profile', headers: noFraming },
     ];
   },
 };
