@@ -146,7 +146,7 @@ export default function ProfilePage() {
     );
   }
 
-  const { profile, stats, history, signedIn, people, moments } = data;
+  const { profile, stats, history, signedIn, people } = data;
 
   return (
     <main className="min-h-screen p-6 md:p-8 max-w-3xl mx-auto" style={{ background: '#f4f4f1' }}>
@@ -234,7 +234,7 @@ export default function ProfilePage() {
 
       {/* the one-stop part: what's next, and bringing someone along */}
       <NextCallCard profile={profile} />
-      <InviteCard moments={moments || []} />
+      <InviteCard />
 
       {/* stats · private to this profile only */}
       <div className="grid grid-cols-3 gap-3 mb-6">
