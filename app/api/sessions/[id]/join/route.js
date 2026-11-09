@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { adminClient } from '@/lib/supabase-server';
 import {
   validateParticipantName,
@@ -19,6 +20,8 @@ import {
   PROFILE_COOKIE_NAME,
   PROFILE_COOKIE_OPTIONS,
 } from '@/lib/profile-cookie';
+import { isTrustedForProfile } from '@/lib/profile-trust';
+import { REF_COOKIE, attributeJoin } from '@/lib/referral';
 import { addSubscriberToKit } from '@/lib/kit';
 import { signEmailVerifyToken } from '@/lib/email-verify-token';
 import { sendVerificationEmail } from '@/lib/resend';
@@ -108,22 +111,33 @@ export async function POST(request, { params }) {
   const now = new Date().toISOString();
   const { data: existingProfile } = await admin
     .from('profiles')
-    .select('id, kit_synced_at')
+    .select('id, kit_synced_at, newsletter_opt_in')
     .eq('email', email)
     .maybeSingle();
+
+  // typing an email proves nothing (the join form is open to everyone). an EXISTING profile may
+  // only be edited, subscribed or handed its cookie when this browser already holds a cookie for
+  // it: from a one-time sign-in link, or from having joined as that profile before. otherwise the
+  // person still joins the session with the name they typed, but the stored profile is left
+  // exactly as it was. see lib/profile-trust.js.
+  const trusted = existingProfile ? isTrustedForProfile(cookies(), existingProfile.id) : false;
+  // without proof, never let a typed checkbox subscribe someone: keep whatever consent they gave
+  const effectiveOptIn = existingProfile && !trusted ? Boolean(existingProfile.newsletter_opt_in) : newsletterOptIn;
 
   let profileId;
   if (existingProfile) {
     profileId = existingProfile.id;
-    await admin
-      .from('profiles')
-      .update({
-        display_name: name,
-        linkedin_url: linkedinUrl,
-        newsletter_opt_in: newsletterOptIn,
-        updated_at: now,
-      })
-      .eq('id', profileId);
+    if (trusted) {
+      await admin
+        .from('profiles')
+        .update({
+          display_name: name,
+          linkedin_url: linkedinUrl,
+          newsletter_opt_in: newsletterOptIn,
+          updated_at: now,
+        })
+        .eq('id', profileId);
+    }
   } else {
     const { data: created, error: createErr } = await admin
       .from('profiles')
@@ -161,11 +175,21 @@ export async function POST(request, { params }) {
   if (profileId) {
     const { data: existingRows } = await admin
       .from('participants')
-      .select('id, metadata')
+      .select('id, metadata, is_present, last_seen')
       .eq('session_id', session.id)
       .eq('profile_id', profileId)
       .order('joined_at', { ascending: false });
     if (existingRows && existingRows.length > 0) {
+      // someone who only typed an existing member's email must not be able to take over that
+      // member's live seat (rename them, hijack their pairing, undo a host removal). if the seat
+      // is currently in use, an unproven caller is turned away; a legit person on a new device
+      // can join as soon as the old tab has been gone for ~45 seconds, or sign in to prove it.
+      if (existingProfile && !trusted) {
+        const seen = existingRows[0].last_seen ? new Date(existingRows[0].last_seen).getTime() : 0;
+        if (existingRows[0].is_present && Date.now() - seen < 45000) {
+          return new NextResponse('that email is already in this session on another device · if that was you, close the other tab and try again in a minute', { status: 409 });
+        }
+      }
       const primaryId = existingRows[0].id;
       const prevMeta = existingRows[0].metadata || {};
       // returning user: if they were already admitted earlier in this session,
@@ -219,11 +243,18 @@ export async function POST(request, { params }) {
     participant = created;
   }
 
+  // joined after arriving through someone's invite link: if this is their first call ever, the
+  // inviter gets credit (best-effort, never blocks the join). see lib/referral.js.
+  // (cookie from the link, or the email they signed up with after opening it, so a link opened on
+  // a phone still counts when they join from a laptop)
+  const refCode = cookies().get(REF_COOKIE)?.value || null;
+  await attributeJoin(admin, { code: refCode, email, profileId, participantId: participant.id, sessionId: session.id });
+
   // sync to Kit if opted in (fire-and-forget; don't block the join on Kit availability).
   // only for existing (trusted) profiles — a brand-new email's sync is deferred
   // until they verify it (see /api/profiles/verify), so we never subscribe an
   // inbox nobody's confirmed ownership of.
-  if (newsletterOptIn && existingProfile && !existingProfile.kit_synced_at) {
+  if (effectiveOptIn && existingProfile && !existingProfile.kit_synced_at) {
     addSubscriberToKit({ email, firstName: name.split(' ')[0], linkedinUrl })
       .then(async (r) => {
         if (r.ok) {
@@ -235,9 +266,13 @@ export async function POST(request, { params }) {
 
   // sign cookies and respond
   const participantToken = signParticipantToken({ sessionId: session.id, participantId: participant.id });
-  const profileToken = signProfileToken({ profileId });
   const response = NextResponse.json({ participantId: participant.id });
   response.cookies.set(PARTICIPANT_COOKIE_NAME, participantToken, PARTICIPANT_COOKIE_OPTIONS);
-  response.cookies.set(PROFILE_COOKIE_NAME, profileToken, PROFILE_COOKIE_OPTIONS);
+  // the profile cookie (welcome-back + profile page) is only issued to a brand-new profile's
+  // creator or to a caller who already proved they own the existing one. someone who merely
+  // typed an existing email gets the session cookie only.
+  if (!existingProfile || trusted) {
+    response.cookies.set(PROFILE_COOKIE_NAME, signProfileToken({ profileId }), PROFILE_COOKIE_OPTIONS);
+  }
   return response;
 }

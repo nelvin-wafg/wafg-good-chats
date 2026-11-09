@@ -6,6 +6,10 @@ import { sendRecapEmail } from '@/lib/resend';
 import { logAuditEvent } from '@/lib/audit';
 import { buildPartnerLists, noShowRooms } from '@/lib/recap-partners';
 import { createLoginTokens, loginUrl, RECAP_LINK_TTL_MS } from '@/lib/login-link';
+import { trackedLinkUrl } from '@/lib/track-link';
+import { ensureInviteCodes } from '@/lib/referral';
+
+const SITE = 'https://goodchats.weareforgood.com';
 
 // POST /api/sessions/:id/end  — any approved host ends the session
 export async function POST(_request, { params }) {
@@ -89,13 +93,23 @@ export async function POST(_request, { params }) {
     // run yet) the button falls back to the plain /profile page and the recap still goes out.
     const links = await createLoginTokens(admin, recipients.map((p) => p.profile_id), RECAP_LINK_TTL_MS);
 
+    // each person's personal invite link for the "know someone who'd love this?" line (best-effort)
+    const inviteCodes = await ensureInviteCodes(admin, recipients.map((p) => p.profile_id));
+
     const emailPromises = recipients
       .map((p) => sendRecapEmail({
+        inviteUrl: inviteCodes[p.profile_id] ? `${SITE}/i/${inviteCodes[p.profile_id]}` : null,
         historyUrl: links.tokens[p.profile_id] ? loginUrl(links.tokens[p.profile_id]) : null,
         to: p.profiles.email,
         participantName: p.name,
         sessionName: session.name,
-        captures: capturesByParticipant[p.id] || [],
+        // LinkedIn buttons go through /go/<token> so we can count who actually uses them
+        captures: (capturesByParticipant[p.id] || []).map((c) => ({
+          ...c,
+          captured_linkedin_url: c.captured_linkedin_url
+            ? trackedLinkUrl({ url: c.captured_linkedin_url, kind: 'recap-linkedin', profileId: p.profile_id, sessionId: session.id })
+            : c.captured_linkedin_url,
+        })),
         prompts: rounds || [],
         partners: partnersByParticipant[p.id] || [],
       }).catch((e) => console.error('[end] recap email failed for participant', p.id, e?.message)));

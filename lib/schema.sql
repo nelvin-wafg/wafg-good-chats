@@ -413,6 +413,53 @@ create index if not exists idx_login_tokens_expires on login_tokens(expires_at);
 alter table login_tokens enable row level security;
 
 -- ============================================================================
+-- INVITES + REFERRAL TRACKER · a member's personal invite link (/i/<code>) and credit for the
+-- people it brings in. run once; until it exists the invite card shows "not set up yet" and
+-- everything else keeps working.
+--   profiles.invite_code    the code in /i/<code> (public, revocable by making a new one)
+--   profiles.referred_by    who brought this person to their FIRST call (first touch, first-timers only)
+--   referral_events         visit / signup / rsvp / joined, one row per (inviter, visitor, event)
+-- ============================================================================
+alter table profiles add column if not exists invite_code text unique;
+alter table profiles add column if not exists referred_by uuid references profiles(id) on delete set null;
+create index if not exists idx_profiles_referred_by on profiles(referred_by);
+
+create table if not exists referral_events (
+  id uuid primary key default uuid_generate_v4(),
+  referrer_id uuid not null references profiles(id) on delete cascade,
+  visitor_key text not null,                     -- random per-browser id for visits, a hashed email or profile id later
+  event text not null check (event in ('visit', 'signup', 'rsvp', 'joined')),
+  invitee_profile_id uuid references profiles(id) on delete set null,
+  session_id uuid references sessions(id) on delete set null,
+  created_at timestamptz default now(),
+  unique (referrer_id, visitor_key, event)
+);
+create index if not exists idx_referral_events_referrer on referral_events(referrer_id, event);
+alter table referral_events enable row level security;
+
+-- ============================================================================
+-- FOLLOW-UP EMAIL + LINK CLICKS · measure whether people act on a call after it ends.
+--   participants.followup_sent_at  the day-after email goes to each person once
+--   link_clicks                    one row per click on a tracked email link (/go/<token>);
+--                                  kind = recap-linkedin | followup-linkedin | ...
+-- run once; until then follow-ups wait (the daily job reports setupNeeded) and clicks aren't counted.
+-- ============================================================================
+alter table participants add column if not exists followup_sent_at timestamptz;
+
+create table if not exists link_clicks (
+  id uuid primary key default uuid_generate_v4(),
+  profile_id uuid references profiles(id) on delete set null,
+  session_id uuid references sessions(id) on delete set null,
+  kind text not null,
+  target_host text,
+  is_bot boolean default false,
+  created_at timestamptz default now()
+);
+create index if not exists idx_link_clicks_kind on link_clicks(kind, created_at);
+create index if not exists idx_link_clicks_session on link_clicks(session_id);
+alter table link_clicks enable row level security;
+
+-- ============================================================================
 -- EMAIL VERIFICATION BACKFILL · run this ONCE, right after adding the
 -- email_verified_at column above (i.e. the first time this section of the
 -- file is deployed). grandfathers in every profile that already existed as

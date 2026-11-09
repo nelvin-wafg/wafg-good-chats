@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { adminClient } from '@/lib/supabase-server';
 import { rateLimitByIp } from '@/lib/rate-limit';
 import { joinWindow } from '@/lib/join-window';
 import { sendRsvpConfirmationEmail } from '@/lib/resend';
+import { REF_COOKIE, attributeInterest } from '@/lib/referral';
 import { validateUuid, validateEmail, validateParticipantName, validateLinkedinUrl, ValidationError } from '@/lib/validate';
 
 export const dynamic = 'force-dynamic';
@@ -78,6 +80,10 @@ export async function POST(request, { params }) {
   // the optional "also tell me about future sessions" box. best-effort and independent of the
   // spot itself: it can never fail the RSVP.
   if (joinNotifyList) await joinHomepageList(admin, { email, firstName, linkedinUrl, sessionName: session.name });
+
+  // saved a spot after arriving through someone's invite link: credit the inviter (best-effort)
+  const refCode = cookies().get(REF_COOKIE)?.value;
+  if (refCode) await attributeInterest(admin, { code: refCode, email, event: 'rsvp', sessionId });
 
   if ((inserted || []).length > 0) {
     // await it: a serverless function can be frozen once it replies. a failed email never

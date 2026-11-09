@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { addSubscriberToKit } from '@/lib/kit';
 import { validateEmail, validateParticipantName, validateLinkedinUrl, ValidationError } from '@/lib/validate';
 import { rateLimitByIp } from '@/lib/rate-limit';
 import { adminClient } from '@/lib/supabase-server';
 import { escHtml } from '@/lib/resend';
+import { REF_COOKIE, attributeInterest } from '@/lib/referral';
 
 // POST /api/notify
 // body: { email, firstName, linkedinUrl?, source? }
@@ -52,6 +54,12 @@ export async function POST(request) {
   // actually get the announcements they just asked for. best-effort.
   try {
     await adminClient().from('email_unsubscribes').delete().eq('email', email);
+  } catch {}
+
+  // signed up after arriving through someone's invite link: credit the inviter (best-effort)
+  try {
+    const refCode = cookies().get(REF_COOKIE)?.value;
+    if (refCode) await attributeInterest(adminClient(), { code: refCode, email, event: 'signup' });
   } catch {}
 
   // only push to Kit if they checked "add me to The Weekly"
