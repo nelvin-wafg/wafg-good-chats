@@ -34,7 +34,7 @@ function LoginInner() {
     return (
       <main className="min-h-screen flex items-center justify-center p-6" style={{ background: '#f4f4f1' }}>
         <div className="w-full max-w-md text-center">
-          <div className="display text-5xl mb-3">You're not<br/>On the list yet.</div>
+          <div className="display text-5xl mb-3">You're not<br/>on the list yet.</div>
           <p className="text-neutral-600 mb-8">
             Hosting is invite-only while we test this thing. Ping nelvin to get added.
           </p>
@@ -48,7 +48,7 @@ function LoginInner() {
     return (
       <main className="min-h-screen flex items-center justify-center p-6" style={{ background: '#f4f4f1' }}>
         <div className="w-full max-w-md text-center">
-          <div className="display text-5xl mb-3">Check your<br/>Inbox <span style={{ color: '#01ecf3' }}>*</span></div>
+          <div className="display text-5xl mb-3">Check your<br/>inbox <span style={{ color: '#01ecf3' }}>*</span></div>
           <p className="text-neutral-600 mb-2">
             We sent a magic link to <strong>{email}</strong>.
           </p>
