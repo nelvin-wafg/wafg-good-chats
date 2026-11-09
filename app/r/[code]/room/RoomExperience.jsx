@@ -8,6 +8,7 @@ import { showToast } from '@/components/Toast';
 import ChatPanel from '@/components/ChatPanel';
 import DeviceMenu from '@/components/DeviceMenu';
 import ViewModeToggle from '@/components/ViewModeToggle';
+import { minTileFor, isCompactMode, isViewMode } from '@/lib/tile-layout';
 
 // iOS Safari blocks remote audio playback until the user has interacted with the
 // page in a way that unlocks the audio context. DailyAudio handles autoplay on
@@ -663,7 +664,7 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem('gc:viewMode');
-      if (saved === 'gallery' || saved === 'speaker' || saved === 'large') setViewMode(saved);
+      if (isViewMode(saved)) setViewMode(saved);
     } catch {}
   }, []);
   function updateViewMode(m) {
@@ -880,6 +881,7 @@ function MainRoomVideoGallery({ participantsByName, mode = 'gallery' }) {
                   sessionId={id}
                   isLocal={id === localId}
                   participantsByName={participantsByName}
+                  compact
                 />
               </div>
             ))}
@@ -889,11 +891,12 @@ function MainRoomVideoGallery({ participantsByName, mode = 'gallery' }) {
     );
   }
 
-  const minTile = mode === 'large' ? '280px' : '160px';
+  const minTile = minTileFor(mode);
+  const compact = isCompactMode(mode);
   return (
     <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${minTile}, 1fr))` }}>
       {ids.map((id) => (
-        <DailyVideoTile key={id} sessionId={id} isLocal={id === localId} participantsByName={participantsByName} />
+        <DailyVideoTile key={id} sessionId={id} isLocal={id === localId} participantsByName={participantsByName} compact={compact} />
       ))}
     </div>
   );
@@ -1019,7 +1022,7 @@ function PairRoomView({ assignment, session, myName, myLinkedin, myAvatarUrl, tr
   }
 
   return (
-    <main className="min-h-screen flex flex-col" style={{ background: '#f4f4f1', color: '#000' }}>
+    <main className="min-h-screen lg:h-screen flex flex-col" style={{ background: '#f4f4f1', color: '#000' }}>
       <header className="flex items-center justify-between px-6 py-3 border-b border-neutral-200 bg-white">
         <div className="flex items-center gap-3">
           <div className="display text-sm">round <span style={{ color: '#01ecf3' }}>{session.current_round}</span>/{session.rounds_total}</div>
@@ -1045,8 +1048,11 @@ function PairRoomView({ assignment, session, myName, myLinkedin, myAvatarUrl, tr
         />
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr,300px] overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 overflow-hidden">
+      {/* lg:grid-rows-[minmax(0,1fr)] + lg:h-screen on <main>: on desktop the row is exactly the
+          space left over, so the chat scrolls INSIDE its own panel instead of growing the page and
+          pushing the video off the screen as the conversation gets longer. */}
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1fr,300px] lg:grid-rows-[minmax(0,1fr)] overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 overflow-hidden min-h-0">
           <DailyVideoTile sessionId={localId} isLocal nameOverride={myName} linkedinOverride={myLinkedin} avatarOverride={myAvatarUrl} />
           {remoteIds.length > 0 ? (
             <DailyVideoTile sessionId={remoteIds[0]} cyan nameOverride={assignment.partnerName} linkedinOverride={assignment.partnerLinkedinUrl} avatarOverride={assignment.partnerAvatarUrl} />
@@ -1124,7 +1130,7 @@ function CaptureControl({ captured, partnerName, partnerLinkedinUrl, onCapture }
 // ============================================================================
 // shared video tile component used by both pair room and main room
 // ============================================================================
-function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverride, avatarOverride, participantsByName, tileClassName }) {
+function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverride, avatarOverride, participantsByName, tileClassName, compact = false }) {
   const ref = useRef();
   const videoState = useMediaTrack(sessionId, 'video');
   const userName = useParticipantProperty(sessionId, 'user_name');
@@ -1179,21 +1185,27 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverri
           )}
         </div>
       )}
-      <div className="absolute bottom-2 left-2 bg-black px-2.5 py-1.5 rounded-md text-sm font-bold text-white flex items-center gap-2">
-        <span>{displayName}</span>
-        {linkedinUrl && (
-          <a
-            href={linkedinUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={isLocal ? 'your linkedin (what others see)' : 'open linkedin'}
-            className="inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold no-underline"
-            style={{ background: '#0a66c2', color: '#fff' }}
-          >
-            in
-          </a>
-        )}
+      {/* the face is the point: a small translucent name label in the bottom corner and ONE small
+          LinkedIn badge in the top corner, so nothing sits across the middle of the picture.
+          compact tiles (the speaker strip, the "small" layout) shrink both. */}
+      <div
+        className={`absolute bottom-1.5 left-1.5 max-w-[calc(100%-0.75rem)] truncate bg-black/75 text-white font-bold rounded-md ${compact ? 'px-1.5 py-0.5 text-[11px]' : 'px-2.5 py-1 text-sm'}`}
+      >
+        {displayName}
       </div>
+      {linkedinUrl && (
+        <a
+          href={linkedinUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="open linkedin"
+          aria-label={`open ${name}'s linkedin`}
+          className={`absolute top-1.5 right-1.5 inline-flex items-center justify-center rounded font-bold no-underline ${compact ? 'w-4 h-4 text-[9px]' : 'w-6 h-6 text-xs'}`}
+          style={{ background: '#0a66c2', color: '#fff' }}
+        >
+          in
+        </a>
+      )}
       {isHostTile && !isLocal && (
         <div className="absolute top-2 left-2 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded" style={{ background: '#01ecf3', color: '#000' }}>
           host

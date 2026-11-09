@@ -8,6 +8,7 @@ import CopyLink from '@/components/CopyLink';
 import ChatPanel from '@/components/ChatPanel';
 import DeviceMenu from '@/components/DeviceMenu';
 import ViewModeToggle from '@/components/ViewModeToggle';
+import { minTileFor, isCompactMode } from '@/lib/tile-layout';
 import { showToast } from '@/components/Toast';
 
 // host's command center · runs the session AND shows up on camera in the main room.
@@ -1204,7 +1205,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
 
 // ============================================================================
 // host video gallery · all daily participants in the main room
-// supports three layouts driven by `mode`: gallery (default), speaker, large
+// supports four layouts driven by `mode`: gallery (default), speaker, large, small (see lib/tile-layout.js)
 // ============================================================================
 function HostVideoGallery({ participantsByName, mode = 'gallery' }) {
   const localId = useLocalSessionId();
@@ -1239,6 +1240,7 @@ function HostVideoGallery({ participantsByName, mode = 'gallery' }) {
                   sessionId={id}
                   isLocal={id === localId}
                   participantsByName={participantsByName}
+                  compact
                 />
               </div>
             ))}
@@ -1248,17 +1250,18 @@ function HostVideoGallery({ participantsByName, mode = 'gallery' }) {
     );
   }
 
-  const minTile = mode === 'large' ? '280px' : '160px';
+  const minTile = minTileFor(mode);
+  const compact = isCompactMode(mode);
   return (
     <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${minTile}, 1fr))` }}>
       {ids.map((id) => (
-        <DailyVideoTile key={id} sessionId={id} isLocal={id === localId} participantsByName={participantsByName} />
+        <DailyVideoTile key={id} sessionId={id} isLocal={id === localId} participantsByName={participantsByName} compact={compact} />
       ))}
     </div>
   );
 }
 
-function DailyVideoTile({ sessionId, isLocal, participantsByName, tileClassName }) {
+function DailyVideoTile({ sessionId, isLocal, participantsByName, tileClassName, compact = false }) {
   const ref = useRef();
   const videoState = useMediaTrack(sessionId, 'video');
   const userName = useParticipantProperty(sessionId, 'user_name');
@@ -1308,21 +1311,27 @@ function DailyVideoTile({ sessionId, isLocal, participantsByName, tileClassName 
           )}
         </div>
       )}
-      <div className="absolute bottom-2 left-2 bg-black px-2.5 py-1.5 rounded-md text-sm font-bold text-white flex items-center gap-2">
-        <span>{displayName}</span>
-        {linkedinUrl && (
-          <a
-            href={linkedinUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="open linkedin"
-            className="inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold no-underline"
-            style={{ background: '#0a66c2', color: '#fff' }}
-          >
-            in
-          </a>
-        )}
+      {/* the face is the point: a small translucent name label in the bottom corner and ONE small
+          LinkedIn badge in the top corner, so nothing sits across the middle of the picture.
+          compact tiles (the speaker strip, the "small" layout) shrink both. */}
+      <div
+        className={`absolute bottom-1.5 left-1.5 max-w-[calc(100%-0.75rem)] truncate bg-black/75 text-white font-bold rounded-md ${compact ? 'px-1.5 py-0.5 text-[11px]' : 'px-2.5 py-1 text-sm'}`}
+      >
+        {displayName}
       </div>
+      {linkedinUrl && (
+        <a
+          href={linkedinUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="open linkedin"
+          aria-label={`open ${name}'s linkedin`}
+          className={`absolute top-1.5 right-1.5 inline-flex items-center justify-center rounded font-bold no-underline ${compact ? 'w-4 h-4 text-[9px]' : 'w-6 h-6 text-xs'}`}
+          style={{ background: '#0a66c2', color: '#fff' }}
+        >
+          in
+        </a>
+      )}
       {isHostTile && (
         <div className="absolute top-2 left-2 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded" style={{ background: '#01ecf3', color: '#000' }}>
           host
