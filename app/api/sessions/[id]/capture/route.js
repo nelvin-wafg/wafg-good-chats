@@ -12,7 +12,7 @@ import { validateParticipantName, validateNote, validateUuid, ValidationError } 
 // partnerName is only a fallback for the rare case of a missing pairingId.
 export async function POST(request, { params }) {
   const allowed = await rateLimitByIp(request, 'capture', { limit: 30, windowSeconds: 300 });
-  if (!allowed) return new NextResponse('too many requests', { status: 429 });
+  if (!allowed) return new NextResponse('Too many requests', { status: 429 });
 
   let sessionId;
   let partnerName = null;
@@ -26,13 +26,13 @@ export async function POST(request, { params }) {
     if (body?.note != null) note = validateNote(body.note);
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   // verify capturer identity from cookie
   const cookieStore = cookies();
   const me = getParticipantFromCookies(cookieStore, sessionId);
-  if (!me) return new NextResponse('not authenticated · join the session first', { status: 401 });
+  if (!me) return new NextResponse('Not authenticated · join the session first', { status: 401 });
 
   const admin = adminClient();
 
@@ -49,7 +49,7 @@ export async function POST(request, { params }) {
       // the partner is whichever side of the pairing isn't me
       if (pairing.participant_a_id === me.participantId) partnerId = pairing.participant_b_id;
       else if (pairing.participant_b_id === me.participantId) partnerId = pairing.participant_a_id;
-      else return new NextResponse('not part of this pairing', { status: 403 });
+      else return new NextResponse('Not part of this pairing', { status: 403 });
     }
   }
 
@@ -91,9 +91,9 @@ export async function POST(request, { params }) {
     }
   }
 
-  if (!partner) return new NextResponse('partner not found', { status: 404 });
+  if (!partner) return new NextResponse('Partner not found', { status: 404 });
   if (partner.id === me.participantId) {
-    return new NextResponse('cannot capture yourself', { status: 400 });
+    return new NextResponse('Cannot capture yourself', { status: 400 });
   }
 
   // snapshot captured person's profile fields at capture time so the recap survives
@@ -111,6 +111,6 @@ export async function POST(request, { params }) {
       note,
     });
 
-  if (error) return new NextResponse('could not save capture', { status: 500 });
+  if (error) return new NextResponse('Could not save capture', { status: 500 });
   return NextResponse.json({ ok: true });
 }

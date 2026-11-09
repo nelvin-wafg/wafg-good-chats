@@ -27,19 +27,19 @@ async function loadSession(admin, id) {
 // host-only · how many people the button would email right now.
 export async function GET(request, { params }) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   let sessionId;
   try {
     sessionId = validateUuid(params.id, 'session id');
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const admin = adminClient();
   const session = await loadSession(admin, sessionId);
-  if (!session) return new NextResponse('not found', { status: 404 });
+  if (!session) return new NextResponse('Not found', { status: 404 });
 
   try {
     const st = await goLiveStatus(admin, sessionId);
@@ -55,14 +55,14 @@ export async function GET(request, { params }) {
     // the one-time SQL (session_notifications) hasn't been run yet
     if (isMissingNotificationsTable(e)) return NextResponse.json({ setupNeeded: true });
     console.error('[notify-live] status failed', e?.message || e);
-    return new NextResponse('could not check the list', { status: 500 });
+    return new NextResponse('Could not check the list', { status: 500 });
   }
 }
 
 // POST /api/sessions/:id/notify-live   body: { expected: <count the host confirmed> }
 export async function POST(request, { params }) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   let sessionId, expected, isTest;
   try {
@@ -72,38 +72,38 @@ export async function POST(request, { params }) {
     isTest = body?.test === true;
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
   // the host must have seen and confirmed a count; refuse blind sends.
-  if (!isTest && expected === undefined) return new NextResponse('confirm the count first', { status: 400 });
+  if (!isTest && expected === undefined) return new NextResponse('Confirm the count first', { status: 400 });
 
   const admin = adminClient();
   const session = await loadSession(admin, sessionId);
-  if (!session) return new NextResponse('not found', { status: 404 });
+  if (!session) return new NextResponse('Not found', { status: 404 });
 
   // "send me a test": one email, to the host's OWN address only, so they can see exactly
   // what subscribers will get before pressing the real button. not logged, never counts
   // against anyone, and works any time the session exists.
   if (isTest) {
     if (!process.env.RESEND_API_KEY) {
-      return new NextResponse('email is not set up on the server (RESEND_API_KEY)', { status: 503 });
+      return new NextResponse('Email is not set up on the server (RESEND_API_KEY)', { status: 503 });
     }
     const to = auth.host.email;
-    if (!to) return new NextResponse('no email address on your host account', { status: 400 });
+    if (!to) return new NextResponse('No email address on your host account', { status: 400 });
     const r = await sendGoingLiveEmail({
       to,
       firstName: String(auth.host.display_name || 'friend').split(' ')[0],
       sessionName: session.name,
       sessionCode: session.code,
     });
-    if (!r.ok) return new NextResponse(`test email failed (${r.reason || 'unknown'})`, { status: 502 });
+    if (!r.ok) return new NextResponse(`Test email failed (${r.reason || 'unknown'})`, { status: 502 });
     return NextResponse.json({ ok: true, sentTo: to });
   }
   if (session.status !== 'live' && session.status !== 'running_round') {
-    return new NextResponse('go live first, then send', { status: 409 });
+    return new NextResponse('Go live first, then send', { status: 409 });
   }
   if (!process.env.RESEND_API_KEY) {
-    return new NextResponse('email is not set up on the server (RESEND_API_KEY)', { status: 503 });
+    return new NextResponse('Email is not set up on the server (RESEND_API_KEY)', { status: 503 });
   }
 
   try {
@@ -121,9 +121,9 @@ export async function POST(request, { params }) {
     return NextResponse.json(result);
   } catch (e) {
     if (isMissingNotificationsTable(e)) {
-      return new NextResponse('one-time setup needed: the email log table has not been created yet', { status: 503 });
+      return new NextResponse('One-time setup needed: the email log table has not been created yet', { status: 503 });
     }
     console.error('[notify-live] send failed', e?.message || e);
-    return new NextResponse('could not send · nothing was emailed twice, safe to try again', { status: 500 });
+    return new NextResponse('Could not send · nothing was emailed twice, safe to try again', { status: 500 });
   }
 }

@@ -19,22 +19,22 @@ import { rateLimitByIp } from '@/lib/rate-limit';
 export async function POST(request) {
   // light rate limit · token grinding is the abuse pattern we're defending against
   const ok = await rateLimitByIp(request, 'daily-token', { limit: 50, windowSeconds: 300 });
-  if (!ok) return new NextResponse('too many token requests', { status: 429 });
+  if (!ok) return new NextResponse('Too many token requests', { status: 429 });
 
   let body;
   try {
     body = await request.json();
   } catch {
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
   const { roomName, userName } = body || {};
   const isOwner = Boolean(body?.isOwner);
 
   if (!roomName || typeof roomName !== 'string' || roomName.length > 100) {
-    return new NextResponse('roomName required', { status: 400 });
+    return new NextResponse('RoomName required', { status: 400 });
   }
   if (!userName || typeof userName !== 'string' || userName.length > 64) {
-    return new NextResponse('userName required', { status: 400 });
+    return new NextResponse('UserName required', { status: 400 });
   }
 
   const admin = adminClient();
@@ -65,8 +65,8 @@ export async function POST(request) {
     }
   }
 
-  if (!sessionRow) return new NextResponse('room not found', { status: 404 });
-  if (sessionRow.status === 'ended') return new NextResponse('session has ended', { status: 410 });
+  if (!sessionRow) return new NextResponse('Room not found', { status: 404 });
+  if (sessionRow.status === 'ended') return new NextResponse('Session has ended', { status: 410 });
 
   // auth check
   let resolvedUserName = userName;
@@ -74,14 +74,14 @@ export async function POST(request) {
   if (isOwner) {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return new NextResponse('not authenticated', { status: 401 });
+    if (!user) return new NextResponse('Not authenticated', { status: 401 });
 
     const { data: host } = await admin
       .from('hosts')
       .select('is_approved, display_name')
       .eq('id', user.id)
       .maybeSingle();
-    if (!host?.is_approved) return new NextResponse('host not approved', { status: 403 });
+    if (!host?.is_approved) return new NextResponse('Host not approved', { status: 403 });
 
     // any approved host can request an owner token (co-host enabled).
     resolvedUserId = `host-${user.id}`;
@@ -94,7 +94,7 @@ export async function POST(request) {
     // participant flow
     const cookieStore = cookies();
     const me = getParticipantFromCookies(cookieStore, sessionRow.id);
-    if (!me) return new NextResponse('not joined as a participant', { status: 401 });
+    if (!me) return new NextResponse('Not joined as a participant', { status: 401 });
     resolvedUserId = me.participantId;
 
     if (pairingForRoom) {
@@ -112,7 +112,7 @@ export async function POST(request) {
           .eq('id', me.participantId)
           .maybeSingle();
         if (placed?.current_room_name !== roomName) {
-          return new NextResponse('not in this pairing', { status: 403 });
+          return new NextResponse('Not in this pairing', { status: 403 });
         }
       }
     }
@@ -126,7 +126,7 @@ export async function POST(request) {
         .eq('id', me.participantId)
         .maybeSingle();
       if (!meRow?.metadata?.admitted_at) {
-        return new NextResponse('waiting for host', { status: 403 });
+        return new NextResponse('Waiting for host', { status: 403 });
       }
     }
     // for main room: any verified participant of this session is allowed.
@@ -142,6 +142,6 @@ export async function POST(request) {
     });
     return NextResponse.json({ token, url: roomUrl(roomName) });
   } catch (e) {
-    return new NextResponse('could not generate token', { status: 500 });
+    return new NextResponse('Could not generate token', { status: 500 });
   }
 }

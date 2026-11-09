@@ -78,31 +78,31 @@ export default function SignInPage() {
         <div className="display text-3xl mb-1">good<span style={{ color: '#01ecf3' }}>*</span>chats</div>
 
         {!ready ? (
-          <p className="text-neutral-500 text-sm mt-6">[one sec...]</p>
+          <p className="text-neutral-500 text-sm mt-6">[One sec...]</p>
         ) : token ? (
           <>
-            <p className="text-neutral-700 mt-4 mb-6">you're almost in. tap continue to see your Good Chats history.</p>
+            <p className="text-neutral-700 mt-4 mb-6">You're almost in. Tap continue to see your good chats history.</p>
             <button
               type="button"
               onClick={consume}
               disabled={status === 'busy'}
               className="w-full bg-black text-white font-bold rounded-md py-3 disabled:opacity-50"
             >
-              {status === 'busy' ? 'signing you in...' : 'continue →'}
+              {status === 'busy' ? 'Signing you in...' : 'Continue →'}
             </button>
             {status === 'error' && <p className="text-sm text-red-600 mt-3">{message}</p>}
           </>
         ) : status === 'sent' ? (
           <>
-            <p className="display text-2xl mt-4 mb-2">check your inbox <span style={{ color: '#01ecf3' }}>*</span></p>
+            <p className="display text-2xl mt-4 mb-2">Check your inbox <span style={{ color: '#01ecf3' }}>*</span></p>
             <p className="text-neutral-700 text-sm">
-              if there's a Good Chats profile for that email, a sign-in link is on its way. it works once and expires in 15 minutes.
+              If there's a good chats profile for that email, a sign-in link is on its way. It works once and expires in 15 minutes.
             </p>
           </>
         ) : (
           <>
-            <p className="text-neutral-700 mt-4 mb-1">sign in to see your next call, your history and the people you've met.</p>
-            <p className="text-neutral-500 text-xs mb-5">no password · we email you a one-time link. you never need an account to join a session.</p>
+            <p className="text-neutral-700 mt-4 mb-1">Sign in to see your next call, your history and the people you've met.</p>
+            <p className="text-neutral-500 text-xs mb-5">No password · we email you a one-time link. You never need an account to join a session.</p>
             {message && <p className="text-sm text-red-600 mb-3">{message}</p>}
             <form onSubmit={requestLink} className="space-y-3 text-left">
               <input
@@ -111,7 +111,7 @@ export default function SignInPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                placeholder="the email you joined with"
+                placeholder="The email you joined with"
                 className="w-full border-2 border-black rounded px-3 py-2 text-sm focus:outline-none focus:ring-2"
               />
               <button
@@ -119,13 +119,13 @@ export default function SignInPage() {
                 disabled={status === 'busy' || !email.trim()}
                 className="w-full bg-black text-white font-bold rounded-md py-3 disabled:opacity-50"
               >
-                {status === 'busy' ? 'sending...' : 'email me a link →'}
+                {status === 'busy' ? 'Sending...' : 'Email me a link →'}
               </button>
             </form>
           </>
         )}
 
-        <Link href="/" className="text-xs underline text-neutral-500 mt-6 inline-block">back home</Link>
+        <Link href="/" className="text-xs underline text-neutral-500 mt-6 inline-block">Back home</Link>
       </div>
     </main>
   );

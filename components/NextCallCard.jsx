@@ -44,11 +44,11 @@ export default function NextCallCard({ profile }) {
         credentials: 'same-origin',
         body: JSON.stringify({ email: profile.email, firstName: first || undefined }),
       });
-      if (res.ok) { showToast("you're in · we emailed you a confirmation", 'success'); await load(); }
+      if (res.ok) { showToast("You're in · we emailed you a confirmation", 'success'); await load(); }
       else if (res.status === 409) { await load(); }
-      else showToast((await res.text()) || "couldn't save your spot", 'error');
+      else showToast((await res.text()) || "Couldn't save your spot", 'error');
     } catch {
-      showToast('connection issue · try again', 'error');
+      showToast('Connection issue · try again', 'error');
     } finally {
       setBusy(false);
     }
@@ -67,10 +67,10 @@ export default function NextCallCard({ profile }) {
       if (res.ok) {
         const j = await res.json();
         setD((x) => ({ ...x, onNotifyList: j.onNotifyList }));
-        showToast(j.onNotifyList ? "you're on the list" : "you're off the list", 'success');
-      } else showToast((await res.text()) || "couldn't update that", 'error');
+        showToast(j.onNotifyList ? "You're on the list" : "You're off the list", 'success');
+      } else showToast((await res.text()) || "Couldn't update that", 'error');
     } catch {
-      showToast('connection issue · try again', 'error');
+      showToast('Connection issue · try again', 'error');
     } finally {
       setBusy(false);
     }
@@ -91,27 +91,27 @@ export default function NextCallCard({ profile }) {
 
   const shell = (children) => (
     <div className="bg-white rounded-md border-2 border-black p-5 mb-6" style={{ boxShadow: '4px 4px 0 #000' }}>
-      <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 mb-2">your next call</div>
+      <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 mb-2">Your next call</div>
       {children}
     </div>
   );
 
-  if (d === undefined) return shell(<p className="text-sm text-neutral-500">[checking the calendar...]</p>);
-  if (d === null) return shell(<p className="text-sm text-neutral-500">couldn't load the next call just now · try refreshing.</p>);
+  if (d === undefined) return shell(<p className="text-sm text-neutral-500">[Checking the calendar...]</p>);
+  if (d === null) return shell(<p className="text-sm text-neutral-500">Couldn't load the next call just now · try refreshing.</p>);
 
   // nothing scheduled: say so, and offer the list
   if (!d.next) {
     return shell(
       <>
-        <div className="display text-2xl">no call scheduled yet <span style={{ color: '#01ecf3' }}>*</span></div>
+        <div className="display text-2xl">No call scheduled yet <span style={{ color: '#01ecf3' }}>*</span></div>
         <p className="text-sm text-neutral-600 mt-1">
           {d.onNotifyList
-            ? "you're on the list: we'll email you the moment the next one is on the calendar."
-            : "want a heads-up when the next one is scheduled? we'll send one email, no spam."}
+            ? "You're on the list: we'll email you the moment the next one is on the calendar."
+            : "Want a heads-up when the next one is scheduled? We'll send one email, no spam."}
         </p>
         <button type="button" onClick={toggleNotify} disabled={busy}
                 className={`mt-3 rounded-md px-4 py-2 text-sm font-bold disabled:opacity-50 ${d.onNotifyList ? 'border-2 border-black bg-white' : 'bg-black text-white'}`}>
-          {busy ? '...' : d.onNotifyList ? 'turn off heads-ups' : 'email me when it\'s scheduled →'}
+          {busy ? '...' : d.onNotifyList ? 'Turn off heads-ups' : 'Email me when it\'s scheduled →'}
         </button>
       </>
     );
@@ -139,28 +139,28 @@ export default function NextCallCard({ profile }) {
       <div className="display text-2xl">{n.name}</div>
       {local && <div className="text-sm text-neutral-700 mt-0.5">{local}{tzNote ? ` · ${tzNote}` : ''}</div>}
       <div className="text-sm font-semibold mt-1" style={{ color: '#00838f' }}>
-        {isLive ? 'happening now' : until != null && until > 0 ? `starts in ${formatCountdown(until)}` : n.canJoinNow ? 'the room is open' : ''}
+        {isLive ? 'Happening now' : until != null && until > 0 ? `Starts in ${formatCountdown(until)}` : n.canJoinNow ? 'The room is open' : ''}
       </div>
 
       {n.canJoinNow ? (
         <a href={`/r/${n.code}`} className="inline-block mt-3 bg-black text-white font-bold rounded-md px-5 py-2.5 text-sm no-underline">
-          {isLive ? 'join now (in progress) →' : 'join now →'}
+          {isLive ? 'Join now (in progress) →' : 'Join now →'}
         </a>
       ) : d.saved ? (
         <>
-          <p className="text-sm mt-3"><span className="font-bold">you're in.</span> doors open {n.doorsOpenAt ? new Date(n.doorsOpenAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '5 minutes before'}; this page turns into a join button then.</p>
+          <p className="text-sm mt-3"><span className="font-bold">You're in.</span> doors open {n.doorsOpenAt ? new Date(n.doorsOpenAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '5 minutes before'}; this page turns into a join button then.</p>
           <div className="flex flex-wrap gap-2 mt-3">
-            {gcal && <a href={gcal} target="_blank" rel="noopener noreferrer" className="border-2 border-black rounded-md px-3 py-1.5 text-xs font-bold no-underline text-black">add to google calendar</a>}
-            {hasTime && <button type="button" onClick={() => downloadIcs(n)} className="border-2 border-black rounded-md px-3 py-1.5 text-xs font-bold">apple / outlook (.ics)</button>}
+            {gcal && <a href={gcal} target="_blank" rel="noopener noreferrer" className="border-2 border-black rounded-md px-3 py-1.5 text-xs font-bold no-underline text-black">Add to Google Calendar</a>}
+            {hasTime && <button type="button" onClick={() => downloadIcs(n)} className="border-2 border-black rounded-md px-3 py-1.5 text-xs font-bold">Apple / Outlook (.ics)</button>}
             <a href={`/r/${n.code}`} className="border-2 border-neutral-300 rounded-md px-3 py-1.5 text-xs font-bold no-underline text-neutral-700">join page</a>
           </div>
         </>
       ) : (
         <>
           <button type="button" onClick={saveSpot} disabled={busy} className="mt-3 bg-black text-white font-bold rounded-md px-5 py-2.5 text-sm disabled:opacity-50">
-            {busy ? 'saving...' : 'save my spot →'}
+            {busy ? 'Saving...' : 'Save my spot →'}
           </button>
-          <p className="text-xs text-neutral-500 mt-2">one tap · we'll email you a confirmation and a reminder.</p>
+          <p className="text-xs text-neutral-500 mt-2">One tap · we'll email you a confirmation and a reminder.</p>
         </>
       )}
     </>

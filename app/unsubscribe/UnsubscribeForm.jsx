@@ -26,21 +26,21 @@ export default function UnsubscribeForm({ token, maskedEmail }) {
   return (
     <main className="min-h-screen flex items-center justify-center p-6" style={{ background: '#f4f4f1' }}>
       <div className="w-full max-w-md text-center">
-        <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-2">Good Chats</div>
+        <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-2">good chats</div>
         {status === 'done' ? (
           <>
-            <div className="display text-5xl mb-4">you're<br />unsubscribed.</div>
-            <p className="text-neutral-700 mb-2">we won't email <strong>{maskedEmail}</strong> about Good Chats sessions anymore.</p>
+            <div className="display text-5xl mb-4">You're<br />Unsubscribed.</div>
+            <p className="text-neutral-700 mb-2">We won't email <strong>{maskedEmail}</strong> about good chats sessions anymore.</p>
             <p className="text-sm text-neutral-500 mb-6">
-              [changed your mind? you can sign up again any time on the homepage.]
+              [Changed your mind? You can sign up again any time on the homepage.]
             </p>
-            <a href="/" className="text-sm underline">back home</a>
+            <a href="/" className="text-sm underline">Back home</a>
           </>
         ) : (
           <>
-            <div className="display text-5xl mb-4">unsubscribe?</div>
+            <div className="display text-5xl mb-4">Unsubscribe?</div>
             <p className="text-neutral-700 mb-6">
-              stop Good Chats session emails to <strong>{maskedEmail}</strong>.
+              Stop good chats session emails to <strong>{maskedEmail}</strong>.
             </p>
             <button
               type="button"
@@ -48,13 +48,13 @@ export default function UnsubscribeForm({ token, maskedEmail }) {
               disabled={status === 'saving'}
               className="w-full btn-cyan py-4 text-xl rounded-md disabled:opacity-50"
             >
-              {status === 'saving' ? 'one sec...' : 'yes, unsubscribe me'}
+              {status === 'saving' ? 'One sec...' : 'Yes, unsubscribe me'}
             </button>
             {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
             <p className="text-xs text-neutral-500 mt-6">
-              [if you also get "The Weekly" newsletter, that has its own unsubscribe link at the bottom of each issue.]
+              [If you also get "The Weekly" newsletter, that has its own unsubscribe link at the bottom of each issue.]
             </p>
-            <a href="/" className="inline-block mt-4 text-sm underline text-neutral-600">no, take me home</a>
+            <a href="/" className="inline-block mt-4 text-sm underline text-neutral-600">No, take me home</a>
           </>
         )}
       </div>

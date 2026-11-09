@@ -19,7 +19,7 @@ export const maxDuration = 60;
 export async function POST(request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return new NextResponse('not authenticated', { status: 401 });
+  if (!user) return new NextResponse('Not authenticated', { status: 401 });
 
   // confirm the host is approved (middleware already does this for /host/* pages,
   // but API routes bypass that — so re-check)
@@ -29,7 +29,7 @@ export async function POST(request) {
     .select('is_approved, email, display_name')
     .eq('id', user.id)
     .single();
-  if (!host?.is_approved) return new NextResponse('host not approved', { status: 403 });
+  if (!host?.is_approved) return new NextResponse('Host not approved', { status: 403 });
 
   // validate inputs
   let name, code, roundsTotal, roundSeconds, prompts, startNow, isPublished, startsAt, notifyList;
@@ -58,7 +58,7 @@ export async function POST(request) {
     notifyList = body?.notify_list === true;
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   // notify_list fires at creation. notify_sent_at is stamped only AFTER the emails
@@ -84,9 +84,9 @@ export async function POST(request) {
 
   if (error) {
     if (error.code === '23505') {
-      return new NextResponse('that code is already in use · pick a different slug', { status: 409 });
+      return new NextResponse('That code is already in use · pick a different slug', { status: 409 });
     }
-    return new NextResponse('could not create session', { status: 500 });
+    return new NextResponse('Could not create session', { status: 500 });
   }
 
   // wait for the sends: a serverless function can be frozen as soon as it replies,

@@ -15,11 +15,11 @@ export default async function JoinPage({ params }) {
     return (
       <main className="min-h-screen flex items-center justify-center p-8" style={{ background: '#f4f4f1' }}>
         <div className="max-w-md text-center">
-          <div className="display text-5xl mb-4">we don't<br/>see this one.</div>
+          <div className="display text-5xl mb-4">We don't<br/>See this one.</div>
           <p className="text-neutral-600 mb-6">
-            [the code doesn't match an event we know about. ask whoever sent you the link to double-check.]
+            [The code doesn't match an event we know about. Ask whoever sent you the link to double-check.]
           </p>
-          <a href="/" className="text-sm underline">back home</a>
+          <a href="/" className="text-sm underline">Back home</a>
         </div>
       </main>
     );

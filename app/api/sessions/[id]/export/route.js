@@ -6,7 +6,7 @@ import { toCSV, csvResponse } from '@/lib/csv';
 // GET /api/sessions/:id/export  — CSV of participants in this session with capture counts + linkedin
 export async function GET(_request, { params }) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   const admin = adminClient();
   const { data: session } = await admin
@@ -14,7 +14,7 @@ export async function GET(_request, { params }) {
     .select('id, name, code, created_at')
     .eq('id', params.id)
     .maybeSingle();
-  if (!session) return new NextResponse('not found', { status: 404 });
+  if (!session) return new NextResponse('Not found', { status: 404 });
 
   const [{ data: participants = [] }, { data: captures = [] }] = await Promise.all([
     admin

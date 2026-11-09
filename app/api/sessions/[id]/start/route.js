@@ -8,7 +8,7 @@ import { logAuditEvent } from '@/lib/audit';
 // any approved host can start any session (co-host enabled).
 export async function POST(_request, { params }) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('not an approved host', { status: 403 });
+  if (!auth) return new NextResponse('Not an approved host', { status: 403 });
 
   const admin = adminClient();
   const { data: session, error } = await admin
@@ -16,9 +16,9 @@ export async function POST(_request, { params }) {
     .select('*')
     .eq('id', params.id)
     .single();
-  if (error || !session) return new NextResponse('session not found', { status: 404 });
+  if (error || !session) return new NextResponse('Session not found', { status: 404 });
   if (session.status !== 'draft' && session.status !== 'live') {
-    return new NextResponse('session already started', { status: 400 });
+    return new NextResponse('Session already started', { status: 400 });
   }
 
   // create the main daily room if not already

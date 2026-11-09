@@ -52,10 +52,10 @@ export default function JoinForm({ session, knownProfile, serverNow }) {
   }, [session.id]);
   const win = joinWindow(session.startsAt, now);
   const showNotOpen = win.gated && (serverSaysEarly || (!win.open && !earlyPreview));
-  const eyebrow = win.gated && now < win.startsAtMs ? 'Good Chats · doors are open' : 'Good Chats · happening now';
+  const eyebrow = win.gated && now < win.startsAtMs ? 'good chats · doors are open' : 'good chats · happening now';
   const previewNote = earlyPreview && win.gated && !win.open ? (
     <div className="mb-4 rounded-md p-3 border-2 text-xs" style={{ background: 'rgba(1,236,243,0.12)', borderColor: '#01ecf3' }}>
-      host preview · this session isn't open to participants yet. they'll see a "doors open" page until 5 minutes before it starts.
+      Host preview · this session isn't open to participants yet. They'll see a "doors open" page until 5 minutes before it starts.
     </div>
   ) : null;
 
@@ -142,12 +142,12 @@ export default function JoinForm({ session, knownProfile, serverNow }) {
           {wasRemoved && (
             <div className="mb-4 rounded-md p-4 border-2" style={{ background: 'rgba(220, 38, 38, 0.05)', borderColor: '#dc2626' }}>
               <div className="text-xs uppercase tracking-widest font-bold mb-1" style={{ color: '#dc2626' }}>* removed from session *</div>
-              <p className="text-sm text-neutral-700">the host removed you from this session. if you think this was a mistake, you can rejoin below.</p>
+              <p className="text-sm text-neutral-700">The host removed you from this session. If you think this was a mistake, you can rejoin below.</p>
             </div>
           )}
 
           <form onSubmit={handleJoin} className="sticker bg-white rounded-md p-6 mb-4">
-            <div className="text-xs uppercase tracking-widest font-bold mb-2" style={{ color: '#01ecf3' }}>welcome back</div>
+            <div className="text-xs uppercase tracking-widest font-bold mb-2" style={{ color: '#01ecf3' }}>Welcome back</div>
             <div className="display text-3xl mb-1">{knownProfile.displayName} *</div>
             <div className="text-sm text-neutral-500 mb-4">{knownProfile.email}</div>
             {knownProfile.linkedinUrl && (
@@ -158,7 +158,7 @@ export default function JoinForm({ session, knownProfile, serverNow }) {
               disabled={submitting}
               className="w-full btn-cyan py-4 text-xl rounded-md disabled:opacity-50"
             >
-              {submitting ? 'warming things up...' : "i'm in *"}
+              {submitting ? 'Warming things up...' : "I'm in *"}
             </button>
             {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
           </form>
@@ -169,7 +169,7 @@ export default function JoinForm({ session, knownProfile, serverNow }) {
               onClick={() => { setShowFull(true); setRecognized(true); }}
               className="underline text-neutral-600 hover:text-black"
             >
-              edit my info
+              Edit my info
             </button>
             <span className="text-neutral-400">·</span>
             <button
@@ -185,12 +185,12 @@ export default function JoinForm({ session, knownProfile, serverNow }) {
               }}
               className="underline text-neutral-600 hover:text-black"
             >
-              not me · use a different account
+              Not me · use a different account
             </button>
           </div>
 
           <p className="text-xs text-neutral-500 mt-6 text-center">
-            [need to leave early? totally fine. just close the tab.]
+            [Need to leave early? Totally fine. Just close the tab.]
           </p>
         </div>
       </main>
@@ -212,14 +212,14 @@ export default function JoinForm({ session, knownProfile, serverNow }) {
         {wasRemoved && (
           <div className="mb-4 rounded-md p-4 border-2" style={{ background: 'rgba(220, 38, 38, 0.05)', borderColor: '#dc2626' }}>
             <div className="text-xs uppercase tracking-widest font-bold mb-1" style={{ color: '#dc2626' }}>* removed from session *</div>
-            <p className="text-sm text-neutral-700">the host removed you from this session. if you think this was a mistake, you can rejoin below.</p>
+            <p className="text-sm text-neutral-700">The host removed you from this session. If you think this was a mistake, you can rejoin below.</p>
           </div>
         )}
 
         <form onSubmit={handleJoin} className="sticker bg-white rounded-md p-6 mb-6">
 
           <label className="block mb-4">
-            <div className="text-sm font-semibold mb-1">your email</div>
+            <div className="text-sm font-semibold mb-1">Your email</div>
             <input
               type="email"
               value={email}
@@ -236,12 +236,12 @@ export default function JoinForm({ session, knownProfile, serverNow }) {
           </label>
 
           <label className="block mb-4">
-            <div className="text-sm font-semibold mb-1">what should we call you?</div>
+            <div className="text-sm font-semibold mb-1">What should we call you?</div>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="your name"
+              placeholder="Your name"
               className="w-full border-2 border-black rounded px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-wafg-cyan"
               maxLength={48}
               required
@@ -250,7 +250,7 @@ export default function JoinForm({ session, knownProfile, serverNow }) {
           </label>
 
           <label className="block mb-4">
-            <div className="text-sm font-semibold mb-1">linkedin</div>
+            <div className="text-sm font-semibold mb-1">Linkedin</div>
             <input
               type="text"
               value={linkedinUrl}
@@ -260,7 +260,7 @@ export default function JoinForm({ session, knownProfile, serverNow }) {
               maxLength={200}
               required
             />
-            <p className="text-xs text-neutral-500 mt-1.5">[shown to people you're paired with so they can connect]</p>
+            <p className="text-xs text-neutral-500 mt-1.5">[Shown to people you're paired with so they can connect]</p>
           </label>
 
           <label className="flex items-start gap-2 mb-4 cursor-pointer">
@@ -270,7 +270,7 @@ export default function JoinForm({ session, knownProfile, serverNow }) {
               onChange={(e) => setNewsletterOptIn(e.target.checked)}
               className="mt-1 w-4 h-4 accent-wafg-cyan"
             />
-            <span className="text-sm">add me to the WAFG newsletter <span className="text-neutral-500">[unsubscribe anytime]</span></span>
+            <span className="text-sm">Add me to the WAFG newsletter <span className="text-neutral-500">[unsubscribe anytime]</span></span>
           </label>
 
           <button
@@ -278,24 +278,24 @@ export default function JoinForm({ session, knownProfile, serverNow }) {
             disabled={submitting || !name.trim() || !email.trim() || !linkedinUrl.trim()}
             className="w-full btn-cyan py-4 text-xl rounded-md disabled:opacity-50"
           >
-            {submitting ? 'warming things up...' : "i'm in *"}
+            {submitting ? 'Warming things up...' : "I'm in *"}
           </button>
 
           {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
         </form>
 
         <div className="bg-black text-white rounded-md p-5">
-          <div className="text-xs uppercase tracking-widest font-bold mb-3" style={{ color: '#01ecf3' }}>here's the vibe</div>
+          <div className="text-xs uppercase tracking-widest font-bold mb-3" style={{ color: '#01ecf3' }}>Here's the vibe</div>
           <ul className="space-y-2 text-sm">
             <li><span style={{ color: '#01ecf3', fontFamily: 'var(--font-display)' }}>*</span> {session.rounds_total} rounds · {Math.round(session.round_seconds / 60)} min each</li>
-            <li><span style={{ color: '#01ecf3', fontFamily: 'var(--font-display)' }}>*</span> we'll all hang together first · then split into pairs</li>
-            <li><span style={{ color: '#01ecf3', fontFamily: 'var(--font-display)' }}>*</span> a prompt drops each round · use it or don't</li>
-            <li><span style={{ color: '#01ecf3', fontFamily: 'var(--font-display)' }}>*</span> tap the heart if you want to stay in touch with someone</li>
+            <li><span style={{ color: '#01ecf3', fontFamily: 'var(--font-display)' }}>*</span> We'll all hang together first · then split into pairs</li>
+            <li><span style={{ color: '#01ecf3', fontFamily: 'var(--font-display)' }}>*</span> A prompt drops each round · use it or don't</li>
+            <li><span style={{ color: '#01ecf3', fontFamily: 'var(--font-display)' }}>*</span> Tap the heart if you want to stay in touch with someone</li>
           </ul>
         </div>
 
         <p className="text-xs text-neutral-500 mt-6 text-center">
-          [need to leave early? totally fine. just close the tab.]
+          [Need to leave early? Totally fine. Just close the tab.]
         </p>
       </div>
     </main>
@@ -312,7 +312,7 @@ function FutureSessionsBox({ checked, onChange }) {
         onChange={(e) => onChange(e.target.checked)}
         className="mt-1 h-4 w-4 flex-shrink-0 accent-black"
       />
-      <span>also let me know when the next session is scheduled</span>
+      <span>Also let me know when the next session is scheduled</span>
     </label>
   );
 }
@@ -408,7 +408,7 @@ function NotOpenYet({ session, win, now, mounted, knownProfile }) {
       'BEGIN:VALARM',
       'TRIGGER:-PT10M',
       'ACTION:DISPLAY',
-      'DESCRIPTION:Good Chats starts soon',
+      'DESCRIPTION:good chats starts soon',
       'END:VALARM',
       'END:VEVENT',
       'END:VCALENDAR',
@@ -426,29 +426,29 @@ function NotOpenYet({ session, win, now, mounted, knownProfile }) {
   return (
     <main className="min-h-screen flex items-center justify-center p-6" style={{ background: '#f4f4f1' }}>
       <div className="w-full max-w-md text-center">
-        <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-2">Good Chats · coming up</div>
+        <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-2">good chats · coming up</div>
         <div className="display text-5xl mb-3">{session.name}</div>
         <p className="text-lg text-neutral-700 mb-6" style={{ minHeight: '1.75rem' }}>
-          {mounted ? <>starts <strong>{fmtWhen(startsAt)}</strong></> : ' '}
+          {mounted ? <>Starts <strong>{fmtWhen(startsAt)}</strong></> : ' '}
         </p>
 
         <div className="sticker bg-white rounded-md p-6 mb-5">
-          <div className="text-xs uppercase tracking-widest font-bold mb-2" style={{ color: '#01ecf3' }}>doors open in</div>
+          <div className="text-xs uppercase tracking-widest font-bold mb-2" style={{ color: '#01ecf3' }}>Doors open in</div>
           <div className="display text-5xl mb-3" aria-live="off">{formatCountdown(win.msUntilOpen)}</div>
         </div>
 
         <div className="sticker bg-white rounded-md p-5 mb-5">
           {rsvpStatus === 'saved' ? (
             <div className="text-center">
-              <div className="text-xs uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>you're on the list *</div>
+              <div className="text-xs uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>You're on the list *</div>
               <p className="text-sm text-neutral-700">
-                we sent a confirmation to <strong>{savedEmail}</strong>. use this same link when the doors open.
-                {savedFuture && ' we\'ll also let you know when the next session is scheduled.'}
+                We sent a confirmation to <strong>{savedEmail}</strong>. Use this same link when the doors open.
+                {savedFuture && ' We\'ll also let you know when the next session is scheduled.'}
               </p>
             </div>
           ) : knownProfile && !useOtherEmail ? (
             <div className="text-center">
-              <div className="text-xs uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>welcome back</div>
+              <div className="text-xs uppercase tracking-widest font-bold mb-1" style={{ color: '#01ecf3' }}>Welcome back</div>
               <div className="display text-2xl mb-3">{knownProfile.displayName} *</div>
               <button
                 type="button"
@@ -456,12 +456,12 @@ function NotOpenYet({ session, win, now, mounted, knownProfile }) {
                 disabled={rsvpStatus === 'saving'}
                 className="w-full btn-cyan py-3 text-base rounded-md disabled:opacity-50"
               >
-                {rsvpStatus === 'saving' ? 'saving...' : 'save my spot *'}
+                {rsvpStatus === 'saving' ? 'Saving...' : 'Save my spot *'}
               </button>
               <FutureSessionsBox checked={rsvpFuture} onChange={setRsvpFuture} />
               <p className="text-xs text-neutral-500 mt-2">
-                we'll send a confirmation to {knownProfile.email} ·{' '}
-                <button type="button" onClick={() => setUseOtherEmail(true)} className="underline">use a different email</button>
+                We'll send a confirmation to {knownProfile.email} ·{' '}
+                <button type="button" onClick={() => setUseOtherEmail(true)} className="underline">Use a different email</button>
               </p>
               {rsvpError && <p className="text-sm text-red-600 mt-2">{rsvpError}</p>}
             </div>
@@ -470,7 +470,7 @@ function NotOpenYet({ session, win, now, mounted, knownProfile }) {
               onSubmit={(e) => { e.preventDefault(); if (rsvpEmail.trim()) saveSpot(rsvpEmail, rsvpName.trim()); }}
               className="text-left"
             >
-              <div className="text-xs uppercase tracking-widest font-bold mb-3 text-center" style={{ color: '#01ecf3' }}>save your spot</div>
+              <div className="text-xs uppercase tracking-widest font-bold mb-3 text-center" style={{ color: '#01ecf3' }}>Save your spot</div>
               <input
                 type="email"
                 value={rsvpEmail}
@@ -484,7 +484,7 @@ function NotOpenYet({ session, win, now, mounted, knownProfile }) {
                 type="text"
                 value={rsvpName}
                 onChange={(e) => setRsvpName(e.target.value)}
-                placeholder="first name (optional)"
+                placeholder="First name (optional)"
                 className="w-full border-2 border-black rounded px-4 py-3 text-base mb-3 focus:outline-none focus:ring-2 focus:ring-wafg-cyan"
                 maxLength={48}
                 autoComplete="given-name"
@@ -504,9 +504,9 @@ function NotOpenYet({ session, win, now, mounted, knownProfile }) {
                 disabled={rsvpStatus === 'saving' || !rsvpEmail.trim()}
                 className="w-full btn-cyan py-3 text-base rounded-md disabled:opacity-50"
               >
-                {rsvpStatus === 'saving' ? 'saving...' : 'save my spot *'}
+                {rsvpStatus === 'saving' ? 'Saving...' : 'Save my spot *'}
               </button>
-              <p className="text-xs text-neutral-500 mt-2 text-center">[we'll email you a confirmation and a link. that's it.]</p>
+              <p className="text-xs text-neutral-500 mt-2 text-center">[We'll email you a confirmation and a link. That's it.]</p>
               {rsvpError && <p className="text-sm text-red-600 mt-2 text-center">{rsvpError}</p>}
             </form>
           )}
@@ -519,21 +519,21 @@ function NotOpenYet({ session, win, now, mounted, knownProfile }) {
             rel="noopener noreferrer"
             className="btn-cyan px-5 py-3 text-sm rounded-md no-underline"
           >
-            add to google calendar *
+            Add to Google Calendar *
           </a>
           <button
             type="button"
             onClick={downloadIcs}
             className="px-5 py-3 text-sm rounded-md border-2 border-black bg-white hover:bg-neutral-100 font-semibold"
           >
-            apple / outlook (.ics)
+            Apple / Outlook (.ics)
           </button>
         </div>
 
         <p className="text-xs text-neutral-500">
           [{session.rounds_total} rounds · {Math.round((session.round_seconds || 0) / 60)} min each · one good person at a time]
         </p>
-        <a href="/" className="inline-block mt-6 text-sm underline text-neutral-600">back home</a>
+        <a href="/" className="inline-block mt-6 text-sm underline text-neutral-600">Back home</a>
       </div>
     </main>
   );

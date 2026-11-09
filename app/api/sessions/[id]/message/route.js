@@ -15,7 +15,7 @@ import { validateUuid, ValidationError } from '@/lib/validate';
 // cleared by any other path.
 export async function POST(request, { params }) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   let sessionId, participantId, text, action;
   try {
@@ -32,7 +32,7 @@ export async function POST(request, { params }) {
     action = body?.action === 'unmute' ? 'unmute' : null;
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const admin = adminClient();
@@ -42,7 +42,7 @@ export async function POST(request, { params }) {
     .eq('id', participantId)
     .eq('session_id', sessionId)
     .maybeSingle();
-  if (!existing) return new NextResponse('participant not found', { status: 404 });
+  if (!existing) return new NextResponse('Participant not found', { status: 404 });
 
   const prev = existing.metadata || {};
   const { flag_at, flag_text, ...rest } = prev; // host responded/acknowledged → clear the flag
@@ -56,7 +56,7 @@ export async function POST(request, { params }) {
     .eq('id', participantId);
   if (error) {
     console.error('[message] update failed', error);
-    return new NextResponse('could not send', { status: 500 });
+    return new NextResponse('Could not send', { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

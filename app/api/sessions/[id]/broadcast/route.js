@@ -8,18 +8,18 @@ import { validateUuid, ValidationError } from '@/lib/validate';
 // state poll surfaces it to every participant who's polled within ~15s of send.
 export async function POST(request, { params }) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   let sessionId, text;
   try {
     sessionId = validateUuid(params.id, 'session id');
     const body = await request.json();
     text = String(body?.text || '').trim();
-    if (!text) return new NextResponse('broadcast text required', { status: 400 });
+    if (!text) return new NextResponse('Broadcast text required', { status: 400 });
     if (text.length > 200) text = text.slice(0, 200);
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const admin = adminClient();
@@ -28,7 +28,7 @@ export async function POST(request, { params }) {
     .select('metadata')
     .eq('id', sessionId)
     .maybeSingle();
-  if (!existing) return new NextResponse('session not found', { status: 404 });
+  if (!existing) return new NextResponse('Session not found', { status: 404 });
 
   const prev = existing.metadata || {};
   const metadata = {
@@ -42,7 +42,7 @@ export async function POST(request, { params }) {
     .eq('id', sessionId);
   if (error) {
     console.error('[broadcast] update failed', error);
-    return new NextResponse('could not broadcast', { status: 500 });
+    return new NextResponse('Could not broadcast', { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

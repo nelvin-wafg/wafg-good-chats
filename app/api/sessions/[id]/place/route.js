@@ -14,7 +14,7 @@ import { validateUuid, ValidationError } from '@/lib/validate';
 // participant to join the room.
 export async function POST(request, { params }) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   let sessionId, participantId, roomName;
   try {
@@ -23,11 +23,11 @@ export async function POST(request, { params }) {
     participantId = validateUuid(body?.participantId, 'participant id');
     roomName = body?.roomName;
     if (typeof roomName !== 'string' || !roomName || roomName.length > 100) {
-      return new NextResponse('roomName required', { status: 400 });
+      return new NextResponse('RoomName required', { status: 400 });
     }
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const admin = adminClient();
@@ -38,9 +38,9 @@ export async function POST(request, { params }) {
     .select('id, status, current_round')
     .eq('id', sessionId)
     .maybeSingle();
-  if (!session) return new NextResponse('session not found', { status: 404 });
+  if (!session) return new NextResponse('Session not found', { status: 404 });
   if (session.status !== 'running_round') {
-    return new NextResponse('placement only works during a running round', { status: 400 });
+    return new NextResponse('Placement only works during a running round', { status: 400 });
   }
 
   // verify the room is a real current-round pair room for this session
@@ -50,7 +50,7 @@ export async function POST(request, { params }) {
     .eq('session_id', sessionId)
     .eq('round_number', session.current_round)
     .maybeSingle();
-  if (!roundRow) return new NextResponse('round not found', { status: 404 });
+  if (!roundRow) return new NextResponse('Round not found', { status: 404 });
   const { data: pairing } = await admin
     .from('pairings')
     .select('id, room_name')
@@ -58,7 +58,7 @@ export async function POST(request, { params }) {
     .eq('room_name', roomName)
     .maybeSingle();
   if (!pairing) {
-    return new NextResponse('room is not a current-round pair room', { status: 400 });
+    return new NextResponse('Room is not a current-round pair room', { status: 400 });
   }
 
   // verify the participant is in this session
@@ -68,7 +68,7 @@ export async function POST(request, { params }) {
     .eq('id', participantId)
     .eq('session_id', sessionId)
     .maybeSingle();
-  if (!participant) return new NextResponse('participant not found', { status: 404 });
+  if (!participant) return new NextResponse('Participant not found', { status: 404 });
 
   // stamp the placement · state route will pick it up on next poll
   const { error } = await admin
@@ -77,7 +77,7 @@ export async function POST(request, { params }) {
     .eq('id', participantId);
   if (error) {
     console.error('[place] update failed', error);
-    return new NextResponse('could not place participant', { status: 500 });
+    return new NextResponse('Could not place participant', { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

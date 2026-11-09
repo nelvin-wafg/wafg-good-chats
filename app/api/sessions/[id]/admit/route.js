@@ -10,7 +10,7 @@ import { validateUuid, ValidationError } from '@/lib/validate';
 // on the participant's next poll.
 export async function POST(request, { params }) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   let sessionId, participantId, all;
   try {
@@ -23,7 +23,7 @@ export async function POST(request, { params }) {
     }
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const admin = adminClient();
@@ -56,7 +56,7 @@ export async function POST(request, { params }) {
     .eq('id', participantId)
     .eq('session_id', sessionId)
     .maybeSingle();
-  if (!existing) return new NextResponse('participant not found', { status: 404 });
+  if (!existing) return new NextResponse('Participant not found', { status: 404 });
   const metadata = { ...(existing.metadata || {}), admitted_at: now };
   const { error } = await admin
     .from('participants')
@@ -64,7 +64,7 @@ export async function POST(request, { params }) {
     .eq('id', existing.id);
   if (error) {
     console.error('[admit] update failed', error);
-    return new NextResponse('could not admit', { status: 500 });
+    return new NextResponse('Could not admit', { status: 500 });
   }
   return NextResponse.json({ ok: true, admitted: 1 });
 }

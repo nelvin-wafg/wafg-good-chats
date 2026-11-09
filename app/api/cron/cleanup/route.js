@@ -19,11 +19,11 @@ export async function GET(request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
     console.error('[cron] CRON_SECRET is not set — refusing all requests');
-    return new NextResponse('cron not configured', { status: 503 });
+    return new NextResponse('Cron not configured', { status: 503 });
   }
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${secret}`) {
-    return new NextResponse('unauthorized', { status: 401 });
+    return new NextResponse('Unauthorized', { status: 401 });
   }
 
   const admin = adminClient();

@@ -14,11 +14,11 @@ const SITE = 'https://goodchats.weareforgood.com';
 // POST /api/sessions/:id/end  — any approved host ends the session
 export async function POST(_request, { params }) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('not an approved host', { status: 403 });
+  if (!auth) return new NextResponse('Not an approved host', { status: 403 });
 
   const admin = adminClient();
   const { data: session } = await admin.from('sessions').select('*').eq('id', params.id).single();
-  if (!session) return new NextResponse('session not found', { status: 404 });
+  if (!session) return new NextResponse('Session not found', { status: 404 });
 
   // tear down all daily rooms (main + any active pair rooms)
   const { data: pairings = [] } = await admin.from('pairings').select('room_name').eq('session_id', session.id);

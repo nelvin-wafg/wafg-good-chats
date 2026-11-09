@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'Good Chats · We Are For Good';
+export const alt = 'good chats · We Are For Good';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -36,7 +36,7 @@ export default function OgImage() {
 
         {/* tagline */}
         <div style={{ marginTop: '24px', fontSize: '32px', color: '#999', fontWeight: 400, fontFamily: 'Arial, sans-serif' }}>
-          seven minutes at a time.
+          Seven minutes at a time.
         </div>
 
         {/* cyan accent bar */}

@@ -35,7 +35,7 @@ export default function ProfilePage() {
       setName(d.profile.displayName || '');
       setLinkedinUrl(d.profile.linkedinUrl || '');
     } catch {
-      showToast('connection issue · try again', 'error');
+      showToast('Connection issue · try again', 'error');
     } finally {
       setLoading(false);
     }
@@ -53,14 +53,14 @@ export default function ProfilePage() {
         body: JSON.stringify({ name: name.trim(), linkedinUrl: linkedinUrl.trim() || null }),
       });
       if (!res.ok) {
-        showToast((await res.text()) || "couldn't save", 'error');
+        showToast((await res.text()) || "Couldn't save", 'error');
         return;
       }
       setData((d) => ({ ...d, profile: { ...d.profile, displayName: name.trim(), linkedinUrl: linkedinUrl.trim() || null } }));
       setEditing(false);
-      showToast('saved', 'success');
+      showToast('Saved', 'success');
     } catch {
-      showToast('connection issue · try again', 'error');
+      showToast('Connection issue · try again', 'error');
     } finally {
       setSaving(false);
     }
@@ -79,13 +79,13 @@ export default function ProfilePage() {
         body: JSON.stringify({ email: data.profile.email }),
       });
       if (!res.ok) {
-        showToast((await res.text()) || "couldn't send a link right now", 'error');
+        showToast((await res.text()) || "Couldn't send a link right now", 'error');
         setLinkStatus('idle');
         return;
       }
       setLinkStatus('sent');
     } catch {
-      showToast('connection issue · try again', 'error');
+      showToast('Connection issue · try again', 'error');
       setLinkStatus('idle');
     }
   }
@@ -100,7 +100,7 @@ export default function ProfilePage() {
     e.target.value = '';
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      showToast('image must be 5MB or smaller', 'error');
+      showToast('Image must be 5MB or smaller', 'error');
       return;
     }
     setUploading(true);
@@ -113,14 +113,14 @@ export default function ProfilePage() {
         body: form,
       });
       if (!res.ok) {
-        showToast((await res.text()) || 'upload failed', 'error');
+        showToast((await res.text()) || 'Upload failed', 'error');
         return;
       }
       const { avatarUrl } = await res.json();
       setData((d) => ({ ...d, profile: { ...d.profile, avatarUrl } }));
-      showToast('photo updated', 'success');
+      showToast('Photo updated', 'success');
     } catch {
-      showToast('connection issue · try again', 'error');
+      showToast('Connection issue · try again', 'error');
     } finally {
       setUploading(false);
     }
@@ -129,7 +129,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <main className="min-h-screen p-8" style={{ background: '#f4f4f1' }}>
-        <p className="text-neutral-500">[loading your profile...]</p>
+        <p className="text-neutral-500">[Loading your profile...]</p>
       </main>
     );
   }
@@ -138,9 +138,9 @@ export default function ProfilePage() {
     return (
       <main className="min-h-screen flex items-center justify-center p-6 text-center" style={{ background: '#f4f4f1' }}>
         <div className="max-w-md">
-          <div className="display text-4xl mb-3">we don't know you yet <span style={{ color: '#01ecf3' }}>*</span></div>
-          <p className="text-neutral-600">join a Good Chats session first · your profile shows up here once you have.</p>
-          <Link href="/" className="text-sm underline mt-6 inline-block">back home →</Link>
+          <div className="display text-4xl mb-3">We don't know you yet <span style={{ color: '#01ecf3' }}>*</span></div>
+          <p className="text-neutral-600">Join a good chats session first · your profile shows up here once you have.</p>
+          <Link href="/" className="text-sm underline mt-6 inline-block">Back home →</Link>
         </div>
       </main>
     );
@@ -151,7 +151,7 @@ export default function ProfilePage() {
   return (
     <main className="min-h-screen p-6 md:p-8 max-w-3xl mx-auto" style={{ background: '#f4f4f1' }}>
       <div className="mb-6">
-        <div className="text-xs uppercase tracking-widest font-bold text-neutral-500">Good Chats · your profile</div>
+        <div className="text-xs uppercase tracking-widest font-bold text-neutral-500">good chats · your profile</div>
       </div>
 
       {/* header · avatar + name + edit */}
@@ -163,7 +163,7 @@ export default function ProfilePage() {
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
               className="block w-16 h-16 rounded-full overflow-hidden border-2 border-black"
-              title="update your photo"
+              title="Update your photo"
               style={!profile.avatarUrl ? { background: colorForName(profile.displayName || '') } : undefined}
             >
               {profile.avatarUrl ? (
@@ -180,7 +180,7 @@ export default function ProfilePage() {
               disabled={uploading}
               className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs border-2 border-white"
               style={{ background: '#01ecf3' }}
-              title="update your photo"
+              title="Update your photo"
             >
               {uploading ? '…' : '✎'}
             </button>
@@ -192,13 +192,13 @@ export default function ProfilePage() {
               <>
                 <div className="display text-2xl">{profile.displayName} <span style={{ color: '#01ecf3' }}>*</span></div>
                 <div className="text-sm text-neutral-500 mt-0.5">
-                  member since {new Date(profile.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
+                  Member since {new Date(profile.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
                   {profile.linkedinUrl && (
                     <> · <a href={profile.linkedinUrl} target="_blank" rel="noopener noreferrer" className="underline">{profile.linkedinUrl.replace(/^https?:\/\//, '')}</a></>
                   )}
                 </div>
                 <button type="button" onClick={() => setEditing(true)} className="text-xs underline text-neutral-500 hover:text-black mt-2">
-                  edit name / linkedin
+                  Edit name / LinkedIn
                 </button>
               </>
             ) : (
@@ -209,7 +209,7 @@ export default function ProfilePage() {
                   maxLength={48}
                   required
                   className="w-full border-2 border-black rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-wafg-cyan"
-                  placeholder="your name"
+                  placeholder="Your name"
                 />
                 <input
                   value={linkedinUrl}
@@ -220,10 +220,10 @@ export default function ProfilePage() {
                 />
                 <div className="flex items-center gap-3">
                   <button type="submit" disabled={saving || !name.trim()} className="btn-cyan px-4 py-2 rounded text-sm disabled:opacity-50">
-                    {saving ? 'saving...' : 'save *'}
+                    {saving ? 'Saving...' : 'Save *'}
                   </button>
                   <button type="button" onClick={() => { setEditing(false); setName(profile.displayName || ''); setLinkedinUrl(profile.linkedinUrl || ''); }} className="text-sm underline text-neutral-500 hover:text-black">
-                    cancel
+                    Cancel
                   </button>
                 </div>
               </form>
@@ -239,19 +239,19 @@ export default function ProfilePage() {
       {/* stats · private to this profile only */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         <StatTile label="good chats" value={stats.goodChats} highlight />
-        <StatTile label="people met" value={stats.peopleMet ?? 0} />
-        <StatTile label="events attended" value={stats.eventsAttended} />
+        <StatTile label="People met" value={stats.peopleMet ?? 0} />
+        <StatTile label="Events attended" value={stats.eventsAttended} />
       </div>
 
       {/* people you've met · private. needs the optional email sign-in, because the plain profile
           cookie can be handed out by the join form to anyone who types an email. */}
       <div className="bg-white rounded-md border border-neutral-200 overflow-hidden mb-6">
         <div className="px-5 py-3 border-b border-neutral-200">
-          <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">people you've met · private, only you see this</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">People you've met · private, only you see this</div>
         </div>
         {signedIn ? (
           !people || people.length === 0 ? (
-            <p className="text-sm text-neutral-500 italic px-5 py-4">[nobody yet · your pairings show up here after a session]</p>
+            <p className="text-sm text-neutral-500 italic px-5 py-4">[Nobody yet · your pairings show up here after a session]</p>
           ) : (
             <div className="divide-y divide-neutral-200">
               {people.map((sess) => (
@@ -285,14 +285,14 @@ export default function ProfilePage() {
           )
         ) : (
           <div className="px-5 py-5 text-center">
-            <p className="text-sm text-neutral-700">sign in to see everyone you've been paired with, across every session.</p>
-            <p className="text-xs text-neutral-500 mt-1 mb-4">optional · no password. we email a one-time link to {profile.email}.</p>
+            <p className="text-sm text-neutral-700">Sign in to see everyone you've been paired with, across every session.</p>
+            <p className="text-xs text-neutral-500 mt-1 mb-4">Optional · no password. We email a one-time link to {profile.email}.</p>
             {linkStatus === 'sent' ? (
-              <p className="text-sm font-semibold" style={{ color: '#00838f' }}>check your inbox · the link works once and expires in 15 minutes.</p>
+              <p className="text-sm font-semibold" style={{ color: '#00838f' }}>Check your inbox · the link works once and expires in 15 minutes.</p>
             ) : (
               <button type="button" onClick={sendSignInLink} disabled={linkStatus === 'busy'}
                       className="bg-black text-white font-bold rounded-md px-5 py-2 text-sm disabled:opacity-50">
-                {linkStatus === 'busy' ? 'sending...' : 'email me a sign-in link →'}
+                {linkStatus === 'busy' ? 'Sending...' : 'Email me a sign-in link →'}
               </button>
             )}
           </div>
@@ -302,10 +302,10 @@ export default function ProfilePage() {
       {/* history */}
       <div className="bg-white rounded-md border border-neutral-200 overflow-hidden">
         <div className="px-5 py-3 border-b border-neutral-200">
-          <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">your history · private, only you see this</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">Your history · private, only you see this</div>
         </div>
         {history.length === 0 ? (
-          <p className="text-sm text-neutral-500 italic px-5 py-4">[no sessions yet]</p>
+          <p className="text-sm text-neutral-500 italic px-5 py-4">[No sessions yet]</p>
         ) : (
           <ul className="divide-y divide-neutral-200">
             {history.map((h) => (
@@ -316,9 +316,9 @@ export default function ProfilePage() {
                 </div>
                 <div className="text-sm flex-shrink-0" style={{ color: h.capturedCount > 0 ? '#00838f' : undefined }}>
                   {h.capturedCount > 0 ? (
-                    <span className="font-semibold">captured {h.capturedCount} {h.capturedCount === 1 ? 'person' : 'people'}</span>
+                    <span className="font-semibold">Captured {h.capturedCount} {h.capturedCount === 1 ? 'person' : 'people'}</span>
                   ) : (
-                    <span className="text-neutral-400">no captures</span>
+                    <span className="text-neutral-400">No captures</span>
                   )}
                 </div>
               </li>
@@ -329,12 +329,12 @@ export default function ProfilePage() {
 
       <div className="text-center mt-6">
         <button type="button" onClick={signOut} className="text-xs underline text-neutral-500 hover:text-black">
-          sign out of this browser
+          Sign out of this browser
         </button>
       </div>
 
       <p className="text-xs text-neutral-500 mt-4 text-center">
-        [only you can see this page · nothing here is shown to other participants except your name, photo, and linkedin during a live session]
+        [Only you can see this page · nothing here is shown to other participants except your name, photo, and LinkedIn during a live session]
       </p>
     </main>
   );

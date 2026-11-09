@@ -16,7 +16,7 @@ export async function GET(_request, { params }) {
     sessionId = validateUuid(params.id, 'session id');
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const admin = adminClient();
@@ -25,7 +25,7 @@ export async function GET(_request, { params }) {
     .select('id, code, name, status, rounds_total, host_id, prompts, ended_at, created_at')
     .eq('id', sessionId)
     .maybeSingle();
-  if (!session) return new NextResponse('not found', { status: 404 });
+  if (!session) return new NextResponse('Not found', { status: 404 });
 
   // identify caller: any approved host OR participant (cookie)
   let role = null;
@@ -47,7 +47,7 @@ export async function GET(_request, { params }) {
     }
   }
 
-  if (!role) return new NextResponse('not authenticated', { status: 401 });
+  if (!role) return new NextResponse('Not authenticated', { status: 401 });
 
   if (role === 'host') {
     // full host recap

@@ -35,7 +35,7 @@ import { joinWindow } from '@/lib/join-window';
 // (8h) and profile recognition (6mo). syncs the email to Kit when opt-in is true.
 export async function POST(request, { params }) {
   const allowed = await rateLimitByIp(request, 'join', { limit: 10, windowSeconds: 60 });
-  if (!allowed) return new NextResponse('too many join attempts · slow down for a minute', { status: 429 });
+  if (!allowed) return new NextResponse('Too many join attempts · slow down for a minute', { status: 429 });
 
   let sessionId, name, email, linkedinUrl, newsletterOptIn, hostPreview = false;
   try {
@@ -54,7 +54,7 @@ export async function POST(request, { params }) {
     newsletterOptIn = validateBoolean(body?.newsletterOptIn ?? false, 'newsletterOptIn');
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const admin = adminClient();
@@ -63,8 +63,8 @@ export async function POST(request, { params }) {
     .select('id, status, metadata')
     .eq('id', sessionId)
     .maybeSingle();
-  if (!session) return new NextResponse('session not found', { status: 404 });
-  if (session.status === 'ended') return new NextResponse('this session already ended', { status: 400 });
+  if (!session) return new NextResponse('Session not found', { status: 404 });
+  if (session.status === 'ended') return new NextResponse('This session already ended', { status: 400 });
 
   // doors open 5 minutes before the published start time. before that nobody gets a
   // participant row or cookie, so nobody can end up stuck in a waiting room for an event
@@ -76,7 +76,7 @@ export async function POST(request, { params }) {
       return NextResponse.json(
         {
           error: 'too_early',
-          message: "this session isn't open yet · doors open 5 minutes before it starts",
+          message: "This session isn't open yet · doors open 5 minutes before it starts",
           opensAt: new Date(win.opensAtMs).toISOString(),
           startsAt: new Date(win.startsAtMs).toISOString(),
           serverNow: Date.now(),
@@ -104,7 +104,7 @@ export async function POST(request, { params }) {
     .select('id', { count: 'exact', head: true })
     .eq('session_id', sessionId);
   if ((count || 0) >= 60) {
-    return new NextResponse('this session is full', { status: 403 });
+    return new NextResponse('This session is full', { status: 403 });
   }
 
   // upsert profile by email
@@ -151,7 +151,7 @@ export async function POST(request, { params }) {
       .single();
     if (createErr) {
       console.error('profile create error', createErr);
-      return new NextResponse('could not create profile', { status: 500 });
+      return new NextResponse('Could not create profile', { status: 500 });
     }
     profileId = created.id;
 
@@ -187,7 +187,7 @@ export async function POST(request, { params }) {
       if (existingProfile && !trusted) {
         const seen = existingRows[0].last_seen ? new Date(existingRows[0].last_seen).getTime() : 0;
         if (existingRows[0].is_present && Date.now() - seen < 45000) {
-          return new NextResponse('that email is already in this session on another device · if that was you, close the other tab and try again in a minute', { status: 409 });
+          return new NextResponse('That email is already in this session on another device · if that was you, close the other tab and try again in a minute', { status: 409 });
         }
       }
       const primaryId = existingRows[0].id;
@@ -210,7 +210,7 @@ export async function POST(request, { params }) {
         .single();
       if (uErr) {
         console.error('participant reactivate error', uErr);
-        return new NextResponse('could not rejoin session', { status: 500 });
+        return new NextResponse('Could not rejoin session', { status: 500 });
       }
       participant = updated;
       // legacy: mark any older duplicate rows for this profile as absent so
@@ -238,7 +238,7 @@ export async function POST(request, { params }) {
       .single();
     if (pErr) {
       console.error('participant create error', pErr);
-      return new NextResponse('could not join session', { status: 500 });
+      return new NextResponse('Could not join session', { status: 500 });
     }
     participant = created;
   }

@@ -11,14 +11,14 @@ import { rateLimitByIp } from '@/lib/rate-limit';
 // plays a soft chime + shows a badge next to the participant's name.
 export async function POST(request, { params }) {
   const ok = await rateLimitByIp(request, 'flag', { limit: 5, windowSeconds: 30 });
-  if (!ok) return new NextResponse('too many flags · slow down a sec', { status: 429 });
+  if (!ok) return new NextResponse('Too many flags · slow down a sec', { status: 429 });
 
   let sessionId;
   try {
     sessionId = validateUuid(params.id, 'session id');
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   // optional text body · participant can include a short note with their flag
@@ -34,7 +34,7 @@ export async function POST(request, { params }) {
 
   const cookieStore = cookies();
   const me = getParticipantFromCookies(cookieStore, sessionId);
-  if (!me?.participantId) return new NextResponse('not joined', { status: 401 });
+  if (!me?.participantId) return new NextResponse('Not joined', { status: 401 });
 
   const admin = adminClient();
   // preserve other metadata keys
@@ -55,7 +55,7 @@ export async function POST(request, { params }) {
     .eq('id', me.participantId);
   if (error) {
     console.error('[flag] update failed', error);
-    return new NextResponse('could not flag', { status: 500 });
+    return new NextResponse('Could not flag', { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

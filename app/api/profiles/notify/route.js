@@ -12,21 +12,21 @@ export const dynamic = 'force-dynamic';
 // profile's own email, never one typed in the request.
 export async function POST(request) {
   if (!(await rateLimitByIp(request, 'profile-notify', { limit: 20, windowSeconds: 60 }))) {
-    return new NextResponse('too many tries · give it a minute', { status: 429 });
+    return new NextResponse('Too many tries · give it a minute', { status: 429 });
   }
   const profileId = getTrustedProfileId(cookies());
-  if (!profileId) return new NextResponse('unauthorized', { status: 401 });
+  if (!profileId) return new NextResponse('Unauthorized', { status: 401 });
 
   let on;
   try {
     on = (await request.json())?.on === true;
   } catch {
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const admin = adminClient();
   const { data: profile } = await admin.from('profiles').select('email, display_name').eq('id', profileId).maybeSingle();
-  if (!profile) return new NextResponse('profile not found', { status: 404 });
+  if (!profile) return new NextResponse('Profile not found', { status: 404 });
 
   try {
     if (on) await joinNotifyList(admin, { email: profile.email, firstName: (profile.display_name || '').split(' ')[0], source: 'profile' });
@@ -34,6 +34,6 @@ export async function POST(request) {
     return NextResponse.json({ ok: true, onNotifyList: await isOnNotifyList(admin, profile.email) });
   } catch (e) {
     console.error('[profile-notify] failed', e?.message || e);
-    return new NextResponse("couldn't update that · try again", { status: 500 });
+    return new NextResponse("Couldn't update that · try again", { status: 500 });
   }
 }

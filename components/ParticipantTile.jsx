@@ -26,7 +26,7 @@ export default function ParticipantTile({ name = '', isMuted = false, size = 'md
       </div>
       {isHost && (
         <div className="absolute top-1.5 left-1.5 bg-wafg-cyan text-black text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded">
-          host
+          Host
         </div>
       )}
       {isMuted && (

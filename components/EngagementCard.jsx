@@ -14,16 +14,16 @@ export default function EngagementCard() {
   const setup = d.setupNeeded || {};
   return (
     <div className="sticker-sm bg-white rounded-md p-4 mb-3">
-      <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">after the call</div>
+      <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">After the call</div>
       {d.sessions.length === 0 ? (
-        <p className="text-sm text-neutral-500 mt-2">no finished sessions yet.</p>
+        <p className="text-sm text-neutral-500 mt-2">No finished sessions yet.</p>
       ) : (
         <div className="overflow-x-auto mt-2">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[10px] uppercase tracking-widest text-neutral-500">
-                <th className="py-1 pr-3">session</th><th className="py-1 pr-3">people</th><th className="py-1 pr-3">recaps</th>
-                <th className="py-1 pr-3">follow-ups</th><th className="py-1">clicked a LinkedIn link</th>
+                <th className="py-1 pr-3">Session</th><th className="py-1 pr-3">People</th><th className="py-1 pr-3">Recaps</th>
+                <th className="py-1 pr-3">Follow-ups</th><th className="py-1">Clicked a LinkedIn link</th>
               </tr>
             </thead>
             <tbody>
@@ -41,13 +41,13 @@ export default function EngagementCard() {
         </div>
       )}
       <div className="mt-3 pt-3 border-t border-neutral-100 text-sm">
-        <span className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 mr-2">invites</span>
-        {setup.invites ? <span className="text-neutral-500">not switched on yet</span> : (
+        <span className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 mr-2">Invites</span>
+        {setup.invites ? <span className="text-neutral-500">Not switched on yet</span> : (
           <span><strong>{d.invites.opened}</strong> opened · <strong>{d.invites.interested}</strong> signed up · <strong style={{ color: '#00838f' }}>{d.invites.joined}</strong> joined a first call</span>
         )}
       </div>
       {(setup.clicks || setup.followups) && (
-        <p className="text-[11px] text-neutral-500 mt-2">· = the follow-up / click tracking SQL hasn't been run yet. click counts are "at most this many people": a few email scanners open links on their own.</p>
+        <p className="text-[11px] text-neutral-500 mt-2">· = the follow-up / click tracking SQL hasn't been run yet. Click counts are "at most this many people": a few email scanners open links on their own.</p>
       )}
     </div>
   );

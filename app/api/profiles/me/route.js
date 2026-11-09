@@ -24,7 +24,7 @@ export async function GET() {
   const cookieStore = cookies();
   const signedInCookie = getSignInFromCookies(cookieStore);
   const me = getProfileFromCookies(cookieStore) || signedInCookie;
-  if (!me?.profileId) return new NextResponse('unauthorized', { status: 401 });
+  if (!me?.profileId) return new NextResponse('Unauthorized', { status: 401 });
 
   // "signed in" = they clicked a one-time link sent to the profile's own inbox. the plain
   // profile cookie is handed out by the join form to anyone who types an email, with no proof
@@ -37,7 +37,7 @@ export async function GET() {
     .select('id, email, display_name, linkedin_url, avatar_url, newsletter_opt_in, created_at')
     .eq('id', me.profileId)
     .maybeSingle();
-  if (!profile) return new NextResponse('profile not found', { status: 404 });
+  if (!profile) return new NextResponse('Profile not found', { status: 404 });
 
   // every participant row this profile has ever had, across every session
   const { data: myParticipants = [] } = await admin
@@ -150,7 +150,7 @@ export async function GET() {
 //    the 6-month profile cookie instead. no live session to sync a name into.
 export async function PATCH(request) {
   const allowed = await rateLimitByIp(request, 'profiles-me', { limit: 10, windowSeconds: 300 });
-  if (!allowed) return new NextResponse('too many requests', { status: 429 });
+  if (!allowed) return new NextResponse('Too many requests', { status: 429 });
 
   let sessionId, name, linkedinUrl;
   try {
@@ -160,7 +160,7 @@ export async function PATCH(request) {
     linkedinUrl = validateLinkedinUrl(body?.linkedinUrl);
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const cookieStore = cookies();
@@ -169,7 +169,7 @@ export async function PATCH(request) {
 
   if (sessionId) {
     const me = getParticipantFromCookies(cookieStore, sessionId);
-    if (!me?.participantId) return new NextResponse('unauthorized', { status: 401 });
+    if (!me?.participantId) return new NextResponse('Unauthorized', { status: 401 });
 
     const { data: participant } = await admin
       .from('participants')
@@ -177,7 +177,7 @@ export async function PATCH(request) {
       .eq('id', me.participantId)
       .eq('session_id', sessionId)
       .maybeSingle();
-    if (!participant) return new NextResponse('participant not found', { status: 404 });
+    if (!participant) return new NextResponse('Participant not found', { status: 404 });
 
     if (participant.profile_id) {
       await admin
@@ -192,11 +192,11 @@ export async function PATCH(request) {
 
   // standalone edit · profile cookie auth
   const me = getProfileFromCookies(cookieStore);
-  if (!me?.profileId) return new NextResponse('unauthorized', { status: 401 });
+  if (!me?.profileId) return new NextResponse('Unauthorized', { status: 401 });
   const { error } = await admin
     .from('profiles')
     .update({ display_name: name, linkedin_url: linkedinUrl, updated_at: now })
     .eq('id', me.profileId);
-  if (error) return new NextResponse('could not update profile', { status: 500 });
+  if (error) return new NextResponse('Could not update profile', { status: 500 });
   return NextResponse.json({ ok: true, name, linkedinUrl });
 }

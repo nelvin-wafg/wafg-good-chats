@@ -31,19 +31,19 @@ export default function CopyLink({ code, variant = 'light', label = 'share this 
   const styles = {
     light: {
       container: 'bg-neutral-100 border border-neutral-300',
-      label: 'text-neutral-500',
+      label: 'Text-neutral-500',
       url: 'text-neutral-800',
       btn: 'bg-black text-wafg-cyan border-2 border-black',
     },
     dark: {
       container: 'bg-neutral-900 border border-neutral-800',
-      label: 'text-neutral-500',
+      label: 'Text-neutral-500',
       url: 'text-neutral-200',
       btn: 'bg-wafg-cyan text-black border-2 border-black',
     },
     oncyan: {
       container: 'bg-black/10 border border-black/20',
-      label: 'opacity-60',
+      label: 'Opacity-60',
       url: '',
       btn: 'bg-black text-wafg-cyan border-2 border-black',
     },
@@ -62,7 +62,7 @@ export default function CopyLink({ code, variant = 'light', label = 'share this 
           className={`flex-shrink-0 px-3 py-2 rounded font-semibold text-xs ${s.btn}`}
           style={{ minWidth: 80 }}
         >
-          {copied ? '✓ copied' : 'copy'}
+          {copied ? '✓ copied' : 'Copy'}
         </button>
       </div>
     </div>

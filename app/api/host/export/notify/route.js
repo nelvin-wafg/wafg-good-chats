@@ -10,14 +10,14 @@ export const dynamic = 'force-dynamic';
 // the homepage notify list as a CSV: one row per person (not per signup), with where they stand.
 export async function GET() {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   let list;
   try {
     list = await loadNotifyList(adminClient());
   } catch (e) {
     console.error('[export/notify] failed', e?.message || e);
-    return new NextResponse("couldn't load the notify list", { status: 500 });
+    return new NextResponse("Couldn't load the notify list", { status: 500 });
   }
 
   const rows = list.rows.map((r) => ({

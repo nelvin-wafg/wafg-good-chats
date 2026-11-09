@@ -13,21 +13,21 @@ export default function AnalyticsPage() {
     fetch('/api/host/analytics', { credentials: 'same-origin' })
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { if (!cancelled) { setData(d); setLoading(false); } })
-      .catch((e) => { showToast(e.message || 'load failed', 'error'); setLoading(false); });
+      .catch((e) => { showToast(e.message || 'Load failed', 'error'); setLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
   if (loading) {
     return (
       <main className="min-h-screen p-8" style={{ background: '#f4f4f1' }}>
-        <p className="text-neutral-500">[loading analytics...]</p>
+        <p className="text-neutral-500">[Loading analytics...]</p>
       </main>
     );
   }
   if (!data) {
     return (
       <main className="min-h-screen p-8" style={{ background: '#f4f4f1' }}>
-        <p className="text-neutral-500">[couldn't load analytics]</p>
+        <p className="text-neutral-500">[Couldn't load analytics]</p>
         <Link href="/host" className="text-sm underline mt-4 inline-block">← back to dashboard</Link>
       </main>
     );
@@ -49,36 +49,36 @@ export default function AnalyticsPage() {
       <header className="flex items-start justify-between mb-8 gap-4">
         <div>
           <Link href="/host" className="text-sm underline text-neutral-600">← dashboard</Link>
-          <div className="display text-3xl md:text-4xl mt-2">analytics <span style={{ color: '#01ecf3' }}>*</span></div>
-          <p className="text-sm text-neutral-500 mt-1">your sessions, your data, what's working.</p>
+          <div className="display text-3xl md:text-4xl mt-2">Analytics <span style={{ color: '#01ecf3' }}>*</span></div>
+          <p className="text-sm text-neutral-500 mt-1">Your sessions, your data, what's working.</p>
         </div>
       </header>
 
       {recentSessions.length === 0 ? (
         <div className="bg-white rounded-md p-8 border border-neutral-200 text-center">
-          <p className="text-neutral-600">no sessions ended yet · run your first one and analytics will populate here.</p>
+          <p className="text-neutral-600">No sessions ended yet · run your first one and analytics will populate here.</p>
         </div>
       ) : (
         <div className="space-y-8">
 
-          <ChartCard title="sessions per month" subtitle="last 12 months">
+          <ChartCard title="Sessions per month" subtitle="Last 12 months">
             <SparkBars data={monthCounts} labels={monthLabels} height={180} />
           </ChartCard>
 
-          <ChartCard title="captures per session" subtitle="recent 12 sessions, oldest to newest">
+          <ChartCard title="Captures per session" subtitle="Recent 12 sessions, oldest to newest">
             <SparkBars data={captureSeries} labels={sessionLabels} height={200} />
           </ChartCard>
 
-          <ChartCard title="attendance per session" subtitle="people who joined">
+          <ChartCard title="Attendance per session" subtitle="People who joined">
             <SparkBars data={attendanceSeries} labels={sessionLabels} height={200} />
           </ChartCard>
 
-          <ChartCard title="engagement rate per session" subtitle="% of attendees who captured at least one connection">
+          <ChartCard title="Engagement rate per session" subtitle="% of attendees who captured at least one connection">
             <SparkBars data={engagementSeries} labels={sessionLabels} height={200} />
           </ChartCard>
 
           {data.topPrompts?.length > 0 && (
-            <ChartCard title="top prompts" subtitle="prompts that drove the most captures across all sessions">
+            <ChartCard title="Top prompts" subtitle="Prompts that drove the most captures across all sessions">
               <ul className="divide-y divide-neutral-200">
                 {data.topPrompts.map((p, i) => (
                   <li key={i} className="py-3 flex items-start justify-between gap-3">
@@ -92,16 +92,16 @@ export default function AnalyticsPage() {
             </ChartCard>
           )}
 
-          <ChartCard title="all sessions" subtitle="full breakdown">
+          <ChartCard title="All sessions" subtitle="Full breakdown">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-[10px] uppercase tracking-widest font-bold text-neutral-500 border-b border-neutral-200">
-                    <th className="py-2">session</th>
-                    <th className="py-2">date</th>
-                    <th className="py-2 text-right">attendance</th>
-                    <th className="py-2 text-right">captures</th>
-                    <th className="py-2 text-right">engagement</th>
+                    <th className="py-2">Session</th>
+                    <th className="py-2">Date</th>
+                    <th className="py-2 text-right">Attendance</th>
+                    <th className="py-2 text-right">Captures</th>
+                    <th className="py-2 text-right">Engagement</th>
                   </tr>
                 </thead>
                 <tbody>

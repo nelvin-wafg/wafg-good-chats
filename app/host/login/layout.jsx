@@ -2,7 +2,7 @@
 // need to find: keep it out of search results. (hosts reach it at /host, which sends anyone who
 // isn't signed in here.)
 export const metadata = {
-  title: 'Host sign in · Good Chats',
+  title: 'Host sign in · good chats',
   robots: { index: false, follow: false },
 };
 
