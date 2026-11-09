@@ -1547,7 +1547,7 @@ function MicBlockedOverlay({ daily }) {
           <p>③ hit the button below — no page refresh needed</p>
         </div>
         <p className="text-[11px] text-neutral-500 mb-4 text-center">
-          Still stuck? Use the <strong>▾</strong> button next to the mic to switch devices,<br/>Or try joining from your <strong>phone</strong>.
+          Still stuck? Use the <strong>▾</strong> button next to the mic to switch devices,<br/>or try joining from your <strong>phone</strong>.
         </p>
         <button
           onClick={retry}

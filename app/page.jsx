@@ -141,7 +141,7 @@ export default function Landing() {
             <div className="display text-2xl md:text-3xl leading-tight">
               Easy to stay
               <br />
-              In touch.
+              in touch.
             </div>
           </div>
           <div>
@@ -170,7 +170,7 @@ export default function Landing() {
             <p className="text-sm text-neutral-600">
               We Are For Good is a community for nonprofit and social impact
               <br />
-              Professionals who are changing the world.
+              professionals who are changing the world.
             </p>
           </div>
         </div>

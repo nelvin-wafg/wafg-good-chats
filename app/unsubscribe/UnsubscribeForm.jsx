@@ -29,7 +29,7 @@ export default function UnsubscribeForm({ token, maskedEmail }) {
         <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-2">good chats</div>
         {status === 'done' ? (
           <>
-            <div className="display text-5xl mb-4">You're<br />Unsubscribed.</div>
+            <div className="display text-5xl mb-4">You're<br />unsubscribed.</div>
             <p className="text-neutral-700 mb-2">We won't email <strong>{maskedEmail}</strong> about good chats sessions anymore.</p>
             <p className="text-sm text-neutral-500 mb-6">
               [Changed your mind? You can sign up again any time on the homepage.]

@@ -20,7 +20,7 @@ export default function UnsubscribePage({ searchParams }) {
     return (
       <main className="min-h-screen flex items-center justify-center p-6" style={{ background: '#f4f4f1' }}>
         <div className="max-w-md text-center">
-          <div className="display text-4xl mb-3">That link<br />Isn't valid.</div>
+          <div className="display text-4xl mb-3">That link<br />isn't valid.</div>
           <p className="text-neutral-600 mb-6">
             [It may have been cut off when copied. Open the unsubscribe link from the email again, or reply to the email and we'll take care of it.]
           </p>
