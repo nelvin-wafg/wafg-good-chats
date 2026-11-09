@@ -5,6 +5,7 @@ import { colorForName, initials } from '@/lib/brand';
 import { showToast } from '@/components/Toast';
 import NextCallCard from '@/components/NextCallCard';
 import InviteCard from '@/components/InviteCard';
+import EmailLinkForm from '@/components/EmailLinkForm';
 
 // standalone "my profile" page · authenticated by the 6-month profile cookie
 // (same one that powers "welcome back" on the join form). private to the
@@ -136,11 +137,14 @@ export default function ProfilePage() {
 
   if (!data) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-6 text-center" style={{ background: '#f4f4f1' }}>
-        <div className="max-w-md">
-          <div className="display text-4xl mb-3">We don't know you yet <span style={{ color: '#01ecf3' }}>*</span></div>
-          <p className="text-neutral-600">Join a good chats session first · your profile shows up here once you have.</p>
-          <Link href="/" className="text-sm underline mt-6 inline-block">Back home →</Link>
+      <main className="min-h-screen flex items-center justify-center p-6" style={{ background: '#f4f4f1' }}>
+        <div className="w-full max-w-md bg-white rounded-md border-2 border-black p-8" style={{ boxShadow: '4px 4px 0 #000' }}>
+          <div className="display text-3xl mb-2 text-center">Let's find your profile <span style={{ color: '#01ecf3' }}>*</span></div>
+          <p className="text-neutral-700 text-center">Been to a good chats call before? Enter the email you joined with and we'll send you a one-time link.</p>
+          <p className="text-neutral-500 text-xs text-center mt-1 mb-5">No password. It works on any device.</p>
+          <EmailLinkForm />
+          <p className="text-xs text-neutral-500 text-center mt-6">First time? Join a session and your profile shows up here afterwards.</p>
+          <div className="text-center"><Link href="/" className="text-xs underline text-neutral-500 mt-3 inline-block">Back home</Link></div>
         </div>
       </main>
     );
