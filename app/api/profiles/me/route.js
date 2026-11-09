@@ -50,7 +50,6 @@ export async function GET() {
   let connectionsMade = 0;
   let history = [];
   let hist = { calls: 0, peopleMet: 0, sessions: [] };
-  let moments = [];
 
   if (participantIds.length > 0) {
     const [{ data: pairings = [] }, { data: captures = [] }, { data: sessions = [] }, { data: rounds = [] }, { data: sessionParticipants = [] }, { data: waitEvents = [] }] = await Promise.all([
@@ -64,7 +63,7 @@ export async function GET() {
         .select('id, name, ended_at, created_at')
         .in('id', sessionIds),
       admin.from('rounds')
-        .select('id, round_number, prompt_text, session_id')
+        .select('id, round_number')
         .in('session_id', sessionIds),
       admin.from('participants')
         .select('id, name, kicked_at, profile_id')
@@ -103,18 +102,7 @@ export async function GET() {
       captures,
       noShows: noShowRooms(waitEvents),
     });
-
-    // "moments": the questions asked in the most recent session they were part of. each is
-    // shareable as a teaser for the next call (the invite page, /i/<code>?m=<round id>).
-    const latest = history[0];
-    if (latest) {
-      moments = rounds
-        .filter((r) => r.session_id === latest.sessionId && r.prompt_text)
-        .sort((a, b) => a.round_number - b.round_number)
-        .map((r) => ({ roundId: r.id, prompt: r.prompt_text, sessionName: latest.sessionName, date: latest.date }));
-    }
   }
-
 
   return NextResponse.json({
     profile: {
@@ -133,7 +121,6 @@ export async function GET() {
       peopleMet: hist.peopleMet,
     },
     signedIn,
-    moments,
     // who they were paired with, per session · only for a signed-in (inbox-verified) browser
     people: signedIn ? hist.sessions : null,
     history,
