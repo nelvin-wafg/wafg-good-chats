@@ -8,6 +8,7 @@ import CopyLink from '@/components/CopyLink';
 import ChatPanel from '@/components/ChatPanel';
 import DeviceMenu from '@/components/DeviceMenu';
 import ViewModeToggle from '@/components/ViewModeToggle';
+import ReadyCheck from '@/components/ReadyCheck';
 import { minTileFor, isCompactMode } from '@/lib/tile-layout';
 import { showToast } from '@/components/Toast';
 
@@ -815,6 +816,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                     </button>
                   </div>
                 </div>
+                <ReadyCheck sessionId={session.id} />
                 <CopyLink code={session.code} variant="light" label="Still need to share? Grab the link" />
               </div>
             )}
