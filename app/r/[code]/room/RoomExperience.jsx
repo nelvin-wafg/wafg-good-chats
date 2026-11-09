@@ -312,11 +312,24 @@ export default function RoomExperience({ session: initialSession }) {
       lastState = payload.state;
       reportDiagnostic(initialSession.id, 'network-quality-change', payload);
     }
+    // if the media connection keeps re-establishing (3+ times in 90s) the person is the last to know:
+    // audio just goes quiet. tell them once, and again only after a few minutes
+    const sfuTimes = [];
+    let lastUnstableWarn = 0;
     function onConnection(ev) {
       reportDiagnostic(initialSession.id, 'network-connection', {
         type: ev?.type,
         event: ev?.event,
       });
+      if (ev?.type === 'sfu' && ev?.event === 'connected') {
+        const now = Date.now();
+        sfuTimes.push(now);
+        while (sfuTimes.length && now - sfuTimes[0] > 90000) sfuTimes.shift();
+        if (sfuTimes.length >= 3 && now - lastUnstableWarn > 5 * 60 * 1000) {
+          lastUnstableWarn = now;
+          showToast('Your connection keeps dropping · try switching between Wi-Fi and cellular, or reload the page', 'error');
+        }
+      }
     }
     callObject.on('network-quality-change', onQuality);
     callObject.on('network-connection', onConnection);
@@ -1717,7 +1730,9 @@ function DeviceCheckCard({ sessionId }) {
         }, 100);
       });
       setHeard(sawSound ? 'yes' : 'no');
+      // both outcomes are reported so the host's ready check can clear a flag once someone fixes their mic
       if (!sawSound) report('audio', 'mic on but silent');
+      else report('audio', 'mic heard');
     } finally {
       try { ctx.close(); } catch {}
     }
@@ -1765,11 +1780,11 @@ function DeviceCheckCard({ sessionId }) {
 
   const chip = (label, st) => {
     const map = {
-      checking: { t: 'checking...', c: '#737373', bg: '#f4f4f1' },
-      ready: { t: 'ready', c: '#166534', bg: '#dcfce7' },
-      prompt: { t: 'needs permission', c: '#92400e', bg: '#fef3c7' },
-      denied: { t: 'blocked', c: '#991b1b', bg: '#fee2e2' },
-      none: { t: 'not found', c: '#991b1b', bg: '#fee2e2' },
+      checking: { t: 'Checking...', c: '#737373', bg: '#f4f4f1' },
+      ready: { t: 'Ready', c: '#166534', bg: '#dcfce7' },
+      prompt: { t: 'Needs permission', c: '#92400e', bg: '#fef3c7' },
+      denied: { t: 'Blocked', c: '#991b1b', bg: '#fee2e2' },
+      none: { t: 'Not found', c: '#991b1b', bg: '#fee2e2' },
     }[st] || { t: st, c: '#737373', bg: '#f4f4f1' };
     return (
       <div className="flex items-center justify-between gap-3 text-sm">
@@ -1786,8 +1801,8 @@ function DeviceCheckCard({ sessionId }) {
     <div className="mt-8 max-w-sm mx-auto text-left rounded-lg p-4 bg-white border border-neutral-200">
       <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 mb-3">Quick check · mic &amp; camera</div>
       <div className="space-y-2 mb-3">
-        {chip('microphone', mic)}
-        {chip('camera', cam)}
+        {chip('Microphone', mic)}
+        {chip('Camera', cam)}
       </div>
 
       {(testing || heard !== 'idle') && mic === 'ready' && (
@@ -1796,10 +1811,26 @@ function DeviceCheckCard({ sessionId }) {
             <div className="h-full" style={{ width: `${Math.round(level * 100)}%`, background: '#01ecf3', transition: 'width 100ms' }} />
           </div>
           <p className="text-xs text-neutral-600 mt-1.5">
-            {heard === 'listening' && "Say something — we're listening..."}
-            {heard === 'yes' && 'we can hear you ✓'}
-            {heard === 'no' && "we didn't pick up any sound. If you spoke, try the device menu once you're in, or check that no other app is using your mic."}
+            {heard === 'listening' && "Say \"hello\" out loud — we're listening..."}
+            {heard === 'yes' && 'We can hear you ✓'}
+            {heard === 'no' && "We didn't pick up any sound."}
           </p>
+        </div>
+      )}
+
+      {mic === 'ready' && !testing && heard === 'idle' && (
+        <p className="text-xs text-neutral-600 mb-3">Press the button and say "hello". The bar should move. This takes five seconds and saves you from a silent first conversation.</p>
+      )}
+
+      {heard === 'no' && !testing && (
+        <div className="rounded p-3 mb-3 text-xs" style={{ background: '#fff7e6', border: '1px solid #d97706' }}>
+          <p className="font-bold mb-1">Your mic isn't coming through yet. Try these, then test again:</p>
+          <ol className="list-decimal ml-4 space-y-0.5">
+            <li>Check the mute switch on your headset or laptop.</li>
+            <li>Pick another microphone in your browser (the icon in the address bar) or in your system sound settings.</li>
+            <li>Close other apps that use the mic, like Zoom or Teams.</li>
+            <li>Still silent? Join from your phone instead.</li>
+          </ol>
         </div>
       )}
 
@@ -1825,7 +1856,7 @@ function DeviceCheckCard({ sessionId }) {
           className="w-full py-2.5 rounded-md font-bold text-sm disabled:opacity-60"
           style={{ background: '#01ecf3', color: '#000' }}
         >
-          {testing ? 'Checking...' : blocked || mic === 'prompt' ? 'Check again →' : 'Test my mic →'}
+          {testing ? 'Checking...' : blocked || mic === 'prompt' ? 'Check again →' : heard === 'no' ? 'Test again →' : 'Test my mic →'}
         </button>
       )}
     </div>
