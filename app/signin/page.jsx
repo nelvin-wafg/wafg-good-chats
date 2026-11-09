@@ -101,7 +101,7 @@ export default function SignInPage() {
           </>
         ) : (
           <>
-            <p className="text-neutral-700 mt-4 mb-1">sign in to see your history, the people you've met and your ripple level.</p>
+            <p className="text-neutral-700 mt-4 mb-1">sign in to see your next call, your history and the people you've met.</p>
             <p className="text-neutral-500 text-xs mb-5">no password · we email you a one-time link. you never need an account to join a session.</p>
             {message && <p className="text-sm text-red-600 mb-3">{message}</p>}
             <form onSubmit={requestLink} className="space-y-3 text-left">

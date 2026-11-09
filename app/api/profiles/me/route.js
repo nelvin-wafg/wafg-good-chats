@@ -6,7 +6,6 @@ import { getProfileFromCookies } from '@/lib/profile-cookie';
 import { getSignInFromCookies } from '@/lib/signin-cookie';
 import { buildProfileHistory } from '@/lib/profile-history';
 import { noShowRooms } from '@/lib/recap-partners';
-import { rippleFor } from '@/lib/ripple';
 import { rateLimitByIp } from '@/lib/rate-limit';
 import {
   validateParticipantName,
@@ -51,6 +50,7 @@ export async function GET() {
   let connectionsMade = 0;
   let history = [];
   let hist = { calls: 0, peopleMet: 0, sessions: [] };
+  let moments = [];
 
   if (participantIds.length > 0) {
     const [{ data: pairings = [] }, { data: captures = [] }, { data: sessions = [] }, { data: rounds = [] }, { data: sessionParticipants = [] }, { data: waitEvents = [] }] = await Promise.all([
@@ -64,7 +64,7 @@ export async function GET() {
         .select('id, name, ended_at, created_at')
         .in('id', sessionIds),
       admin.from('rounds')
-        .select('id, round_number')
+        .select('id, round_number, prompt_text, session_id')
         .in('session_id', sessionIds),
       admin.from('participants')
         .select('id, name, kicked_at, profile_id')
@@ -92,8 +92,8 @@ export async function GET() {
       }))
       .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    // calls = real pairings that happened (no sit-outs, no-shows or removed partners), the
-    // number behind ripple levels. the same rules as the recap email.
+    // calls = real pairings that happened (no sit-outs, no-shows or removed partners), by the
+    // same rules as the recap email.
     hist = buildProfileHistory({
       myParticipants,
       sessions,
@@ -103,9 +103,18 @@ export async function GET() {
       captures,
       noShows: noShowRooms(waitEvents),
     });
+
+    // "moments": the questions asked in the most recent session they were part of. each is
+    // shareable as a teaser for the next call (the invite page, /i/<code>?m=<round id>).
+    const latest = history[0];
+    if (latest) {
+      moments = rounds
+        .filter((r) => r.session_id === latest.sessionId && r.prompt_text)
+        .sort((a, b) => a.round_number - b.round_number)
+        .map((r) => ({ roundId: r.id, prompt: r.prompt_text, sessionName: latest.sessionName, date: latest.date }));
+    }
   }
 
-  const ripple = rippleFor(hist.calls);
 
   return NextResponse.json({
     profile: {
@@ -123,14 +132,8 @@ export async function GET() {
       eventsAttended: sessionIds.length,
       peopleMet: hist.peopleMet,
     },
-    ripple: {
-      count: ripple.count,
-      level: ripple.level ? { name: ripple.level.name, emoji: ripple.level.emoji, calls: ripple.level.calls } : null,
-      next: ripple.next ? { name: ripple.next.name, emoji: ripple.next.emoji, calls: ripple.next.calls } : null,
-      toNext: ripple.toNext,
-      progress: ripple.progress,
-    },
     signedIn,
+    moments,
     // who they were paired with, per session · only for a signed-in (inbox-verified) browser
     people: signedIn ? hist.sessions : null,
     history,
