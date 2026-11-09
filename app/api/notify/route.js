@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { addSubscriberToKit } from '@/lib/kit';
 import { validateEmail, validateParticipantName, validateLinkedinUrl, ValidationError } from '@/lib/validate';
-import { rateLimitByIp } from '@/lib/rate-limit';
+import { rateLimitByIp, checkRateLimit } from '@/lib/rate-limit';
+import { createHash } from 'crypto';
 import { adminClient } from '@/lib/supabase-server';
-import { escHtml } from '@/lib/resend';
-import { REF_COOKIE, attributeInterest } from '@/lib/referral';
+import { escHtml, sendInviteWelcomeEmail } from '@/lib/resend';
+import { REF_COOKIE, attributeInterest, findInviter } from '@/lib/referral';
 
 // POST /api/notify
 // body: { email, firstName, linkedinUrl?, source? }
@@ -25,7 +26,9 @@ export async function POST(request) {
     email = validateEmail(body?.email);
     firstName = validateParticipantName(body?.firstName);
     linkedinUrl = validateLinkedinUrl(body?.linkedinUrl);
-    if (!linkedinUrl) {
+    // the homepage form requires LinkedIn; a friend's invite page asks for the least it can
+    // (requireLinkedin: false), since that's the moment someone is most likely to bounce
+    if (!linkedinUrl && body?.requireLinkedin !== false) {
       return new NextResponse('LinkedIn is required', { status: 400 });
     }
     source = body?.source ? String(body.source).trim().slice(0, 500) : null;
@@ -50,6 +53,14 @@ export async function POST(request) {
     console.warn('[notify] supabase insert failed', e?.message);
   }
 
+  // remember whether this address had unsubscribed BEFORE we clear it below: the welcome email
+  // must never go to someone who opted out, even if a sign-up with their address just re-added them
+  let wasUnsubscribed = false;
+  try {
+    const { data: u } = await adminClient().from('email_unsubscribes').select('email').eq('email', email).limit(1);
+    wasUnsubscribed = Boolean(u && u.length);
+  } catch {}
+
   // signing up here again is a deliberate fresh yes: clear an earlier unsubscribe so they
   // actually get the announcements they just asked for. best-effort.
   try {
@@ -61,6 +72,29 @@ export async function POST(request) {
     const refCode = cookies().get(REF_COOKIE)?.value;
     if (refCode) await attributeInterest(adminClient(), { code: refCode, email, event: 'signup' });
   } catch {}
+
+  // signed up on a friend's invite page: send ONE short "you're on the list" email naming who
+  // invited them, so they aren't left wondering. an unauthenticated form that emails whatever
+  // address is typed could be used to pester someone, so: invite sign-ups only, at most one per
+  // address per day, never to an address that unsubscribed, and it carries an unsubscribe link.
+  if (typeof source === 'string' && source.startsWith('invite from')) {
+    try {
+      const admin = adminClient();
+      const bucket = `invite-welcome:${createHash('sha256').update(email).digest('hex').slice(0, 32)}`;
+      const { ok: underLimit } = await checkRateLimit(bucket, 1, 3600);
+      if (underLimit && !wasUnsubscribed) {
+        const refCode = cookies().get(REF_COOKIE)?.value;
+        const inviter = refCode ? await findInviter(admin, refCode) : null;
+        await sendInviteWelcomeEmail({
+          to: email,
+          firstName,
+          invitedBy: inviter ? String(inviter.display_name || '').trim().split(/\s+/)[0] || null : null,
+        });
+      }
+    } catch (e) {
+      console.warn('[notify] invite welcome failed', e?.message || e);
+    }
+  }
 
   // only push to Kit if they checked "add me to The Weekly"
   if (subscribeToWeekly) {
