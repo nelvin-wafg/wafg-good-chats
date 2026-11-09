@@ -46,7 +46,7 @@ async function load(code, m) {
 export async function generateMetadata({ params, searchParams }) {
   const m = typeof searchParams?.m === 'string' ? searchParams.m : '';
   const d = await load(params.code, m).catch(() => null);
-  const title = d ? `${d.first} invited you to Good Chats` : 'Good Chats · We Are For Good';
+  const title = d ? `${d.first} invited you to good chats` : 'good chats · We Are For Good';
   const when = d?.next ? etWhen(d.next.startsAt) : null;
   const description = d?.prompt
     ? `"${d.prompt}" Answer it live, one-on-one, with someone new.${when ? ` Next call: ${when}.` : ''}`
@@ -56,7 +56,7 @@ export async function generateMetadata({ params, searchParams }) {
     title,
     description,
     robots: { index: false, follow: false }, // personal links shouldn't be indexed by search engines
-    openGraph: { title, description, url: `${SITE}/i/${params.code}`, siteName: 'Good Chats', images: [{ url: image, width: 1200, height: 630 }] },
+    openGraph: { title, description, url: `${SITE}/i/${params.code}`, siteName: 'good chats', images: [{ url: image, width: 1200, height: 630 }] },
     twitter: { card: 'summary_large_image', title, description, images: [image] },
   };
 }

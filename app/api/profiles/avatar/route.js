@@ -18,32 +18,32 @@ const ALLOWED_TYPES = {
 // browser claims.
 export async function POST(request) {
   const allowed = await rateLimitByIp(request, 'profiles-avatar', { limit: 10, windowSeconds: 300 });
-  if (!allowed) return new NextResponse('too many requests', { status: 429 });
+  if (!allowed) return new NextResponse('Too many requests', { status: 429 });
 
   const me = getProfileFromCookies(cookies());
-  if (!me?.profileId) return new NextResponse('unauthorized', { status: 401 });
+  if (!me?.profileId) return new NextResponse('Unauthorized', { status: 401 });
 
   let file;
   try {
     const form = await request.formData();
     file = form.get('file');
   } catch {
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
   if (!file || typeof file === 'string') {
-    return new NextResponse('file required', { status: 400 });
+    return new NextResponse('File required', { status: 400 });
   }
   const ext = ALLOWED_TYPES[file.type];
   if (!ext) {
-    return new NextResponse('only jpeg, png, or webp images are allowed', { status: 400 });
+    return new NextResponse('Only jpeg, png, or webp images are allowed', { status: 400 });
   }
   if (file.size > MAX_BYTES) {
-    return new NextResponse('image must be 5MB or smaller', { status: 400 });
+    return new NextResponse('Image must be 5MB or smaller', { status: 400 });
   }
 
   const admin = adminClient();
   const { data: profile } = await admin.from('profiles').select('id').eq('id', me.profileId).maybeSingle();
-  if (!profile) return new NextResponse('profile not found', { status: 404 });
+  if (!profile) return new NextResponse('Profile not found', { status: 404 });
 
   const path = `${profile.id}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -52,7 +52,7 @@ export async function POST(request) {
     .upload(path, buffer, { contentType: file.type, upsert: true });
   if (uploadErr) {
     console.error('[avatar] upload failed', uploadErr);
-    return new NextResponse('upload failed', { status: 500 });
+    return new NextResponse('Upload failed', { status: 500 });
   }
 
   const { data: pub } = admin.storage.from('avatars').getPublicUrl(path);
@@ -66,7 +66,7 @@ export async function POST(request) {
     .eq('id', profile.id);
   if (updateErr) {
     console.error('[avatar] profile update failed', updateErr);
-    return new NextResponse('could not save avatar', { status: 500 });
+    return new NextResponse('Could not save avatar', { status: 500 });
   }
 
   return NextResponse.json({ avatarUrl });

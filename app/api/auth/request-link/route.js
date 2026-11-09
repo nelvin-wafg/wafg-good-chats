@@ -14,7 +14,7 @@ import { sendLoginLinkEmail } from '@/lib/resend';
 // can use it to flood someone's inbox.
 export async function POST(request) {
   if (!(await rateLimitByIp(request, 'signin-link', { limit: 6, windowSeconds: 600 }))) {
-    return new NextResponse('too many requests · try again in a few minutes', { status: 429 });
+    return new NextResponse('Too many requests · try again in a few minutes', { status: 429 });
   }
 
   let email;
@@ -23,7 +23,7 @@ export async function POST(request) {
     email = validateEmail(body?.email);
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const sent = NextResponse.json({ ok: true });
@@ -43,9 +43,9 @@ export async function POST(request) {
 
   const made = await createLoginTokens(admin, [profile.id], SIGNIN_LINK_TTL_MS);
   if (!made.ok) {
-    if (made.setupNeeded) return new NextResponse('sign-in is not set up yet', { status: 503 });
+    if (made.setupNeeded) return new NextResponse('Sign-in is not set up yet', { status: 503 });
     console.error('[auth] could not create sign-in token');
-    return new NextResponse('could not send a link right now', { status: 500 });
+    return new NextResponse('Could not send a link right now', { status: 500 });
   }
 
   await sendLoginLinkEmail({

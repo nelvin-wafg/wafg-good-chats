@@ -123,8 +123,8 @@ export async function POST(request) {
       body: JSON.stringify({
         from: process.env.RESEND_FROM || 'Good Chats <goodchats@weareforgood.com>',
         to: [notifyTo],
-        subject: `✦ ${firstName} just signed up for Good Chats`,
-        html: `<p><strong>${escHtml(firstName)}</strong> (${escHtml(email)}) signed up for Good Chats notifications.${linkedinLine}</p><p>${subscribeToWeekly ? '✓ opted in to The Weekly' : '✗ did not opt in to The Weekly'}</p>`,
+        subject: `✦ ${firstName} just signed up for good chats`,
+        html: `<p><strong>${escHtml(firstName)}</strong> (${escHtml(email)}) signed up for good chats notifications.${linkedinLine}</p><p>${subscribeToWeekly ? '✓ opted in to The Weekly' : '✗ did not opt in to The Weekly'}</p>`,
       }),
     }).catch((e) => console.warn('[notify] host email failed', e?.message));
   }

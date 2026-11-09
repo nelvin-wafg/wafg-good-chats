@@ -18,10 +18,10 @@ export async function GET(request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
     console.error('[cron/reminders] CRON_SECRET is not set · refusing all requests');
-    return new NextResponse('cron not configured', { status: 503 });
+    return new NextResponse('Cron not configured', { status: 503 });
   }
   if (request.headers.get('authorization') !== `Bearer ${secret}`) {
-    return new NextResponse('unauthorized', { status: 401 });
+    return new NextResponse('Unauthorized', { status: 401 });
   }
   if (!process.env.RESEND_API_KEY) {
     return NextResponse.json({ ok: false, reason: 'RESEND_API_KEY not set' });
@@ -50,6 +50,6 @@ export async function GET(request) {
     followUps = { ok: false };
   }
 
-  if (reminderError && !followUps?.sent) return new NextResponse('reminder run failed', { status: 500 });
+  if (reminderError && !followUps?.sent) return new NextResponse('Reminder run failed', { status: 500 });
   return NextResponse.json({ ok: !reminderError, ...(result || {}), followUps });
 }

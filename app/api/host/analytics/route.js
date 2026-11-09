@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 // returns trend data for the analytics page · covers every session (shared across approved hosts).
 export async function GET() {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   const admin = adminClient();
   const { data: sessions = [] } = await admin

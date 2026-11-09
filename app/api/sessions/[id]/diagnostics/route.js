@@ -39,7 +39,7 @@ export async function POST(request, { params }) {
   // reporting at once right after a round starts) and this data is exactly
   // the point of this endpoint, so don't be stingy about it.
   const ok = await rateLimitByIp(request, 'diagnostics', { limit: 120, windowSeconds: 60 });
-  if (!ok) return new NextResponse('too many diagnostic events', { status: 429 });
+  if (!ok) return new NextResponse('Too many diagnostic events', { status: 429 });
 
   let sessionId, eventType, payload, subjectParticipantId;
   try {
@@ -47,7 +47,7 @@ export async function POST(request, { params }) {
     const body = await request.json();
     eventType = String(body?.eventType || '');
     if (!ALLOWED_EVENT_TYPES.has(eventType)) {
-      return new NextResponse('unknown event type', { status: 400 });
+      return new NextResponse('Unknown event type', { status: 400 });
     }
     payload = body?.payload && typeof body.payload === 'object' ? body.payload : {};
     // cap payload size so a malformed/misbehaving client can't write unbounded jsonb
@@ -57,13 +57,13 @@ export async function POST(request, { params }) {
       : null;
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const cookieStore = cookies();
   const me = getParticipantFromCookies(cookieStore, sessionId);
   const hostAuth = !me ? await getApprovedHost() : null;
-  if (!me && !hostAuth) return new NextResponse('forbidden', { status: 403 });
+  if (!me && !hostAuth) return new NextResponse('Forbidden', { status: 403 });
 
   const admin = adminClient();
   const { error } = await admin.from('connection_events').insert({
@@ -77,7 +77,7 @@ export async function POST(request, { params }) {
   });
   if (error) {
     console.error('[diagnostics] insert failed', error);
-    return new NextResponse('could not log event', { status: 500 });
+    return new NextResponse('Could not log event', { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }
@@ -88,14 +88,14 @@ export async function POST(request, { params }) {
 // the event instead of relying on a verbal report alone.
 export async function GET(request, { params }) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   let sessionId;
   try {
     sessionId = validateUuid(params.id, 'session id');
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   // optional filters so a host can pull ONE person's history (or one event type)
@@ -113,20 +113,20 @@ export async function GET(request, { params }) {
     if (pid) participantId = validateUuid(pid, 'participant id');
     const et = url.searchParams.get('eventType');
     if (et) {
-      if (!ALLOWED_EVENT_TYPES.has(et)) return new NextResponse('unknown event type', { status: 400 });
+      if (!ALLOWED_EVENT_TYPES.has(et)) return new NextResponse('Unknown event type', { status: 400 });
       eventType = et;
     }
     const s = url.searchParams.get('since');
     if (s) {
       const t = new Date(s);
-      if (Number.isNaN(t.getTime())) return new NextResponse('bad since', { status: 400 });
+      if (Number.isNaN(t.getTime())) return new NextResponse('Bad since', { status: 400 });
       since = t.toISOString();
     }
     const l = parseInt(url.searchParams.get('limit') || '', 10);
     if (Number.isFinite(l)) limit = Math.min(500, Math.max(1, l));
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const admin = adminClient();

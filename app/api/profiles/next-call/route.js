@@ -16,11 +16,11 @@ const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' };
 // behind the profile cookie only because it reads the person's own email.
 export async function GET() {
   const profileId = getTrustedProfileId(cookies());
-  if (!profileId) return new NextResponse('unauthorized', { status: 401 });
+  if (!profileId) return new NextResponse('Unauthorized', { status: 401 });
 
   const admin = adminClient();
   const { data: profile } = await admin.from('profiles').select('id, email').eq('id', profileId).maybeSingle();
-  if (!profile) return new NextResponse('profile not found', { status: 404 });
+  if (!profile) return new NextResponse('Profile not found', { status: 404 });
 
   const now = Date.now();
   const { data: rows } = await admin

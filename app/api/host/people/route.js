@@ -21,7 +21,7 @@ import { logAuditEvent } from '@/lib/audit';
 // matching every other per-session moderation action in this app.
 export async function DELETE(request) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   let profileId = null;
   let participantId = null;
@@ -30,15 +30,15 @@ export async function DELETE(request) {
     if (body?.profileId) profileId = validateUuid(body.profileId, 'profile id');
     if (body?.participantId) participantId = validateUuid(body.participantId, 'participant id');
     if (!profileId && !participantId) {
-      return new NextResponse('profileId or participantId required', { status: 400 });
+      return new NextResponse('ProfileId or participantId required', { status: 400 });
     }
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   if (profileId && !auth.host.is_admin) {
-    return new NextResponse('deleting a person across every session requires an admin host', { status: 403 });
+    return new NextResponse('Deleting a person across every session requires an admin host', { status: 403 });
   }
 
   const admin = adminClient();
@@ -57,7 +57,7 @@ export async function DELETE(request) {
       .eq('profile_id', profileId);
     if (pErr) {
       console.error('[host/people] delete participants failed', pErr);
-      return new NextResponse('could not delete participant records', { status: 500 });
+      return new NextResponse('Could not delete participant records', { status: 500 });
     }
     const { error: prErr } = await admin
       .from('profiles')
@@ -65,7 +65,7 @@ export async function DELETE(request) {
       .eq('id', profileId);
     if (prErr) {
       console.error('[host/people] delete profile failed', prErr);
-      return new NextResponse('could not delete profile', { status: 500 });
+      return new NextResponse('Could not delete profile', { status: 500 });
     }
 
     logAuditEvent({
@@ -86,7 +86,7 @@ export async function DELETE(request) {
     .eq('id', participantId);
   if (pErr) {
     console.error('[host/people] delete participant failed', pErr);
-    return new NextResponse('could not delete participant', { status: 500 });
+    return new NextResponse('Could not delete participant', { status: 500 });
   }
 
   logAuditEvent({

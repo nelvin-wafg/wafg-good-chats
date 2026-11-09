@@ -116,13 +116,13 @@ export default function RoomExperience({ session: initialSession }) {
         body: JSON.stringify({ text: text || null }),
       });
       if (res.ok) {
-        showToast('sent · the host will see it', 'success');
+        showToast('Sent · the host will see it', 'success');
         return true;
       }
-      showToast((await res.text()) || "couldn't send · try again", 'error');
+      showToast((await res.text()) || "Couldn't send · try again", 'error');
       return false;
     } catch {
-      showToast('connection issue · try again', 'error');
+      showToast('Connection issue · try again', 'error');
       return false;
     }
   }
@@ -211,7 +211,7 @@ export default function RoomExperience({ session: initialSession }) {
       return { name: myAssignment.roomName, isPair: true, label: myAssignment.roomLabel };
     }
     if (session.main_room_name) {
-      return { name: session.main_room_name, isPair: false, label: 'main room' };
+      return { name: session.main_room_name, isPair: false, label: 'Main room' };
     }
     return null;
   })();
@@ -345,7 +345,7 @@ export default function RoomExperience({ session: initialSession }) {
       // reconnect to. the poll will render EndedView shortly.
       if (sessionRef.current.status === 'ended') return;
       console.warn('[daily] unexpected left-meeting · attempting reconnect');
-      showToast('connection hiccup · reconnecting...', 'error');
+      showToast('Connection hiccup · reconnecting...', 'error');
       joinedNameRef.current = null;
       setReconnectNonce((n) => n + 1);
     };
@@ -689,7 +689,7 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
             We Are For Good
           </div>
           <div className="display text-xl leading-none">
-            Good<span style={{ color: '#01ecf3' }}>*</span>Chats
+            good<span style={{ color: '#01ecf3' }}>*</span>chats
           </div>
         </div>
         <div className="text-xs text-neutral-500">
@@ -713,7 +713,7 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
         <div className="px-6 py-4 flex items-center justify-between gap-4 border-b-2" style={{ background: '#01ecf3', borderColor: '#00c8cf', color: '#000' }}>
           <div className="flex-1">
             <div className="text-[10px] uppercase tracking-widest font-black mb-1">✨ host time this round ✨</div>
-            <div className="display text-xl font-bold">you've got the host's full attention.</div>
+            <div className="display text-xl font-bold">You've got the host's full attention.</div>
             {withHostAssignment?.prompt && (
               <div className="text-sm mt-1.5 font-medium opacity-80">{withHostAssignment.prompt}</div>
             )}
@@ -722,7 +722,7 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
             <div className="display text-4xl font-black" style={{ color: hostSecondsLeft <= 30 ? '#92400e' : '#000' }}>
               {fmtTime(hostSecondsLeft)}
             </div>
-            <div className="text-[9px] uppercase tracking-widest font-bold opacity-60">remaining</div>
+            <div className="text-[9px] uppercase tracking-widest font-bold opacity-60">Remaining</div>
           </div>
         </div>
       )}
@@ -733,20 +733,20 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
         <div className="p-6 overflow-y-auto flex flex-col min-h-0">
           <div className="flex items-start justify-between gap-3 mb-2">
             <div className="text-xs uppercase tracking-widest text-neutral-500 font-semibold">
-              main room · everyone together
+              Main room · everyone together
             </div>
             {withVideo && <ViewModeToggle mode={viewMode} onChange={updateViewMode} theme="light" />}
           </div>
           <div className="display text-3xl mb-6">
             {isPreSession
-              ? <>welcome in.<br/>we'll start together.</>
+              ? <>Welcome in.<br/>We'll start together.</>
               : isWithHost
-                ? <>host time.<br/>this one's for you.</>
+                ? <>Host time.<br/>This one's for you.</>
                 : isLateJoiner
-                  ? <>hang tight.<br/>next round picks you up.</>
+                  ? <>Hang tight.<br/>Next round picks you up.</>
                   : isClosing
-                    ? <>all rounds done.<br/>host is wrapping up.</>
-                    : <>between rounds.<br/>nice work.</>}
+                    ? <>All rounds done.<br/>Host is wrapping up.</>
+                    : <>Between rounds.<br/>Nice work.</>}
           </div>
 
           {withVideo
@@ -758,36 +758,36 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
         <aside className="bg-white border-l border-neutral-200 p-6 flex flex-col gap-4 overflow-hidden">
           <div className="rounded-md p-5 flex-shrink-0" style={{ background: '#01ecf3', color: '#000' }}>
             <div className="text-[10px] uppercase tracking-widest font-bold mb-2 opacity-60">
-              {isPreSession ? 'pre-session' : isWithHost ? 'this round' : isLateJoiner ? 'happening now' : isClosing ? 'closing out' : 'next up'}
+              {isPreSession ? 'Pre-session' : isWithHost ? 'This round' : isLateJoiner ? 'Happening now' : isClosing ? 'Closing out' : 'Next up'}
             </div>
             <div className="display text-2xl mb-2">
               {isPreSession
-                ? 'waiting for kickoff'
+                ? 'Waiting for kickoff'
                 : isWithHost
-                  ? `round ${session.current_round} of ${session.rounds_total}`
+                  ? `Round ${session.current_round} of ${session.rounds_total}`
                   : isLateJoiner
-                    ? `round ${session.current_round} of ${session.rounds_total}`
+                    ? `Round ${session.current_round} of ${session.rounds_total}`
                     : isClosing
                       ? `${session.rounds_total} rounds done`
-                      : `round ${session.current_round + 1} of ${session.rounds_total}`}
+                      : `Round ${session.current_round + 1} of ${session.rounds_total}`}
             </div>
             <p className="text-sm">
               {isWithHost
-                ? '[you\'re chatting directly with the host this round · no breakout needed 🎉]'
+                ? '[You\'re chatting directly with the host this round · no breakout needed 🎉]'
                 : isLateJoiner
-                  ? '[others are paired up in breakouts · you\'ll join the next shuffle]'
+                  ? '[Others are paired up in breakouts · you\'ll join the next shuffle]'
                   : isClosing
-                    ? '[stick around for the host\'s wrap-up · the call closes when they hit close out]'
-                    : '[the host will kick things off · you\'ll get auto-paired]'}
+                    ? '[Stick around for the host\'s wrap-up · the call closes when they hit close out]'
+                    : '[The host will kick things off · you\'ll get auto-paired]'}
             </p>
           </div>
 
           <div className="rounded-md bg-neutral-50 border border-neutral-200 p-4 flex-shrink-0">
-            <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 font-semibold">about this session</div>
+            <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 font-semibold">About this session</div>
             <div className="text-sm text-neutral-700 space-y-2">
-              <div className="flex justify-between"><span>rounds</span><span className="font-semibold text-black">{session.rounds_total}</span></div>
-              <div className="flex justify-between"><span>per round</span><span className="font-semibold text-black">{Math.round(session.round_seconds / 60)} min</span></div>
-              <div className="flex justify-between"><span>matching</span><span className="font-semibold text-black">random · no repeats</span></div>
+              <div className="flex justify-between"><span>Rounds</span><span className="font-semibold text-black">{session.rounds_total}</span></div>
+              <div className="flex justify-between"><span>Per round</span><span className="font-semibold text-black">{Math.round(session.round_seconds / 60)} min</span></div>
+              <div className="flex justify-between"><span>Matching</span><span className="font-semibold text-black">random · no repeats</span></div>
             </div>
           </div>
 
@@ -795,9 +795,9 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
             <ChatPanel
               myName={myName}
               theme="light"
-              title="chat · everyone in the room"
-              placeholder="say hi to the room..."
-              emptyHint="[say hello, drop a link, react to the prompt — everyone in the main room sees this]"
+              title="Chat · everyone in the room"
+              placeholder="Say hi to the room..."
+              emptyHint="[Say hello, drop a link, react to the prompt — everyone in the main room sees this]"
               className="flex flex-1 min-h-0 border border-neutral-200 rounded-md"
             />
           )}
@@ -809,12 +809,12 @@ function MainRoomView({ session, participants, participantsByName, myName, myId,
 
       {!withVideo && (
         <footer className="border-t border-neutral-200 bg-white px-6 py-3 flex items-center justify-between">
-          <div className="text-xs text-neutral-500">main room · everyone together</div>
+          <div className="text-xs text-neutral-500">Main room · everyone together</div>
           <button
             onClick={() => setConfirmingLeave(true)}
             className="text-sm border border-red-500 text-red-500 px-4 py-2 rounded font-semibold hover:bg-red-500 hover:text-white"
           >
-            leave
+            Leave
           </button>
         </footer>
       )}
@@ -835,11 +835,11 @@ function LeaveConfirmModal({ onConfirm, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-md p-6 max-w-sm w-full sticker" style={{ color: '#000' }}>
-        <div className="display text-2xl mb-2">leave this session?</div>
-        <p className="text-sm text-neutral-600 mb-5">you can rejoin anytime with the same link, as long as the session is still going.</p>
+        <div className="display text-2xl mb-2">Leave this session?</div>
+        <p className="text-sm text-neutral-600 mb-5">You can rejoin anytime with the same link, as long as the session is still going.</p>
         <div className="flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="text-sm underline text-neutral-500 hover:text-black">stay</button>
-          <button type="button" onClick={onConfirm} className="px-4 py-2 rounded-md border-2 border-red-500 text-red-600 hover:bg-red-500 hover:text-white font-semibold text-sm">leave</button>
+          <button type="button" onClick={onClose} className="text-sm underline text-neutral-500 hover:text-black">Stay</button>
+          <button type="button" onClick={onConfirm} className="px-4 py-2 rounded-md border-2 border-red-500 text-red-600 hover:bg-red-500 hover:text-white font-semibold text-sm">Leave</button>
         </div>
       </div>
     </div>
@@ -854,7 +854,7 @@ function MainRoomVideoGallery({ participantsByName, mode = 'gallery' }) {
   const ids = [localId, ...remoteIds].filter(Boolean);
 
   if (ids.length === 0) {
-    return <div className="text-neutral-500 italic text-sm">[connecting to the main room...]</div>;
+    return <div className="text-neutral-500 italic text-sm">[Connecting to the main room...]</div>;
   }
 
   if (mode === 'speaker') {
@@ -905,7 +905,7 @@ function MainRoomVideoGallery({ participantsByName, mode = 'gallery' }) {
 // fallback static avatar gallery
 function MainRoomStaticGallery({ participants, myId }) {
   if (participants.length === 0) {
-    return <div className="text-neutral-500 italic text-sm">[just you so far · others on the way]</div>;
+    return <div className="text-neutral-500 italic text-sm">[Just you so far · others on the way]</div>;
   }
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -1014,10 +1014,10 @@ function PairRoomView({ assignment, session, myName, myLinkedin, myAvatarUrl, tr
       if (res.ok) {
         setCaptured(true);
       } else {
-        showToast("couldn't save · try again", 'error');
+        showToast("Couldn't save · try again", 'error');
       }
     } catch {
-      showToast('connection issue · try again', 'error');
+      showToast('Connection issue · try again', 'error');
     }
   }
 
@@ -1025,7 +1025,7 @@ function PairRoomView({ assignment, session, myName, myLinkedin, myAvatarUrl, tr
     <main className="min-h-screen lg:h-screen flex flex-col" style={{ background: '#f4f4f1', color: '#000' }}>
       <header className="flex items-center justify-between px-6 py-3 border-b border-neutral-200 bg-white">
         <div className="flex items-center gap-3">
-          <div className="display text-sm">round <span style={{ color: '#01ecf3' }}>{session.current_round}</span>/{session.rounds_total}</div>
+          <div className="display text-sm">Round <span style={{ color: '#01ecf3' }}>{session.current_round}</span>/{session.rounds_total}</div>
           {wrapUp && <span className="text-xs uppercase tracking-widest font-bold animate-pulse" style={{ color: '#d97706' }}>* wrapping up · next partner soon</span>}
         </div>
         <div className="display text-3xl" style={{ color: wrapUp ? '#d97706' : '#000' }}>
@@ -1037,7 +1037,7 @@ function PairRoomView({ assignment, session, myName, myLinkedin, myAvatarUrl, tr
 
       <div className="px-6 py-4 border-b border-neutral-200 flex items-center justify-between gap-4" style={{ background: 'rgba(1,236,243,0.15)' }}>
         <div className="flex-1">
-          <div className="text-[10px] uppercase tracking-widest font-bold mb-1 text-neutral-600">this round's prompt</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold mb-1 text-neutral-600">This round's prompt</div>
           <div className="display text-xl">{assignment.prompt || '— [no prompt this round]'}</div>
         </div>
         <CaptureControl
@@ -1060,12 +1060,12 @@ function PairRoomView({ assignment, session, myName, myLinkedin, myAvatarUrl, tr
             <div className="rounded-md bg-neutral-900 border-2 border-dashed border-neutral-700 flex items-center justify-center">
               <div className="text-center">
                 <div className="display text-2xl mb-2">{assignment.partnerName}</div>
-                {waitS < 6 && <p className="text-sm text-neutral-500">[connecting · hang tight]</p>}
+                {waitS < 6 && <p className="text-sm text-neutral-500">[Connecting · hang tight]</p>}
                 {waitS >= 6 && waitS < 25 && (
-                  <p className="text-sm text-neutral-400 px-6">waiting for {assignment.partnerName} to join… people switch rooms a few seconds apart, so they should be along any moment.</p>
+                  <p className="text-sm text-neutral-400 px-6">Waiting for {assignment.partnerName} to join… people switch rooms a few seconds apart, so they should be along any moment.</p>
                 )}
                 {waitS >= 25 && (
-                  <p className="text-sm px-6" style={{ color: '#fbbf24' }}>still waiting for {assignment.partnerName}. they may be having trouble connecting. the host can see you're waiting and will help.</p>
+                  <p className="text-sm px-6" style={{ color: '#fbbf24' }}>Still waiting for {assignment.partnerName}. They may be having trouble connecting. The host can see you're waiting and will help.</p>
                 )}
               </div>
             </div>
@@ -1074,9 +1074,9 @@ function PairRoomView({ assignment, session, myName, myLinkedin, myAvatarUrl, tr
         <ChatPanel
           myName={myName}
           theme="light"
-          title="chat · just between you two"
-          placeholder="message..."
-          emptyHint="[share a link, drop a quick note, whatever feels useful]"
+          title="Chat · just between you two"
+          placeholder="Message..."
+          emptyHint="[Share a link, drop a quick note, whatever feels useful]"
           className="hidden lg:flex border-l border-neutral-200"
         />
       </div>
@@ -1098,7 +1098,7 @@ function CaptureControl({ captured, partnerName, partnerLinkedinUrl, onCapture }
         onClick={onCapture}
         className="px-5 py-3 rounded font-semibold text-sm whitespace-nowrap btn-cyan"
       >
-        capture this connection *
+        Capture this connection *
       </button>
     );
   }
@@ -1107,7 +1107,7 @@ function CaptureControl({ captured, partnerName, partnerLinkedinUrl, onCapture }
   return (
     <div className="flex items-center gap-3 whitespace-nowrap">
       <div className="text-xs uppercase tracking-widest font-bold flex items-center gap-1.5" style={{ color: '#01ecf3' }}>
-        <span>✓</span><span>saved</span>
+        <span>✓</span><span>Saved</span>
       </div>
       {partnerLinkedinUrl ? (
         <a
@@ -1117,11 +1117,11 @@ function CaptureControl({ captured, partnerName, partnerLinkedinUrl, onCapture }
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded font-semibold text-sm no-underline"
           style={{ background: '#0a66c2', color: '#fff' }}
         >
-          <span>connect with {partnerFirst} on linkedin</span>
+          <span>Connect with {partnerFirst} on LinkedIn</span>
           <span>→</span>
         </a>
       ) : (
-        <span className="text-xs text-neutral-400">[no linkedin shared · you'll see them in your recap]</span>
+        <span className="text-xs text-neutral-400">[No LinkedIn shared · you'll see them in your recap]</span>
       )}
     </div>
   );
@@ -1198,8 +1198,8 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverri
           href={linkedinUrl}
           target="_blank"
           rel="noopener noreferrer"
-          title="open linkedin"
-          aria-label={`open ${name}'s linkedin`}
+          title="Open LinkedIn"
+          aria-label={`Open ${name}'s LinkedIn`}
           className={`absolute top-1.5 right-1.5 inline-flex items-center justify-center rounded font-bold no-underline ${compact ? 'w-4 h-4 text-[9px]' : 'w-6 h-6 text-xs'}`}
           style={{ background: '#0a66c2', color: '#fff' }}
         >
@@ -1208,7 +1208,7 @@ function DailyVideoTile({ sessionId, isLocal, cyan, nameOverride, linkedinOverri
       )}
       {isHostTile && !isLocal && (
         <div className="absolute top-2 left-2 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded" style={{ background: '#01ecf3', color: '#000' }}>
-          host
+          Host
         </div>
       )}
     </div>
@@ -1319,22 +1319,22 @@ function ParticipantControlBar({ sessionCode, sessionId, theme = 'dark', onEditP
             <div className="flex-1 min-w-0 text-sm">
               <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#d97706' }}>* heads up *</div>
               {micInterrupted
-                ? "your mic is on, but your device isn't sending any sound — it may be muted on your headset/laptop, or another app has it."
-                : "we're not picking up any sound from your mic. totally fine if you're just listening — but if people can't hear you, tap below."}
+                ? "Your mic is on, but your device isn't sending any sound — it may be muted on your headset/laptop, or another app has it."
+                : "We're not picking up any sound from your mic. Totally fine if you're just listening — but if people can't hear you, tap below."}
               <div className="mt-2 flex gap-2">
                 <button
                   onClick={() => { setSilentDismissedAt(Date.now()); setShowTroubleshoot(true); }}
                   className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded"
                   style={{ background: '#d97706', color: '#fff' }}
                 >
-                  fix my mic →
+                  Fix my mic →
                 </button>
               </div>
             </div>
             <button
               onClick={() => setSilentDismissedAt(Date.now())}
               className="text-lg leading-none text-neutral-500 hover:text-black flex-shrink-0"
-              title="dismiss"
+              title="Dismiss"
             >
               ×
             </button>
@@ -1349,7 +1349,7 @@ function ParticipantControlBar({ sessionCode, sessionId, theme = 'dark', onEditP
             onClick={toggleAudio}
             className="px-4 py-2 text-xs font-semibold rounded-l-full"
           >
-            {audioOn ? 'mic on' : (audioBlocked ? '🔇 mic blocked · fix it ↑' : 'mic off · tap to unmute')}
+            {audioOn ? 'Mic on' : (audioBlocked ? '🔇 mic blocked · fix it ↑' : 'Mic off · tap to unmute')}
           </button>
           <span aria-hidden="true" className="self-stretch w-px my-1.5" style={{ background: 'currentColor', opacity: 0.25 }} />
           <DeviceMenu kind="audio" daily={daily} theme={theme} connected />
@@ -1362,7 +1362,7 @@ function ParticipantControlBar({ sessionCode, sessionId, theme = 'dark', onEditP
             onClick={toggleVideo}
             className="px-4 py-2 text-xs font-semibold rounded-l-full"
           >
-            {videoOn ? 'cam on' : (videoBlocked ? 'camera blocked · check browser settings' : 'tap to turn on camera')}
+            {videoOn ? 'Cam on' : (videoBlocked ? 'Camera blocked · check browser settings' : 'Tap to turn on camera')}
           </button>
           <span aria-hidden="true" className="self-stretch w-px my-1.5" style={{ background: 'currentColor', opacity: 0.25 }} />
           <DeviceMenu kind="video" daily={daily} theme={theme} connected />
@@ -1371,15 +1371,15 @@ function ParticipantControlBar({ sessionCode, sessionId, theme = 'dark', onEditP
           <button
             onClick={onEditProfile}
             className={`px-4 py-2 rounded-full text-xs font-semibold border ${onClass}`}
-            title="update your name or linkedin"
+            title="Update your name or LinkedIn"
           >
-            edit info
+            Edit info
           </button>
         )}
         <button
           onClick={() => setShowTroubleshoot(true)}
           className={`px-4 py-2 rounded-full text-xs font-semibold border ${onClass}`}
-          title="having audio or video trouble? get help"
+          title="Having audio or video trouble? Get help"
         >
           🔧 trouble hearing/being heard?
         </button>
@@ -1387,7 +1387,7 @@ function ParticipantControlBar({ sessionCode, sessionId, theme = 'dark', onEditP
           <button
             onClick={onFlag}
             className={`px-4 py-2 rounded-full text-xs font-semibold border ${light ? 'bg-amber-50 border-amber-400 text-amber-700 hover:bg-amber-100' : 'bg-amber-900/30 border-amber-600 text-amber-300 hover:bg-amber-900/50'}`}
-            title="raise a flag · the host will be notified"
+            title="Raise a flag · the host will be notified"
           >
             🚩 need help
           </button>
@@ -1396,7 +1396,7 @@ function ParticipantControlBar({ sessionCode, sessionId, theme = 'dark', onEditP
           onClick={() => setConfirmingLeave(true)}
           className={`px-4 py-2 rounded-full text-xs font-semibold border ${leaveClass}`}
         >
-          leave
+          Leave
         </button>
       </footer>
       {confirmingLeave && (
@@ -1447,55 +1447,55 @@ function TroubleshootModal({ daily, sessionCode, onFlag, onClose }) {
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
       <div className="bg-white text-black rounded-xl p-6 max-w-md w-full shadow-2xl max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3 mb-1">
-          <div className="display text-2xl">sorry you're having trouble <span style={{ color: '#01ecf3' }}>*</span></div>
+          <div className="display text-2xl">Sorry you're having trouble <span style={{ color: '#01ecf3' }}>*</span></div>
           <button onClick={onClose} className="text-xl text-neutral-500 hover:text-black leading-none flex-shrink-0">×</button>
         </div>
         <p className="text-sm text-neutral-600 mb-5">
-          audio/video trouble is almost always fixable in a minute. here's the stuff most likely to help, roughly in order:
+          Audio/video trouble is almost always fixable in a minute. Here's the stuff most likely to help, roughly in order:
         </p>
 
         <div className="space-y-3 mb-5">
           <div className="rounded-lg p-3" style={{ background: '#f4f4f1' }}>
             <p className="font-bold text-sm mb-1">1 · check your mic/camera permission</p>
-            <p className="text-xs text-neutral-600 mb-2">click the 🔒 or ⓘ icon in your browser's address bar, set microphone + camera to allow, then try again below — no refresh needed.</p>
+            <p className="text-xs text-neutral-600 mb-2">Click the 🔒 or ⓘ icon in your browser's address bar, set microphone + camera to allow, then try again below — no refresh needed.</p>
             <button
               onClick={retryMicCam}
               disabled={retrying}
               className="w-full py-2 rounded-md font-bold text-xs disabled:opacity-60"
               style={{ background: '#01ecf3', color: '#000' }}
             >
-              {retrying ? 'checking...' : "i fixed it · try again →"}
+              {retrying ? 'Checking...' : "I fixed it · try again →"}
             </button>
           </div>
 
           <div className="rounded-lg p-3" style={{ background: '#f4f4f1' }}>
             <p className="font-bold text-sm mb-1">2 · try a different device</p>
-            <p className="text-xs text-neutral-600">use the <strong>▾</strong> next to your mic/camera buttons above to switch — especially if you've got a headset or AirPods connected that might not be selected.</p>
+            <p className="text-xs text-neutral-600">Use the <strong>▾</strong> next to your mic/camera buttons above to switch — especially if you've got a headset or AirPods connected that might not be selected.</p>
           </div>
 
           <div className="rounded-lg p-3" style={{ background: '#f4f4f1' }}>
             <p className="font-bold text-sm mb-1">3 · close anything else using your mic/camera</p>
-            <p className="text-xs text-neutral-600">another video call, a different tab with this same session open, Zoom/Teams in the background — any of these can quietly hold onto your mic.</p>
+            <p className="text-xs text-neutral-600">Another video call, a different tab with this same session open, Zoom/Teams in the background — any of these can quietly hold onto your mic.</p>
           </div>
 
           <div className="rounded-lg p-3" style={{ background: '#f4f4f1' }}>
             <p className="font-bold text-sm mb-1">4 · leave and rejoin</p>
-            <p className="text-xs text-neutral-600 mb-2">a clean reconnect fixes more than you'd expect. your info is saved — rejoining takes one click.</p>
+            <p className="text-xs text-neutral-600 mb-2">A clean reconnect fixes more than you'd expect. Your info is saved — rejoining takes one click.</p>
             <button
               onClick={() => { window.location.href = sessionCode ? `/r/${sessionCode}` : '/'; }}
               className="w-full py-2 rounded-md font-bold text-xs border border-black"
             >
-              leave & rejoin
+              Leave & rejoin
             </button>
           </div>
 
           <div className="rounded-lg p-3" style={{ background: '#f4f4f1' }}>
             <p className="font-bold text-sm mb-1">5 · on hotel, work, or public wifi?</p>
-            <p className="text-xs text-neutral-600">some networks block the kind of connection video calls need. if you've got a phone nearby, try switching to its personal hotspot.</p>
+            <p className="text-xs text-neutral-600">Some networks block the kind of connection video calls need. If you've got a phone nearby, try switching to its personal hotspot.</p>
           </div>
         </div>
 
-        <p className="text-xs text-neutral-500 mb-3">still stuck after that? we've got you — let the host know and they'll help you out directly.</p>
+        <p className="text-xs text-neutral-500 mb-3">Still stuck after that? We've got you — let the host know and they'll help you out directly.</p>
         <button
           onClick={() => { onClose(); onFlag?.(); }}
           className="w-full py-2.5 rounded-md font-bold text-sm border-2"
@@ -1535,19 +1535,19 @@ function MicBlockedOverlay({ daily }) {
       <div className="bg-white text-black rounded-xl p-6 max-w-sm w-full shadow-2xl" style={{ border: '3px solid #01ecf3' }}>
         <div className="text-center mb-4">
           <div className="text-4xl mb-2">🎤</div>
-          <div className="display text-2xl mb-1">microphone blocked</div>
+          <div className="display text-2xl mb-1">Microphone blocked</div>
           <p className="text-sm text-neutral-600">
-            your browser isn't letting Good Chats use your mic.
+            Your browser isn't letting good chats use your mic.
           </p>
         </div>
         <div className="rounded-lg p-4 mb-4 text-sm space-y-2.5" style={{ background: '#f4f4f1' }}>
-          <p className="font-bold text-neutral-800">how to fix it:</p>
+          <p className="font-bold text-neutral-800">How to fix it:</p>
           <p>① click the <strong>🔒 lock</strong> or <strong>ⓘ info</strong> icon in your address bar</p>
           <p>② find <strong>Microphone</strong> and set it to <strong>Allow</strong></p>
           <p>③ hit the button below — no page refresh needed</p>
         </div>
         <p className="text-[11px] text-neutral-500 mb-4 text-center">
-          still stuck? use the <strong>▾</strong> button next to the mic to switch devices,<br/>or try joining from your <strong>phone</strong>.
+          Still stuck? Use the <strong>▾</strong> button next to the mic to switch devices,<br/>Or try joining from your <strong>phone</strong>.
         </p>
         <button
           onClick={retry}
@@ -1555,7 +1555,7 @@ function MicBlockedOverlay({ daily }) {
           className="w-full py-3 rounded-md font-bold text-sm disabled:opacity-60 transition"
           style={{ background: '#01ecf3', color: '#000' }}
         >
-          {retrying ? 'checking...' : 'i fixed it · try again →'}
+          {retrying ? 'Checking...' : 'I fixed it · try again →'}
         </button>
       </div>
     </div>
@@ -1568,10 +1568,10 @@ function MicBlockedOverlay({ daily }) {
 function SplittingTransition({ partnerName, prompt, roomLabel, count, myName }) {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden" style={{ background: 'radial-gradient(ellipse at center, #e6fcfd 0%, #f4f4f1 70%)', color: '#000' }}>
-      <div className="absolute top-20 text-xs uppercase tracking-[0.3em] font-bold text-neutral-500">pairing up</div>
+      <div className="absolute top-20 text-xs uppercase tracking-[0.3em] font-bold text-neutral-500">Pairing up</div>
 
       <div className="text-center mb-8">
-        <div className="text-xs uppercase tracking-widest text-neutral-500 mb-2 font-semibold">you're with</div>
+        <div className="text-xs uppercase tracking-widest text-neutral-500 mb-2 font-semibold">You're with</div>
         <div className="display text-6xl">
           {partnerName?.split(' ')[0] || partnerName} <span style={{ color: '#01ecf3' }}>*</span>
         </div>
@@ -1594,14 +1594,14 @@ function SplittingTransition({ partnerName, prompt, roomLabel, count, myName }) 
       </div>
 
       <div className="text-center">
-        <div className="text-xs uppercase tracking-widest text-neutral-500 font-semibold mb-2">opening room in</div>
+        <div className="text-xs uppercase tracking-widest text-neutral-500 font-semibold mb-2">Opening room in</div>
         <div className="display text-9xl text-black">{count || '*'}</div>
-        {roomLabel && <div className="text-sm text-neutral-500 mt-4">your room: <span className="font-semibold text-black">* {roomLabel} *</span></div>}
+        {roomLabel && <div className="text-sm text-neutral-500 mt-4">Your room: <span className="font-semibold text-black">* {roomLabel} *</span></div>}
       </div>
 
       {prompt && (
         <div className="mt-8 max-w-md text-center px-5 py-3 rounded" style={{ background: 'rgba(1,236,243,0.18)', border: '1px solid rgba(1,236,243,0.5)' }}>
-          <div className="text-[10px] uppercase tracking-widest font-bold mb-1 text-neutral-600">this round's prompt</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold mb-1 text-neutral-600">This round's prompt</div>
           <div className="display text-base">{prompt}</div>
         </div>
       )}
@@ -1784,7 +1784,7 @@ function DeviceCheckCard({ sessionId }) {
 
   return (
     <div className="mt-8 max-w-sm mx-auto text-left rounded-lg p-4 bg-white border border-neutral-200">
-      <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 mb-3">quick check · mic &amp; camera</div>
+      <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 mb-3">Quick check · mic &amp; camera</div>
       <div className="space-y-2 mb-3">
         {chip('microphone', mic)}
         {chip('camera', cam)}
@@ -1796,28 +1796,28 @@ function DeviceCheckCard({ sessionId }) {
             <div className="h-full" style={{ width: `${Math.round(level * 100)}%`, background: '#01ecf3', transition: 'width 100ms' }} />
           </div>
           <p className="text-xs text-neutral-600 mt-1.5">
-            {heard === 'listening' && "say something — we're listening..."}
+            {heard === 'listening' && "Say something — we're listening..."}
             {heard === 'yes' && 'we can hear you ✓'}
-            {heard === 'no' && "we didn't pick up any sound. if you spoke, try the device menu once you're in, or check that no other app is using your mic."}
+            {heard === 'no' && "we didn't pick up any sound. If you spoke, try the device menu once you're in, or check that no other app is using your mic."}
           </p>
         </div>
       )}
 
       {blocked && (
         <div className="rounded p-3 mb-3 text-xs" style={{ background: '#fff7e6', border: '1px solid #d97706' }}>
-          <p className="font-bold mb-1">your browser is blocking {mic === 'denied' && cam === 'denied' ? 'your mic and camera' : mic === 'denied' ? 'your mic' : 'your camera'}.</p>
-          <p>click the 🔒 or ⓘ icon in your address bar, set it to <strong>Allow</strong>, then check again. no refresh needed.</p>
+          <p className="font-bold mb-1">Your browser is blocking {mic === 'denied' && cam === 'denied' ? 'your mic and camera' : mic === 'denied' ? 'your mic' : 'your camera'}.</p>
+          <p>Click the 🔒 or ⓘ icon in your address bar, set it to <strong>Allow</strong>, then check again. No refresh needed.</p>
         </div>
       )}
       {mic === 'none' && (
         <div className="rounded p-3 mb-3 text-xs" style={{ background: '#fff7e6', border: '1px solid #d97706' }}>
-          <p className="font-bold mb-1">we can't find a microphone on this device.</p>
-          <p>plug in a headset or mic, or try joining from your phone.</p>
+          <p className="font-bold mb-1">We can't find a microphone on this device.</p>
+          <p>Plug in a headset or mic, or try joining from your phone.</p>
         </div>
       )}
 
       {allGood ? (
-        <p className="text-xs font-bold text-center" style={{ color: '#166534' }}>you're all set — you'll be let in shortly.</p>
+        <p className="text-xs font-bold text-center" style={{ color: '#166534' }}>You're all set — you'll be let in shortly.</p>
       ) : (
         <button
           onClick={runTest}
@@ -1825,7 +1825,7 @@ function DeviceCheckCard({ sessionId }) {
           className="w-full py-2.5 rounded-md font-bold text-sm disabled:opacity-60"
           style={{ background: '#01ecf3', color: '#000' }}
         >
-          {testing ? 'checking...' : blocked || mic === 'prompt' ? 'check again →' : 'test my mic →'}
+          {testing ? 'Checking...' : blocked || mic === 'prompt' ? 'Check again →' : 'Test my mic →'}
         </button>
       )}
     </div>
@@ -1842,17 +1842,17 @@ function WaitingRoomView({ session, myName, onFlag }) {
     <main className="min-h-screen flex flex-col items-center justify-center p-6 relative" style={{ background: '#f4f4f1', color: '#000' }}>
       <div className="max-w-md w-full text-center">
         <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-2">
-          Good Chats · {session.name}
+          good chats · {session.name}
         </div>
         <div className="display text-5xl md:text-6xl mb-6">
-          hang tight <span style={{ color: '#01ecf3' }}>*</span>
+          Hang tight <span style={{ color: '#01ecf3' }}>*</span>
         </div>
         <p className="text-lg text-neutral-700 mb-2">
-          the host is getting things ready.
+          The host is getting things ready.
         </p>
         <p className="text-sm text-neutral-500 mb-8">
-          {myName ? `we'll call you ${myName.split(' ')[0]}.` : "we've got your info."}{' '}
-          you'll be let in shortly. keep this tab open.
+          {myName ? `We'll call you ${myName.split(' ')[0]}.` : "We've got your info."}{' '}
+          you'll be let in shortly. Keep this tab open.
         </p>
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full" style={{ background: 'rgba(1,236,243,0.18)' }}>
           <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#01ecf3' }}></span>
@@ -1865,7 +1865,7 @@ function WaitingRoomView({ session, myName, onFlag }) {
               onClick={onFlag}
               className="text-sm underline text-neutral-600 hover:text-black"
             >
-              need to tell the host something? send a note →
+              Need to tell the host something? Send a note →
             </button>
           </div>
         )}
@@ -1884,7 +1884,7 @@ function BroadcastBanner({ text }) {
       className="fixed top-0 left-0 right-0 z-40 px-4 py-2 text-center text-sm font-semibold shadow"
       style={{ background: '#01ecf3', color: '#000' }}
     >
-      <span className="text-[10px] uppercase tracking-widest font-bold mr-2 opacity-60">host *</span>
+      <span className="text-[10px] uppercase tracking-widest font-bold mr-2 opacity-60">Host *</span>
       {text}
     </div>
   );
@@ -1904,7 +1904,7 @@ function DirectMessageBanner({ text, onClose, onReply, action, onUnmute }) {
         <button
           onClick={onClose}
           className="text-lg leading-none text-neutral-500 hover:text-black flex-shrink-0"
-          title="dismiss"
+          title="Dismiss"
         >
           ×
         </button>
@@ -1926,7 +1926,7 @@ function DirectMessageBanner({ text, onClose, onReply, action, onUnmute }) {
             className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded"
             style={{ background: '#d97706', color: '#fff' }}
           >
-            reply →
+            Reply →
           </button>
           )}
         </div>
@@ -1959,29 +1959,29 @@ function FlagComposerModal({ onClose, onSend }) {
     >
       <div className="bg-white rounded-md p-5 max-w-md w-full sticker" style={{ color: '#000' }}>
         <div className="flex items-center justify-between mb-1">
-          <div className="display text-xl">message the host</div>
+          <div className="display text-xl">Message the host</div>
           <button onClick={onClose} className="text-xl text-neutral-500 hover:text-black leading-none">×</button>
         </div>
-        <p className="text-xs text-neutral-500 mb-3">[only the host sees this · optional text]</p>
+        <p className="text-xs text-neutral-500 mb-3">[Only the host sees this · optional text]</p>
         <form onSubmit={submit} className="space-y-3">
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="what do you need? (you can leave this blank · the host will see your flag)"
+            placeholder="What do you need? (you can leave this blank · the host will see your flag)"
             rows={3}
             maxLength={500}
             autoFocus
             className="w-full border-2 border-black rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-wafg-cyan resize-none"
           />
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={onClose} disabled={busy} className="px-3 py-1.5 text-sm underline text-neutral-600 hover:text-black">cancel</button>
+            <button type="button" onClick={onClose} disabled={busy} className="px-3 py-1.5 text-sm underline text-neutral-600 hover:text-black">Cancel</button>
             <button
               type="submit"
               disabled={busy}
               className="px-4 py-1.5 rounded-md text-sm font-bold disabled:opacity-50"
               style={{ background: '#d97706', color: '#fff' }}
             >
-              {busy ? 'sending...' : '🚩 send flag'}
+              {busy ? 'Sending...' : '🚩 send flag'}
             </button>
           </div>
         </form>
@@ -2038,11 +2038,11 @@ function EditProfileModal({ session, initialName, initialLinkedin, callObject, o
       onClick={(e) => { if (e.target === e.currentTarget) onClose(false); }}
     >
       <div className="bg-white rounded-md p-6 max-w-md w-full sticker" style={{ color: '#000' }}>
-        <div className="display text-2xl mb-1">edit your info</div>
-        <p className="text-xs text-neutral-500 mb-4">[updates this session and your saved profile]</p>
+        <div className="display text-2xl mb-1">Edit your info</div>
+        <p className="text-xs text-neutral-500 mb-4">[Updates this session and your saved profile]</p>
         <form onSubmit={save} className="space-y-3">
           <label className="block">
-            <div className="text-sm font-semibold mb-1">name</div>
+            <div className="text-sm font-semibold mb-1">Name</div>
             <input
               type="text"
               value={name}
@@ -2053,7 +2053,7 @@ function EditProfileModal({ session, initialName, initialLinkedin, callObject, o
             />
           </label>
           <label className="block">
-            <div className="text-sm font-semibold mb-1">linkedin</div>
+            <div className="text-sm font-semibold mb-1">Linkedin</div>
             <input
               type="text"
               value={linkedin}
@@ -2072,14 +2072,14 @@ function EditProfileModal({ session, initialName, initialLinkedin, callObject, o
               disabled={busy}
               className="px-4 py-2 text-sm font-semibold underline text-neutral-600 hover:text-black"
             >
-              cancel
+              Cancel
             </button>
             <button
               type="submit"
               disabled={busy || !name.trim() || !linkedin.trim()}
               className="btn-cyan px-5 py-2 rounded-md text-sm font-bold disabled:opacity-50"
             >
-              {busy ? 'saving...' : 'save *'}
+              {busy ? 'Saving...' : 'Save *'}
             </button>
           </div>
         </form>
@@ -2111,23 +2111,23 @@ function EndedView({ session }) {
   return (
     <main className="min-h-screen p-6 md:p-12" style={{ background: '#01ecf3', color: '#000' }}>
       <div className="max-w-2xl mx-auto">
-        <div className="display text-5xl md:text-7xl mb-4">that's a wrap.</div>
+        <div className="display text-5xl md:text-7xl mb-4">That's a wrap.</div>
         <p className="text-lg mb-1">good chats happened.</p>
 
-        {loading && <p className="text-sm opacity-70 mt-6">[pulling your recap...]</p>}
+        {loading && <p className="text-sm opacity-70 mt-6">[Pulling your recap...]</p>}
 
         {!loading && failed && (
           <div className="bg-white rounded-md p-5 sticker mt-8" style={{ color: '#000' }}>
-            <div className="font-semibold">couldn't load your recap right now.</div>
+            <div className="font-semibold">Couldn't load your recap right now.</div>
             <p className="text-sm text-neutral-600 mt-1">
-              no worries — a recap email is still on its way to you with your captures and their linkedin links.
+              No worries — a recap email is still on its way to you with your captures and their LinkedIn links.
             </p>
             <button
               type="button"
               onClick={() => setRetryKey((k) => k + 1)}
               className="mt-3 text-sm underline text-neutral-700 hover:text-black"
             >
-              try again →
+              Try again →
             </button>
           </div>
         )}
@@ -2139,22 +2139,22 @@ function EndedView({ session }) {
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-black text-white rounded-md p-4">
                 <div className="display text-3xl">{recap.captures.length}</div>
-                <div className="text-[10px] uppercase tracking-widest font-bold mt-1 opacity-60" style={{ color: '#01ecf3' }}>you captured</div>
+                <div className="text-[10px] uppercase tracking-widest font-bold mt-1 opacity-60" style={{ color: '#01ecf3' }}>You captured</div>
               </div>
               <div className="bg-black text-white rounded-md p-4">
                 <div className="display text-3xl">{recap.captured_by_count}</div>
-                <div className="text-[10px] uppercase tracking-widest font-bold mt-1 opacity-60" style={{ color: '#01ecf3' }}>captured you</div>
+                <div className="text-[10px] uppercase tracking-widest font-bold mt-1 opacity-60" style={{ color: '#01ecf3' }}>Captured you</div>
               </div>
               <div className="bg-black text-white rounded-md p-4">
                 <div className="display text-3xl">{recap.mutual_capture_count}</div>
-                <div className="text-[10px] uppercase tracking-widest font-bold mt-1 opacity-60" style={{ color: '#01ecf3' }}>mutual</div>
+                <div className="text-[10px] uppercase tracking-widest font-bold mt-1 opacity-60" style={{ color: '#01ecf3' }}>Mutual</div>
               </div>
             </div>
 
             {/* captures list */}
             {recap.captures.length > 0 ? (
               <div className="bg-white rounded-md p-5 sticker">
-                <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">people you wanted to stay in touch with</div>
+                <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">People you wanted to stay in touch with</div>
                 <ul className="divide-y divide-neutral-200">
                   {recap.captures.map((c) => (
                     <li key={c.id} className="py-3 flex items-center justify-between gap-3">
@@ -2170,7 +2170,7 @@ function EndedView({ session }) {
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-bold no-underline"
                             style={{ background: '#0a66c2', color: '#fff' }}
                           >
-                            <span>linkedin</span><span>→</span>
+                            <span>Linkedin</span><span>→</span>
                           </a>
                         )}
                       </div>
@@ -2178,21 +2178,21 @@ function EndedView({ session }) {
                   ))}
                 </ul>
                 <p className="text-xs text-neutral-500 mt-4">
-                  [a recap email is on its way to you · names + linkedin links included]
+                  [A recap email is on its way to you · names + LinkedIn links included]
                 </p>
               </div>
             ) : (
               <div className="bg-white rounded-md p-5 sticker">
-                <div className="font-semibold">no captures this time.</div>
-                <p className="text-sm text-neutral-600 mt-1">[next session, tap the heart on someone you want to stay in touch with]</p>
+                <div className="font-semibold">No captures this time.</div>
+                <p className="text-sm text-neutral-600 mt-1">[Next session, tap the heart on someone you want to stay in touch with]</p>
               </div>
             )}
           </div>
         )}
 
-        <p className="script text-3xl mt-10">what starts here, ripples →</p>
+        <p className="script text-3xl mt-10">What starts here, ripples →</p>
         <div className="mt-8 flex items-center gap-4 text-sm">
-          <a href="/profile" className="underline font-semibold">your profile · see your history →</a>
+          <a href="/profile" className="underline font-semibold">Your profile · see your history →</a>
           <a href="/" className="underline">close out</a>
         </div>
       </div>

@@ -17,13 +17,13 @@ export const dynamic = 'force-dynamic';
 // 30 days) and counts the visit once per browser.
 export async function POST(request) {
   if (!(await rateLimitByIp(request, 'referral-visit', { limit: 60, windowSeconds: 60 }))) {
-    return new NextResponse('too many requests', { status: 429 });
+    return new NextResponse('Too many requests', { status: 429 });
   }
   let code;
   try {
     code = String((await request.json())?.code || '');
   } catch {
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
   if (!INVITE_CODE_RE.test(code)) return NextResponse.json({ ok: true }); // unknown: say nothing
 

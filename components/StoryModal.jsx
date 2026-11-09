@@ -49,7 +49,7 @@ export default function StoryModal({ onClose }) {
           <button
             onClick={onClose}
             className="text-2xl text-neutral-500 hover:text-black leading-none px-2"
-            title="close"
+            title="Close"
           >
             ×
           </button>
@@ -76,7 +76,7 @@ export default function StoryModal({ onClose }) {
 
         {/* footer hint · subtle scroll instruction */}
         <div className="px-5 py-3 border-t border-neutral-200 text-center text-xs text-neutral-500 flex-shrink-0">
-          [scroll left and right to flip through the chapters]
+          [Scroll left and right to flip through the chapters]
         </div>
       </div>
     </div>
@@ -119,7 +119,7 @@ function StoryCard({ version, isLast }) {
             className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded"
             style={{ background: '#01ecf3', color: '#000' }}
           >
-            you are here
+            You are here
           </span>
         )}
       </div>
@@ -139,7 +139,7 @@ function StoryCard({ version, isLast }) {
 
       {!isLast && (
         <div className="mt-auto pt-4 text-right text-[10px] uppercase tracking-widest font-bold text-neutral-400">
-          and then →
+          And then →
         </div>
       )}
     </div>

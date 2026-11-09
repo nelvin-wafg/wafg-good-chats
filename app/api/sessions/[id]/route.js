@@ -20,7 +20,7 @@ export const maxDuration = 60;
 // only draft or pre-round (live, no rounds started) sessions can be edited.
 export async function PATCH(request, { params }) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('not an approved host', { status: 403 });
+  if (!auth) return new NextResponse('Not an approved host', { status: 403 });
 
   let name, code, roundsTotal, roundSeconds, prompts, startNow, isPublished, startsAt, notifyList, hasPublishedKey, hasStartsAtKey, hasNotifyListKey;
   try {
@@ -48,7 +48,7 @@ export async function PATCH(request, { params }) {
     }
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const admin = adminClient();
@@ -57,9 +57,9 @@ export async function PATCH(request, { params }) {
     .select('id, status, main_room_name, metadata')
     .eq('id', params.id)
     .maybeSingle();
-  if (!session) return new NextResponse('session not found', { status: 404 });
+  if (!session) return new NextResponse('Session not found', { status: 404 });
   if (session.status !== 'draft' && session.status !== 'live') {
-    return new NextResponse('this session has already started · can only edit drafts', { status: 400 });
+    return new NextResponse('This session has already started · can only edit drafts', { status: 400 });
   }
 
   // merge metadata so we don't clobber broadcast / other server-side keys
@@ -102,9 +102,9 @@ export async function PATCH(request, { params }) {
   const { error } = await admin.from('sessions').update(updates).eq('id', session.id);
   if (error) {
     if (error.code === '23505') {
-      return new NextResponse('that code is already in use · pick a different slug', { status: 409 });
+      return new NextResponse('That code is already in use · pick a different slug', { status: 409 });
     }
-    return new NextResponse('could not update session', { status: 500 });
+    return new NextResponse('Could not update session', { status: 500 });
   }
 
   // wait for the sends (fire-and-forget got dropped when the function froze after
@@ -144,7 +144,7 @@ export async function PATCH(request, { params }) {
 // also cleans up any active daily.co rooms.
 export async function DELETE(_request, { params }) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   const admin = adminClient();
   const { data: session } = await admin
@@ -152,13 +152,13 @@ export async function DELETE(_request, { params }) {
     .select('id, code, name, host_id, main_room_name')
     .eq('id', params.id)
     .maybeSingle();
-  if (!session) return new NextResponse('session not found', { status: 404 });
+  if (!session) return new NextResponse('Session not found', { status: 404 });
 
   // delete is destructive · only the creator or an admin can do it.
   // other co-hosts can manage the session live but can't permanently destroy data.
   const isCreator = session.host_id === auth.user.id;
   if (!isCreator && !auth.host.is_admin) {
-    return new NextResponse('only the host who created this session (or an admin) can delete it', { status: 403 });
+    return new NextResponse('Only the host who created this session (or an admin) can delete it', { status: 403 });
   }
 
   // log BEFORE deleting: the FK requires the session to still exist at insert

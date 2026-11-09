@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 // they're an admin.
 export async function GET() {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
   const userId = auth.user.id;
   const isAdmin = Boolean(auth.host.is_admin);
 

@@ -4,27 +4,27 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { showToast } from '@/components/Toast';
 
 const PROMPT_LIBRARY = [
-  { tag: 'opener', text: 'what brought you to the for-good world?' },
-  { tag: 'opener', text: 'what are you working on that you actually love?' },
-  { tag: 'opener', text: 'what made you fall for this work in the first place?' },
-  { tag: 'opener', text: "what's a story you tell over and over about why you do this?" },
-  { tag: 'deep', text: "what's a recent thing you changed your mind about?" },
-  { tag: 'deep', text: "what are you doing next that scares you a little?" },
-  { tag: 'deep', text: "what's an old assumption about our sector you've outgrown?" },
-  { tag: 'deep', text: 'what does success look like to you now, versus five years ago?' },
-  { tag: 'vulnerable', text: "what's been hard lately, professionally or otherwise?" },
-  { tag: 'vulnerable', text: 'what part of this job do you find lonely?' },
-  { tag: 'vulnerable', text: "what's a moment in this work that humbled you?" },
-  { tag: 'story', text: 'tell me about a time someone in our sector showed up for you.' },
-  { tag: 'story', text: 'tell me about a person who taught you something about this work.' },
-  { tag: 'story', text: 'tell me about a time you got something really wrong, and what came of it.' },
-  { tag: 'spicy', text: "what's a take you have about our sector that nobody asks for?" },
-  { tag: 'spicy', text: 'what is something nonprofits should stop apologizing for?' },
-  { tag: 'fun', text: "if you weren't doing this work, what would you be doing?" },
-  { tag: 'fun', text: "what's the best thing you've eaten this month?" },
-  { tag: 'fun', text: "what's a totally non-work thing you've been geeking out on lately?" },
-  { tag: 'closer', text: 'who in this room should i meet next? why?' },
-  { tag: 'closer', text: "what's something you're trying to make happen that someone here might help with?" },
+  { tag: 'opener', text: 'What brought you to the for-good world?' },
+  { tag: 'opener', text: 'What are you working on that you actually love?' },
+  { tag: 'opener', text: 'What made you fall for this work in the first place?' },
+  { tag: 'opener', text: "What's a story you tell over and over about why you do this?" },
+  { tag: 'deep', text: "What's a recent thing you changed your mind about?" },
+  { tag: 'deep', text: "What are you doing next that scares you a little?" },
+  { tag: 'deep', text: "What's an old assumption about our sector you've outgrown?" },
+  { tag: 'deep', text: 'What does success look like to you now, versus five years ago?' },
+  { tag: 'vulnerable', text: "What's been hard lately, professionally or otherwise?" },
+  { tag: 'vulnerable', text: 'What part of this job do you find lonely?' },
+  { tag: 'vulnerable', text: "What's a moment in this work that humbled you?" },
+  { tag: 'story', text: 'Tell me about a time someone in our sector showed up for you.' },
+  { tag: 'story', text: 'Tell me about a person who taught you something about this work.' },
+  { tag: 'story', text: 'Tell me about a time you got something really wrong, and what came of it.' },
+  { tag: 'spicy', text: "What's a take you have about our sector that nobody asks for?" },
+  { tag: 'spicy', text: 'What is something nonprofits should stop apologizing for?' },
+  { tag: 'fun', text: "If you weren't doing this work, what would you be doing?" },
+  { tag: 'fun', text: "What's the best thing you've eaten this month?" },
+  { tag: 'fun', text: "What's a totally non-work thing you've been geeking out on lately?" },
+  { tag: 'closer', text: 'Who in this room should I meet next? Why?' },
+  { tag: 'closer', text: "What's something you're trying to make happen that someone here might help with?" },
 ];
 
 function NewSessionInner() {
@@ -86,12 +86,12 @@ function NewSessionInner() {
             }
           }
         } else {
-          showToast("couldn't load that draft", 'error');
+          showToast("Couldn't load that draft", 'error');
         }
         setLoadingDraft(false);
       })
       .catch(() => {
-        showToast("couldn't load that draft", 'error');
+        showToast("Couldn't load that draft", 'error');
         setLoadingDraft(false);
       });
     return () => { cancelled = true; };
@@ -160,9 +160,9 @@ function NewSessionInner() {
       const { id, notify } = await res.json();
       // the announcement now reports what actually happened instead of failing silently
       if (notify) {
-        if (notify.error) showToast("saved · but the announcement emails couldn't be sent. save again to retry.", 'error');
-        else if (notify.attempted === 0) showToast('saved · nobody is waiting on the notify list right now', 'success');
-        else showToast(`announcement emailed to ${notify.sent} ${notify.sent === 1 ? 'person' : 'people'}${notify.failed ? ` · ${notify.failed} failed (will retry next time)` : ''}${notify.more ? ' · more are waiting, save again to send the rest' : ''}`, notify.failed || notify.more ? 'error' : 'success');
+        if (notify.error) showToast("Saved · but the announcement emails couldn't be sent. Save again to retry.", 'error');
+        else if (notify.attempted === 0) showToast('Saved · nobody is waiting on the notify list right now', 'success');
+        else showToast(`Announcement emailed to ${notify.sent} ${notify.sent === 1 ? 'person' : 'people'}${notify.failed ? ` · ${notify.failed} failed (will retry next time)` : ''}${notify.more ? ' · more are waiting, save again to send the rest' : ''}`, notify.failed || notify.more ? 'error' : 'success');
       }
       router.push(startNow ? `/host/s/${id || editId}` : '/host');
     } catch (e) {
@@ -174,7 +174,7 @@ function NewSessionInner() {
   if (loadingDraft) {
     return (
       <main className="min-h-screen p-8 max-w-4xl mx-auto" style={{ background: '#f4f4f1' }}>
-        <p className="text-neutral-500">[loading draft...]</p>
+        <p className="text-neutral-500">[Loading draft...]</p>
       </main>
     );
   }
@@ -183,11 +183,11 @@ function NewSessionInner() {
     <main className="min-h-screen p-8 max-w-4xl mx-auto" style={{ background: '#f4f4f1' }}>
       <header className="mb-8">
         <a href="/host" className="text-sm underline text-neutral-600">← back to dashboard</a>
-        <div className="display text-4xl mt-3">{isEditing ? 'edit' : 'new'} Good Chats <span style={{ color: '#01ecf3' }}>*</span></div>
+        <div className="display text-4xl mt-3">{isEditing ? 'Edit' : 'New'} good chats <span style={{ color: '#01ecf3' }}>*</span></div>
         <div className="flex gap-1 mt-3">
-          <Step n={1} active={step === 1} done={step > 1} label="basics" />
-          <Step n={2} active={step === 2} done={step > 2} label="rhythm" />
-          <Step n={3} active={step === 3} done={false} label="prompts" />
+          <Step n={1} active={step === 1} done={step > 1} label="Basics" />
+          <Step n={2} active={step === 2} done={step > 2} label="Rhythm" />
+          <Step n={3} active={step === 3} done={false} label="Prompts" />
         </div>
       </header>
 
@@ -196,13 +196,13 @@ function NewSessionInner() {
         <div className="space-y-6">
           {step === 1 && (
             <div className="sticker bg-white rounded-md p-6">
-              <h2 className="display text-xl mb-4">basics</h2>
-              <Field label="event name">
-                <input type="text" value={name} onChange={(e) => nameChange(e.target.value)} placeholder="november gather" className="w-full border-2 border-black rounded px-4 py-3 text-base" />
+              <h2 className="display text-xl mb-4">Basics</h2>
+              <Field label="Event name">
+                <input type="text" value={name} onChange={(e) => nameChange(e.target.value)} placeholder="November gather" className="w-full border-2 border-black rounded px-4 py-3 text-base" />
               </Field>
-              <Field label="shareable link slug">
+              <Field label="Shareable link slug">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-neutral-500">wafg.app/r/</span>
+                  <span className="text-sm text-neutral-500">WAFG.app/r/</span>
                   <input
                     type="text"
                     value={code}
@@ -212,25 +212,25 @@ function NewSessionInner() {
                   />
                 </div>
                 {codeAvailable === false ? (
-                  <p className="text-xs text-red-600 mt-2 font-semibold">[that slug is already in use · try a different one]</p>
+                  <p className="text-xs text-red-600 mt-2 font-semibold">[That slug is already in use · try a different one]</p>
                 ) : codeAvailable === true ? (
-                  <p className="text-xs text-green-700 mt-2">[available ✓]</p>
+                  <p className="text-xs text-green-700 mt-2">[Available ✓]</p>
                 ) : (
-                  <p className="text-xs text-neutral-500 mt-2">[this is the link you'll share on the event page]</p>
+                  <p className="text-xs text-neutral-500 mt-2">[This is the link you'll share on the event page]</p>
                 )}
               </Field>
 
-              <Field label="when does it start? (optional)">
+              <Field label="When does it start? (optional)">
                 <input
                   type="datetime-local"
                   value={startsAt}
                   onChange={(e) => setStartsAt(e.target.value)}
                   className="border-2 border-black rounded px-4 py-3 text-base"
                 />
-                <p className="text-xs text-neutral-500 mt-2">[your local time · {Intl.DateTimeFormat().resolvedOptions().timeZone} · shown on the public landing page if you publish below · leave blank for "TBD"]</p>
+                <p className="text-xs text-neutral-500 mt-2">[Your local time · {Intl.DateTimeFormat().resolvedOptions().timeZone} · shown on the public landing page if you publish below · leave blank for "TBD"]</p>
               </Field>
 
-              <Field label="show this on the public landing page">
+              <Field label="Show this on the public landing page">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -239,16 +239,16 @@ function NewSessionInner() {
                     className="mt-1 w-5 h-5 accent-wafg-cyan"
                   />
                   <span className="text-sm">
-                    <strong>publish to the landing page</strong>{' '}
-                    <span className="text-neutral-500">— anyone visiting goodchats.weareforgood.com will see this session and can click through to join. uncheck for invite-only.</span>
+                    <strong>Publish to the landing page</strong>{' '}
+                    <span className="text-neutral-500">— anyone visiting goodchats.weareforgood.com will see this session and can click through to join. Uncheck for invite-only.</span>
                   </span>
                 </label>
               </Field>
 
-              <Field label="email your notify list">
+              <Field label="Email your notify list">
                 {notifySentAt ? (
                   <p className="text-sm text-neutral-500 italic">
-                    [already sent to your notify list on {new Date(notifySentAt).toLocaleDateString()} · can't resend for this session]
+                    [Already sent to your notify list on {new Date(notifySentAt).toLocaleDateString()} · can't resend for this session]
                   </p>
                 ) : (
                   <label className="flex items-start gap-3 cursor-pointer">
@@ -259,45 +259,45 @@ function NewSessionInner() {
                       className="mt-1 w-5 h-5 accent-red-500"
                     />
                     <span className="text-sm">
-                      <strong>announce this to everyone on the notify list</strong>{' '}
-                      <span className="text-neutral-500">— sends a real email to everyone who signed up on the landing page waiting to hear about the next session. only check this for the real thing · fires once, when you save.</span>
+                      <strong>Announce this to everyone on the notify list</strong>{' '}
+                      <span className="text-neutral-500">— sends a real email to everyone who signed up on the landing page waiting to hear about the next session. Only check this for the real thing · fires once, when you save.</span>
                     </span>
                   </label>
                 )}
               </Field>
 
               <div className="flex justify-end mt-4">
-                <button onClick={() => setStep(2)} disabled={!name || !code} className="btn-cyan px-6 py-3 rounded-md disabled:opacity-50">next: rhythm →</button>
+                <button onClick={() => setStep(2)} disabled={!name || !code} className="btn-cyan px-6 py-3 rounded-md disabled:opacity-50">Next: rhythm →</button>
               </div>
             </div>
           )}
 
           {step === 2 && (
             <div className="sticker bg-white rounded-md p-6">
-              <h2 className="display text-xl mb-4">rhythm</h2>
-              <Field label="max rounds">
+              <h2 className="display text-xl mb-4">Rhythm</h2>
+              <Field label="Max rounds">
                 <input type="number" min={2} max={20} value={rounds} onChange={(e) => setRounds(parseInt(e.target.value) || 8)} className="w-32 border-2 border-black rounded px-4 py-3 text-base" />
                 <p className="text-xs text-neutral-500 mt-2">
-                  [ceiling · we auto-cap based on attendance to keep every pairing unique. with 10 people you'll get 9 rounds; with 6 people, 5.]
+                  [Ceiling · we auto-cap based on attendance to keep every pairing unique. With 10 people you'll get 9 rounds; with 6 people, 5.]
                 </p>
               </Field>
-              <Field label="minutes per round">
+              <Field label="Minutes per round">
                 <input type="number" min={2} max={15} value={perRound} onChange={(e) => setPerRound(parseInt(e.target.value) || 7)} className="w-32 border-2 border-black rounded px-4 py-3 text-base" />
               </Field>
               <p className="text-sm text-neutral-600 mt-2">
-                up to ~{Math.round(rounds * (perRound + 0.5) + 5)} minutes [includes break + intro/closing] · usually shorter once auto-capped to attendance
+                Up to ~{Math.round(rounds * (perRound + 0.5) + 5)} minutes [includes break + intro/closing] · usually shorter once auto-capped to attendance
               </p>
               <div className="flex justify-between mt-6">
                 <button onClick={() => setStep(1)} className="text-sm underline">← back</button>
-                <button onClick={() => setStep(3)} className="btn-cyan px-6 py-3 rounded-md">next: prompts →</button>
+                <button onClick={() => setStep(3)} className="btn-cyan px-6 py-3 rounded-md">Next: prompts →</button>
               </div>
             </div>
           )}
 
           {step === 3 && (
             <div className="sticker bg-white rounded-md p-6">
-              <h2 className="display text-xl mb-4">prompts</h2>
-              <p className="text-sm text-neutral-600 mb-4">pick at least <strong>{rounds}</strong> · one drops per round.</p>
+              <h2 className="display text-xl mb-4">Prompts</h2>
+              <p className="text-sm text-neutral-600 mb-4">Pick at least <strong>{rounds}</strong> · one drops per round.</p>
 
               <div className="space-y-2 mb-6 max-h-96 overflow-y-auto">
                 {PROMPT_LIBRARY.map((p) => (
@@ -316,7 +316,7 @@ function NewSessionInner() {
               {/* custom prompts (selected but not in the library) · shown as removable chips */}
               {selected.filter((t) => !PROMPT_LIBRARY.some((p) => p.text === t)).length > 0 && (
                 <div className="mb-4">
-                  <div className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">your custom prompts</div>
+                  <div className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Your custom prompts</div>
                   <div className="space-y-2">
                     {selected.filter((t) => !PROMPT_LIBRARY.some((p) => p.text === t)).map((t) => (
                       <div key={t} className="flex items-center justify-between gap-2 p-3 rounded border-2 border-black" style={{ background: '#01ecf3' }}>
@@ -324,9 +324,9 @@ function NewSessionInner() {
                         <button
                           onClick={() => setSelected((s) => s.filter((x) => x !== t))}
                           className="text-xs font-bold underline whitespace-nowrap"
-                          title="remove"
+                          title="Remove"
                         >
-                          remove
+                          Remove
                         </button>
                       </div>
                     ))}
@@ -334,10 +334,10 @@ function NewSessionInner() {
                 </div>
               )}
 
-              <Field label="add a custom prompt">
+              <Field label="Add a custom prompt">
                 <div className="flex gap-2">
-                  <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="your prompt here..." className="flex-1 border-2 border-black rounded px-4 py-2 text-base" />
-                  <button onClick={addCustom} className="btn-black px-4 rounded">add *</button>
+                  <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Your prompt here..." className="flex-1 border-2 border-black rounded px-4 py-2 text-base" />
+                  <button onClick={addCustom} className="btn-black px-4 rounded">Add *</button>
                 </div>
               </Field>
 
@@ -345,10 +345,10 @@ function NewSessionInner() {
                 <button onClick={() => setStep(2)} className="text-sm underline">← back</button>
                 <div className="flex gap-3">
                   <button onClick={() => handlePublish(false)} disabled={submitting || selected.length < rounds} className="px-6 py-3 rounded-md border-2 border-black bg-white disabled:opacity-50 font-semibold">
-                    {isEditing ? 'save changes' : isPublished ? 'save + publish *' : 'save as draft'}
+                    {isEditing ? 'Save changes' : isPublished ? 'Save + publish *' : 'Save as draft'}
                   </button>
                   <button onClick={() => handlePublish(true)} disabled={submitting || selected.length < rounds} className="btn-cyan px-6 py-3 rounded-md disabled:opacity-50">
-                    {submitting ? 'working...' : 'go live now *'}
+                    {submitting ? 'Working...' : 'Go live now *'}
                   </button>
                 </div>
               </div>
@@ -359,8 +359,8 @@ function NewSessionInner() {
 
         {/* preview rail */}
         <aside className="bg-white sticker-sm rounded-md p-5 sticky top-8 self-start">
-          <div className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">preview</div>
-          <div className="display text-2xl mb-3">{name || 'untitled'}</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Preview</div>
+          <div className="display text-2xl mb-3">{name || 'Untitled'}</div>
           <div className="text-xs text-neutral-500 mb-4 font-mono break-all">/r/{code || 'slug'}</div>
           <div className="text-sm space-y-1 text-neutral-700">
             <div>{rounds} rounds · {perRound} min each</div>

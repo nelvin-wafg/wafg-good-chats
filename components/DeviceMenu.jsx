@@ -72,8 +72,8 @@ export default function DeviceMenu({ kind, daily, theme = 'dark', connected = fa
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={`px-2.5 py-2 text-xs font-semibold ${connected ? 'rounded-r-full' : ''} ${arrowClass}`}
-        title={`choose ${labelKind}`}
-        aria-label={`choose ${labelKind}`}
+        title={`Choose ${labelKind}`}
+        aria-label={`Choose ${labelKind}`}
       >
         <span aria-hidden="true">▾</span>
       </button>
@@ -84,14 +84,14 @@ export default function DeviceMenu({ kind, daily, theme = 'dark', connected = fa
             type="button"
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-40 cursor-default"
-            aria-label="close menu"
+            aria-label="Close menu"
           />
           <div className={`absolute bottom-full mb-2 right-0 z-50 rounded-md p-1 min-w-[220px] max-w-[320px] ${menuClass}`}>
             <div className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 opacity-60">
               {labelKind}
             </div>
             {devices.length === 0 && (
-              <div className="px-2 py-2 text-xs italic opacity-60">[no devices found]</div>
+              <div className="px-2 py-2 text-xs italic opacity-60">[No devices found]</div>
             )}
             {devices.map((d) => (
               <button

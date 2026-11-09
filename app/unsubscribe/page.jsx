@@ -2,7 +2,7 @@ import { verifyUnsubscribeToken, maskEmail } from '@/lib/unsubscribe';
 import UnsubscribeForm from './UnsubscribeForm';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Unsubscribe · Good Chats', robots: { index: false, follow: false } };
+export const metadata = { title: 'Unsubscribe · good chats', robots: { index: false, follow: false } };
 
 // /unsubscribe?t=<signed token>
 // shows who the link is for and asks for one click. it never unsubscribes on load (email
@@ -20,11 +20,11 @@ export default function UnsubscribePage({ searchParams }) {
     return (
       <main className="min-h-screen flex items-center justify-center p-6" style={{ background: '#f4f4f1' }}>
         <div className="max-w-md text-center">
-          <div className="display text-4xl mb-3">that link<br />isn't valid.</div>
+          <div className="display text-4xl mb-3">That link<br />Isn't valid.</div>
           <p className="text-neutral-600 mb-6">
-            [it may have been cut off when copied. open the unsubscribe link from the email again, or reply to the email and we'll take care of it.]
+            [It may have been cut off when copied. Open the unsubscribe link from the email again, or reply to the email and we'll take care of it.]
           </p>
-          <a href="/" className="text-sm underline">back home</a>
+          <a href="/" className="text-sm underline">Back home</a>
         </div>
       </main>
     );

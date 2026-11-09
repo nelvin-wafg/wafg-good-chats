@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 // Shared across approved hosts: covers every session, not just the caller's.
 export async function GET(request) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   const url = new URL(request.url);
   const kind = url.searchParams.get('kind');
@@ -26,7 +26,7 @@ export async function GET(request) {
       return NextResponse.json({ kind, rows, summary });
     } catch (e) {
       console.error('[details/notify] failed', e?.message || e);
-      return new NextResponse("couldn't load the notify list", { status: 500 });
+      return new NextResponse("Couldn't load the notify list", { status: 500 });
     }
   }
 
@@ -144,5 +144,5 @@ export async function GET(request) {
     return NextResponse.json({ kind, rows });
   }
 
-  return new NextResponse('unknown kind', { status: 400 });
+  return new NextResponse('Unknown kind', { status: 400 });
 }

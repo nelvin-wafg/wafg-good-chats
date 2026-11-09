@@ -13,10 +13,10 @@ export default function ViewModeToggle({ mode, onChange, theme = 'dark' }) {
     : 'text-neutral-500 hover:text-white';
 
   const modes = [
-    { id: 'gallery', label: 'gallery' },
-    { id: 'speaker', label: 'speaker' },
-    { id: 'large', label: 'large' },
-    { id: 'small', label: 'small' },
+    { id: 'gallery', label: 'Gallery' },
+    { id: 'speaker', label: 'Speaker' },
+    { id: 'large', label: 'Large' },
+    { id: 'small', label: 'Small' },
   ];
 
   return (

@@ -15,7 +15,7 @@ export async function GET(request, { params }) {
     sessionId = validateUuid(params.id, 'session id');
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const url = new URL(request.url);
@@ -28,12 +28,12 @@ export async function GET(request, { params }) {
     .eq('id', sessionId)
     .single();
 
-  if (!session) return new NextResponse('not found', { status: 404 });
+  if (!session) return new NextResponse('Not found', { status: 404 });
 
   // host view requires any approved host (co-host enabled).
   if (isHostView) {
     const auth = await getApprovedHost();
-    if (!auth) return new NextResponse('forbidden', { status: 403 });
+    if (!auth) return new NextResponse('Forbidden', { status: 403 });
   }
 
   // identify the calling participant (if any) from the cookie.

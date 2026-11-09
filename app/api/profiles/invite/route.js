@@ -14,10 +14,10 @@ const SITE = 'https://goodchats.weareforgood.com';
 // gets the generic page) and makes a new one. past credit stays: it is stored on the people who joined.
 export async function POST(request) {
   if (!(await rateLimitByIp(request, 'profile-invite', { limit: 20, windowSeconds: 60 }))) {
-    return new NextResponse('too many tries · give it a minute', { status: 429 });
+    return new NextResponse('Too many tries · give it a minute', { status: 429 });
   }
   const profileId = getTrustedProfileId(cookies());
-  if (!profileId) return new NextResponse('unauthorized', { status: 401 });
+  if (!profileId) return new NextResponse('Unauthorized', { status: 401 });
 
   let action = 'ensure';
   try { action = (await request.json())?.action === 'regenerate' ? 'regenerate' : 'ensure'; } catch {}
@@ -25,10 +25,10 @@ export async function POST(request) {
   const admin = adminClient();
   const { data: profile, error } = await admin.from('profiles').select('id, invite_code').eq('id', profileId).maybeSingle();
   if (error) {
-    if (isMissingSchema(error)) return new NextResponse('invites are not switched on yet', { status: 503 });
-    return new NextResponse("couldn't load your invite link", { status: 500 });
+    if (isMissingSchema(error)) return new NextResponse('Invites are not switched on yet', { status: 503 });
+    return new NextResponse("Couldn't load your invite link", { status: 500 });
   }
-  if (!profile) return new NextResponse('profile not found', { status: 404 });
+  if (!profile) return new NextResponse('Profile not found', { status: 404 });
 
   let code = profile.invite_code;
   if (!code || action === 'regenerate') {
@@ -39,7 +39,7 @@ export async function POST(request) {
       if (!upErr) { code = candidate; action = 'ensure'; }
     }
     if (!code || code === profile.invite_code && action === 'regenerate') {
-      return new NextResponse("couldn't make an invite link · try again", { status: 500 });
+      return new NextResponse("Couldn't make an invite link · try again", { status: 500 });
     }
   }
 

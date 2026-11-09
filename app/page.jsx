@@ -52,7 +52,7 @@ export default function Landing() {
             We Are For Good
           </div>
           <h1 className="display text-7xl md:text-9xl leading-none mb-6">
-            Good<span style={{ color: '#01ecf3' }}>*</span>Chats
+            good<span style={{ color: '#01ecf3' }}>*</span>chats
           </h1>
           <p className="text-xl md:text-2xl text-neutral-700">
             Seven-minute conversations, on purpose.
@@ -89,13 +89,13 @@ export default function Landing() {
           </div>
           <div className="space-y-4 text-lg text-neutral-700">
             <p>
-              Good Chats is built on a simple bet. The right seven-minute conversation, 1:1 with the right person, at the right moment, can ripple further than a year of random networking events.
+              good chats is built on a simple bet. The right seven-minute conversation, 1:1 with the right person, at the right moment, can ripple further than a year of random networking events.
             </p>
             <p>
               The We Are For Good community is full of people doing real work in their own corner of the world. Nonprofit leaders. Community builders. Impact storytellers. Funders. Founders. Designers. The kind of folks you keep meaning to introduce yourself to but never quite do.
             </p>
             <p className="display text-2xl md:text-3xl pt-2" style={{ color: '#000' }}>
-              Good Chats is the introduction.
+              good chats is the introduction.
             </p>
           </div>
         </div>
@@ -141,7 +141,7 @@ export default function Landing() {
             <div className="display text-2xl md:text-3xl leading-tight">
               Easy to stay
               <br />
-              in touch.
+              In touch.
             </div>
           </div>
           <div>
@@ -149,7 +149,7 @@ export default function Landing() {
               Tap to capture the people you want to stay in touch with. Your follow-up list is right there at the end of the session. Names and LinkedIn URLs, yours to follow up with.
             </p>
             <p className="script text-xl md:text-2xl" style={{ color: '#01ecf3' }}>
-              what starts here, ripples →
+              What starts here, ripples →
             </p>
           </div>
         </div>
@@ -170,7 +170,7 @@ export default function Landing() {
             <p className="text-sm text-neutral-600">
               We Are For Good is a community for nonprofit and social impact
               <br />
-              professionals who are changing the world.
+              Professionals who are changing the world.
             </p>
           </div>
         </div>
@@ -197,12 +197,12 @@ function NextSessionPill({ session, now }) {
     : null;
 
   const label = isLive
-    ? 'happening now'
+    ? 'Happening now'
     : win.gated && (now ?? Date.now()) < win.startsAtMs
-      ? `starts in ${formatCountdown(win.startsAtMs - (now ?? Date.now()))}`
+      ? `Starts in ${formatCountdown(win.startsAtMs - (now ?? Date.now()))}`
       : startsLabel
         ? startsLabel
-        : 'session coming up';
+        : 'Session coming up';
 
   return (
     <Link
@@ -358,12 +358,12 @@ function NotifyForm() {
 
         <label className="block">
           <div className="text-sm font-semibold mb-1">
-            What brought you here? <span className="text-neutral-500 font-normal">(optional)</span>
+            What brought you here? <span className="text-neutral-500 font-normal">(Optional)</span>
           </div>
           <textarea
             value={source}
             onChange={(e) => setSource(e.target.value)}
-            placeholder="a friend, the podcast, a session you heard about..."
+            placeholder="A friend, the podcast, a session you heard about..."
             maxLength={500}
             rows={2}
             className="w-full border-2 border-black rounded px-4 py-3 text-base resize-none focus:outline-none focus:ring-2 focus:ring-wafg-cyan"

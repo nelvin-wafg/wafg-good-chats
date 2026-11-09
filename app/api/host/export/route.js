@@ -8,7 +8,7 @@ import { toCSV, csvResponse } from '@/lib/csv';
 //             newsletter_opt_in, joined_at, left_at, captures_made, captures_received
 export async function GET() {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   const admin = adminClient();
   const { data: sessions = [] } = await admin

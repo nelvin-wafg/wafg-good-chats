@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 // counts of clicks are "at most this many people": a few email scanners open links on their own.
 export async function GET() {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
   const admin = adminClient();
   const out = { sessions: [], invites: { opened: 0, interested: 0, joined: 0 }, setupNeeded: { clicks: false, followups: false, invites: false } };
 

@@ -10,7 +10,7 @@ import { validateCode, ValidationError } from '@/lib/validate';
 // against everyone ELSE's code without flagging a session's own current code.
 export async function GET(request) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   const url = new URL(request.url);
   let code;
@@ -18,7 +18,7 @@ export async function GET(request) {
     code = validateCode(url.searchParams.get('code'));
   } catch (err) {
     if (err instanceof ValidationError) return NextResponse.json({ available: false, reason: err.message });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
   const excludeId = url.searchParams.get('excludeId');
 

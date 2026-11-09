@@ -313,7 +313,7 @@ export default function LiveControl({ session: initialSession }) {
   // the host views update immediately. they could still rejoin via the link.
   async function kickParticipant(participantId, participantName) {
     if (!participantId) return;
-    if (!confirm(`remove ${participantName || 'this person'} from the session?`)) return;
+    if (!confirm(`Remove ${participantName || 'this person'} from the session?`)) return;
     // 1 · daily eject (client-side · we have the call object here)
     if (callObject) {
       try {
@@ -338,14 +338,14 @@ export default function LiveControl({ session: initialSession }) {
         body: JSON.stringify({ participantId }),
       });
     } catch (e) {
-      showToast("couldn't fully remove · refresh host view", 'error');
+      showToast("Couldn't fully remove · refresh host view", 'error');
     }
   }
 
   // mute a participant: host-initiated. only works for participants in the MAIN
   // daily room since the host's call object is only connected there.
   function muteParticipant(participantId, participantName) {
-    if (!callObject) { showToast("couldn't mute · not connected to the call", 'error'); return; }
+    if (!callObject) { showToast("Couldn't mute · not connected to the call", 'error'); return; }
     try {
       const dps = callObject.participants() || {};
       let found = false;
@@ -356,17 +356,17 @@ export default function LiveControl({ session: initialSession }) {
           callObject.updateParticipant(sid, { setAudio: false });
           // optimistic update so the UI reflects immediately
           setMuteStates((prev) => ({ ...prev, [sid]: true }));
-          showToast(`muted ${participantName || 'participant'}`, 'success');
+          showToast(`Muted ${participantName || 'participant'}`, 'success');
           break;
         }
       }
       // the mute button is only shown when dailySessionByUserId has this
       // participant, so this shouldn't happen — but if that gating assumption
       // ever breaks, fail loudly instead of doing nothing silently.
-      if (!found) showToast(`couldn't find ${participantName || 'them'} in the call`, 'error');
+      if (!found) showToast(`Couldn't find ${participantName || 'them'} in the call`, 'error');
     } catch (e) {
       console.warn('[mute] failed', e);
-      showToast("couldn't mute · try again", 'error');
+      showToast("Couldn't mute · try again", 'error');
     }
   }
 
@@ -383,17 +383,17 @@ export default function LiveControl({ session: initialSession }) {
         credentials: 'same-origin',
         body: JSON.stringify({
           participantId,
-          text: "your mic is off right now — tap below to turn it back on so everyone can hear you.",
+          text: "Your mic is off right now — tap below to turn it back on so everyone can hear you.",
           action: 'unmute',
         }),
       });
       if (!res.ok) {
-        showToast((await res.text()) || "couldn't send request", 'error');
+        showToast((await res.text()) || "Couldn't send request", 'error');
         return;
       }
-      showToast(`asked ${participantName || 'them'} to unmute`, 'success');
+      showToast(`Asked ${participantName || 'them'} to unmute`, 'success');
     } catch {
-      showToast('connection issue · try again', 'error');
+      showToast('Connection issue · try again', 'error');
     }
   }
 
@@ -452,12 +452,12 @@ export default function LiveControl({ session: initialSession }) {
         body: JSON.stringify({ participantId, roomName }),
       });
       if (!res.ok) {
-        showToast((await res.text()) || "couldn't place", 'error');
+        showToast((await res.text()) || "Couldn't place", 'error');
       } else {
-        showToast('placed', 'success');
+        showToast('Placed', 'success');
       }
     } catch (e) {
-      showToast('connection issue · try again', 'error');
+      showToast('Connection issue · try again', 'error');
     }
   }
 
@@ -470,15 +470,15 @@ export default function LiveControl({ session: initialSession }) {
         body: JSON.stringify({ participantId, text }),
       });
       if (!res.ok) {
-        showToast((await res.text()) || "couldn't send", 'error');
+        showToast((await res.text()) || "Couldn't send", 'error');
         return false;
       }
       // empty text = "mark as handled" (clears the flag with no message sent),
       // not an actual send · see the endpoint's comment for why this exists.
-      showToast(text ? 'sent' : 'flag cleared', 'success');
+      showToast(text ? 'Sent' : 'Flag cleared', 'success');
       return true;
     } catch {
-      showToast('connection issue · try again', 'error');
+      showToast('Connection issue · try again', 'error');
       return false;
     }
   }
@@ -492,13 +492,13 @@ export default function LiveControl({ session: initialSession }) {
         body: JSON.stringify(all ? { all: true } : { participantId }),
       });
       if (!res.ok) {
-        showToast((await res.text()) || "couldn't admit", 'error');
+        showToast((await res.text()) || "Couldn't admit", 'error');
       } else {
         const data = await res.json();
-        showToast(all ? `let ${data.admitted} in` : 'let them in', 'success');
+        showToast(all ? `Let ${data.admitted} in` : 'Let them in', 'success');
       }
     } catch {
-      showToast('connection issue · try again', 'error');
+      showToast('Connection issue · try again', 'error');
     }
   }
 
@@ -514,13 +514,13 @@ export default function LiveControl({ session: initialSession }) {
         body: JSON.stringify({ text }),
       });
       if (!res.ok) {
-        showToast((await res.text()) || "couldn't broadcast", 'error');
+        showToast((await res.text()) || "Couldn't broadcast", 'error');
       } else {
-        showToast('sent to all rooms', 'success');
+        showToast('Sent to all rooms', 'success');
         setBroadcastText('');
       }
     } catch {
-      showToast('connection issue · try again', 'error');
+      showToast('Connection issue · try again', 'error');
     } finally {
       setBroadcastBusy(false);
     }
@@ -537,10 +537,10 @@ export default function LiveControl({ session: initialSession }) {
       });
       if (!res.ok) {
         const text = await res.text();
-        showToast(text || `request failed (${res.status})`, 'error');
+        showToast(text || `Request failed (${res.status})`, 'error');
       }
     } catch (e) {
-      showToast(e.message || 'something went wrong', 'error');
+      showToast(e.message || 'Something went wrong', 'error');
     } finally {
       setBusy(false);
     }
@@ -788,14 +788,14 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <div className="display text-2xl">ready when you are.</div>
-                    <p className="text-sm text-neutral-600 mt-1">share the link below · then hit go live</p>
+                    <div className="display text-2xl">Ready when you are.</div>
+                    <p className="text-sm text-neutral-600 mt-1">Share the link below · then hit go live</p>
                   </div>
                   <button onClick={() => action('start')} disabled={busy} className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap">
-                    go live *
+                    Go live *
                   </button>
                 </div>
-                <CopyLink code={session.code} variant="light" label="participant link" />
+                <CopyLink code={session.code} variant="light" label="Participant link" />
               </div>
             )}
 
@@ -803,19 +803,19 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <div className="display text-2xl">main room is open.</div>
-                    <p className="text-sm text-neutral-600 mt-1">welcome folks · kick it off when ready</p>
+                    <div className="display text-2xl">Main room is open.</div>
+                    <p className="text-sm text-neutral-600 mt-1">Welcome folks · kick it off when ready</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button onClick={() => action('round', { action: 'start' })} disabled={busy} className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap">
-                      kick it off *
+                      Kick it off *
                     </button>
-                    <button onClick={() => { if (confirm('end this session now? this closes the room and marks the session ended.')) action('end'); }} disabled={busy} className="px-4 py-3 rounded-md border-2 border-red-500 text-red-600 hover:bg-red-500 hover:text-white font-semibold text-sm whitespace-nowrap">
-                      end session
+                    <button onClick={() => { if (confirm('End this session now? This closes the room and marks the session ended.')) action('end'); }} disabled={busy} className="px-4 py-3 rounded-md border-2 border-red-500 text-red-600 hover:bg-red-500 hover:text-white font-semibold text-sm whitespace-nowrap">
+                      End session
                     </button>
                   </div>
                 </div>
-                <CopyLink code={session.code} variant="light" label="still need to share? grab the link" />
+                <CopyLink code={session.code} variant="light" label="Still need to share? Grab the link" />
               </div>
             )}
 
@@ -823,7 +823,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
               <div>
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest font-bold mb-1 text-neutral-600">round {session.current_round} of {session.rounds_total} · live</div>
+                    <div className="text-[10px] uppercase tracking-widest font-bold mb-1 text-neutral-600">Round {session.current_round} of {session.rounds_total} · live</div>
                     {currentPrompt && <div className="display text-base">{currentPrompt}</div>}
                   </div>
                   <div className="flex items-center gap-3">
@@ -837,13 +837,13 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                           onClick={() => action('round', { action: 'end' })}
                           disabled={busy}
                           className="btn-cyan px-4 py-2 rounded-md text-sm"
-                          title={isLastRound ? 'this was the last round · everyone returns to the main room' : `starts round ${session.current_round + 1} immediately · no stop in the main room`}
+                          title={isLastRound ? 'This was the last round · everyone returns to the main room' : `Starts round ${session.current_round + 1} immediately · no stop in the main room`}
                         >
-                          {isLastRound ? 'end round → main room *' : `end round → start round ${session.current_round + 1} *`}
+                          {isLastRound ? 'End round → main room *' : `End round → start round ${session.current_round + 1} *`}
                         </button>
                       );
                     })()}
-                    <button onClick={() => { if (confirm('end the whole session?')) action('end'); }} disabled={busy} className="px-4 py-2 rounded-md border-2 border-red-500 text-red-600 hover:bg-red-500 hover:text-white font-semibold text-sm">end session</button>
+                    <button onClick={() => { if (confirm('End the whole session?')) action('end'); }} disabled={busy} className="px-4 py-2 rounded-md border-2 border-red-500 text-red-600 hover:bg-red-500 hover:text-white font-semibold text-sm">End session</button>
                   </div>
                 </div>
                 {(() => {
@@ -852,9 +852,9 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                   return (
                     <div className="mt-3 px-5 py-4 rounded-md border-2 flex items-center justify-between gap-4" style={{ background: 'rgba(1,236,243,0.15)', borderColor: '#01ecf3' }}>
                       <div>
-                        <div className="text-[10px] uppercase tracking-widest font-bold mb-1 text-neutral-600">your conversation this round</div>
+                        <div className="text-[10px] uppercase tracking-widest font-bold mb-1 text-neutral-600">Your conversation this round</div>
                         <div className="display text-xl font-bold">{withHostPairing.participant_a_name}</div>
-                        <div className="text-xs text-neutral-600 mt-1">they're in the main room with you · say hi 👋</div>
+                        <div className="text-xs text-neutral-600 mt-1">They're in the main room with you · say hi 👋</div>
                       </div>
                       <div className="text-3xl animate-pulse">🗨️</div>
                     </div>
@@ -866,23 +866,23 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
             {session.status === 'closing' && (
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <div className="display text-2xl">all rounds wrapped.</div>
-                  <p className="text-sm text-neutral-600 mt-1">say a final thing · close out · or run another round (pairs may repeat)</p>
+                  <div className="display text-2xl">All rounds wrapped.</div>
+                  <p className="text-sm text-neutral-600 mt-1">Say a final thing · close out · or run another round (pairs may repeat)</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => { if (confirm('run another round? everyone has already met everyone, so pairs will repeat.')) action('round', { action: 'start', allowRepeats: true }); }}
+                    onClick={() => { if (confirm('Run another round? Everyone has already met everyone, so pairs will repeat.')) action('round', { action: 'start', allowRepeats: true }); }}
                     disabled={busy}
                     className="px-4 py-3 rounded-md border-2 border-black text-black hover:bg-cyan-400 font-semibold text-sm whitespace-nowrap"
                   >
-                    do another round
+                    Do another round
                   </button>
                   <button
-                    onClick={() => { if (confirm('close out the session and end the call for everyone?')) action('end'); }}
+                    onClick={() => { if (confirm('Close out the session and end the call for everyone?')) action('end'); }}
                     disabled={busy}
                     className="btn-cyan px-6 py-3 rounded-md text-lg whitespace-nowrap"
                   >
-                    close out *
+                    Close out *
                   </button>
                 </div>
               </div>
@@ -901,10 +901,10 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
             {hasCall ? <HostVideoGallery participantsByName={participantsByName} mode={viewMode} /> : (
               <div className="h-full flex items-center justify-center text-neutral-500 text-sm text-center px-6">
                 {isEnded
-                  ? '[session has ended]'
+                  ? '[Session has ended]'
                   : session.status === 'draft'
-                    ? '[click "go live *" to open the main room]'
-                    : '[connecting to main room... if this sticks for more than a few seconds, check browser devtools → network for /api/daily/token errors]'}
+                    ? '[Click "go live *" to open the main room]'
+                    : '[Connecting to main room... If this sticks for more than a few seconds, check browser devtools → network for /api/daily/token errors]'}
               </div>
             )}
           </div>
@@ -925,16 +925,16 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
             <div className="rounded-md border-2 p-3 sticker-sm" style={{ borderColor: '#01ecf3', background: 'rgba(1,236,243,0.1)' }}>
               <div className="flex items-center justify-between mb-3">
                 <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-700">
-                  waiting ({waitingList.length})
+                  Waiting ({waitingList.length})
                 </div>
                 <button
                   type="button"
                   onClick={() => onAdmit?.({ all: true })}
                   className="text-[10px] uppercase tracking-widest font-bold px-2.5 py-1 rounded"
                   style={{ background: '#01ecf3', color: '#000' }}
-                  title="let everyone in"
+                  title="Let everyone in"
                 >
-                  let everyone in *
+                  Let everyone in *
                 </button>
               </div>
               <ul className="space-y-1.5">
@@ -953,13 +953,13 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                         className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded text-black"
                         style={{ background: '#01ecf3' }}
                       >
-                        let in
+                        Let in
                       </button>
                       <button
                         type="button"
                         onClick={() => onKick?.(p.id, p.name)}
                         className="w-5 h-5 rounded-full bg-red-100 hover:bg-red-600 text-red-600 hover:text-white text-[10px] font-bold flex items-center justify-center leading-none"
-                        title={`remove ${p.name}`}
+                        title={`Remove ${p.name}`}
                       >
                         ×
                       </button>
@@ -973,7 +973,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
           {/* broadcast composer · sends a gentle banner to every room */}
           {hasCall && (
             <div className="rounded-md border border-neutral-200 bg-white p-3">
-              <div className="text-[10px] uppercase tracking-widest font-bold mb-2 text-neutral-500">broadcast to everyone</div>
+              <div className="text-[10px] uppercase tracking-widest font-bold mb-2 text-neutral-500">Broadcast to everyone</div>
               <form
                 onSubmit={(e) => { e.preventDefault(); sendBroadcast?.(); }}
                 className="flex gap-2"
@@ -982,7 +982,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                   type="text"
                   value={broadcastText || ''}
                   onChange={(e) => setBroadcastText?.(e.target.value)}
-                  placeholder="e.g. wrapping in 2 minutes..."
+                  placeholder="E.g. wrapping in 2 minutes..."
                   maxLength={200}
                   className="flex-1 bg-neutral-100 rounded px-2.5 py-1.5 text-sm text-black border border-neutral-300 focus:outline-none focus:border-cyan-500"
                 />
@@ -992,16 +992,16 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                   className="px-3 py-1.5 rounded text-xs font-bold disabled:opacity-50"
                   style={{ background: '#01ecf3', color: '#000' }}
                 >
-                  {broadcastBusy ? '...' : 'send'}
+                  {broadcastBusy ? '...' : 'Send'}
                 </button>
               </form>
-              <p className="text-[10px] text-neutral-500 mt-1.5">[shows briefly at the top of every room]</p>
+              <p className="text-[10px] text-neutral-500 mt-1.5">[Shows briefly at the top of every room]</p>
             </div>
           )}
 
           <div>
             <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">
-              in main room ({participants.filter((p) => p.is_present && !p.current_room_name).length})
+              In main room ({participants.filter((p) => p.is_present && !p.current_room_name).length})
             </div>
             <div className="space-y-1.5">
               {participants.filter((p) => p.is_present && !p.current_room_name).map((p) => {
@@ -1043,7 +1043,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                         style={{ background: '#fef3c7', color: '#92400e' }}
                         title={`${p.name} was here when this round was paired but isn't in any room · use place to put them in one`}
                       >
-                        not paired this round
+                        Not paired this round
                       </span>
                     )}
                     {orphanedIds.has(p.id) && (
@@ -1052,7 +1052,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                         style={{ background: '#fef3c7', color: '#92400e' }}
                         title={`${p.name}'s partner dropped this round · needs placing into another room`}
                       >
-                        needs placing
+                        Needs placing
                       </span>
                     )}
                   </div>
@@ -1064,7 +1064,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                         type="button"
                         onClick={() => (isMuted ? onRequestUnmute?.(p.id, p.name) : onMute?.(p.id, p.name))}
                         className={`w-7 h-7 rounded-full text-xs flex items-center justify-center leading-none ${isMuted ? 'bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer' : 'bg-neutral-100 hover:bg-orange-100 text-neutral-700 cursor-pointer'}`}
-                        title={isMuted ? `${p.name}'s mic is off · click to ask them to unmute` : `mute ${p.name}`}
+                        title={isMuted ? `${p.name}'s mic is off · click to ask them to unmute` : `Mute ${p.name}`}
                       >
                         {isMuted ? '🔇' : '🎤'}
                       </button>
@@ -1073,7 +1073,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                       type="button"
                       onClick={() => onOpenMessage?.(p)}
                       className="w-7 h-7 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold flex items-center justify-center leading-none"
-                      title={`send ${p.name} a private message`}
+                      title={`Send ${p.name} a private message`}
                     >
                       ✉
                     </button>
@@ -1081,7 +1081,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                       type="button"
                       onClick={() => onKick?.(p.id, p.name)}
                       className="w-7 h-7 rounded-full bg-red-50 hover:bg-red-600 text-red-600 hover:text-white text-xs font-bold flex items-center justify-center leading-none"
-                      title={`remove ${p.name} from the session`}
+                      title={`Remove ${p.name} from the session`}
                     >
                       ×
                     </button>
@@ -1090,7 +1090,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                 );
               })}
               {participants.filter((p) => p.is_present && !p.current_room_name).length === 0 && (
-                <div className="text-xs text-neutral-500 italic">[no one here yet]</div>
+                <div className="text-xs text-neutral-500 italic">[No one here yet]</div>
               )}
             </div>
           </div>
@@ -1099,16 +1099,16 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
             <ChatPanel
               myName="host"
               theme="light"
-              title="room chat"
-              placeholder="message the room..."
-              emptyHint="[messages from people in the main room show up here]"
+              title="Room chat"
+              placeholder="Message the room..."
+              emptyHint="[Messages from people in the main room show up here]"
               className="flex h-72 border border-neutral-200 rounded-md"
             />
           )}
 
           {pairings.length > 0 && isRunning && (
             <div>
-              <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">live pairings</div>
+              <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">Live pairings</div>
               {unpairedPresent.length > 0 && (
                 <div
                   className="rounded-md p-3 mb-3 text-sm"
@@ -1118,7 +1118,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                     {unpairedPresent.map((p) => p.name).join(', ')}
                   </strong>{' '}
                   {unpairedPresent.length === 1 ? "is here but wasn't paired this round" : "are here but weren't paired this round"}
-                  {' '}— they're sitting in the main room. use <strong>place</strong> in the main room list to put them in a room.
+                  {' '}— they're sitting in the main room. Use <strong>place</strong> in the main room list to put them in a room.
                 </div>
               )}
               <div className="space-y-3">
@@ -1148,7 +1148,7 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                           style={{ background: '#fef3c7', border: '1px solid #d97706', color: '#78350f' }}
                         >
                           ⏳ {w.name} has been waiting {w.wait.seconds}s for {other?.name || w.wait.partner || 'their partner'} to join.
-                          {other ? ` try messaging ${String(other.name).split(' ')[0]}.` : ''}
+                          {other ? ` Try messaging ${String(other.name).split(' ')[0]}.` : ''}
                         </div>
                       ))}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
@@ -1163,8 +1163,8 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
                         />
                         {isWithHost ? (
                           <div className="min-w-0">
-                            <div className="font-semibold text-base leading-tight">you (host)</div>
-                            <div className="text-[11px] text-neutral-500 mt-0.5">in the main room</div>
+                            <div className="font-semibold text-base leading-tight">You (host)</div>
+                            <div className="text-[11px] text-neutral-500 mt-0.5">In the main room</div>
                           </div>
                         ) : (
                           <PairingPerson
@@ -1190,11 +1190,11 @@ function LiveControlInner({ session, participants, participantsByName, pairings,
           <ConnectionLogPanel events={diagnosticEvents} />
 
           <div className="border-t border-neutral-200 pt-5">
-            <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">session info</div>
+            <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">Session info</div>
             <div className="text-sm space-y-1">
-              <div className="flex justify-between"><span className="text-neutral-600">rounds</span><span className="font-semibold">{session.current_round}/{session.rounds_total}</span></div>
-              <div className="flex justify-between"><span className="text-neutral-600">per round</span><span className="font-semibold">{Math.round(session.round_seconds / 60)} min</span></div>
-              <div className="flex justify-between"><span className="text-neutral-600">total joined</span><span className="font-semibold">{participants.length}</span></div>
+              <div className="flex justify-between"><span className="text-neutral-600">Rounds</span><span className="font-semibold">{session.current_round}/{session.rounds_total}</span></div>
+              <div className="flex justify-between"><span className="text-neutral-600">Per round</span><span className="font-semibold">{Math.round(session.round_seconds / 60)} min</span></div>
+              <div className="flex justify-between"><span className="text-neutral-600">Total joined</span><span className="font-semibold">{participants.length}</span></div>
             </div>
           </div>
         </aside>
@@ -1214,7 +1214,7 @@ function HostVideoGallery({ participantsByName, mode = 'gallery' }) {
   const ids = [localId, ...remoteIds].filter(Boolean);
 
   if (ids.length === 0) {
-    return <div className="h-full flex items-center justify-center text-neutral-600 text-sm">[joining main room...]</div>;
+    return <div className="h-full flex items-center justify-center text-neutral-600 text-sm">[Joining main room...]</div>;
   }
 
   if (mode === 'speaker') {
@@ -1324,8 +1324,8 @@ function DailyVideoTile({ sessionId, isLocal, participantsByName, tileClassName,
           href={linkedinUrl}
           target="_blank"
           rel="noopener noreferrer"
-          title="open linkedin"
-          aria-label={`open ${name}'s linkedin`}
+          title="Open LinkedIn"
+          aria-label={`Open ${name}'s LinkedIn`}
           className={`absolute top-1.5 right-1.5 inline-flex items-center justify-center rounded font-bold no-underline ${compact ? 'w-4 h-4 text-[9px]' : 'w-6 h-6 text-xs'}`}
           style={{ background: '#0a66c2', color: '#fff' }}
         >
@@ -1334,7 +1334,7 @@ function DailyVideoTile({ sessionId, isLocal, participantsByName, tileClassName,
       )}
       {isHostTile && (
         <div className="absolute top-2 left-2 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded" style={{ background: '#01ecf3', color: '#000' }}>
-          host
+          Host
         </div>
       )}
     </div>
@@ -1361,10 +1361,10 @@ function HostControlBar() {
 
   return (
     <div className="border-t border-neutral-200 px-6 py-3 flex items-center justify-center gap-3 bg-white">
-      <CtrlBtn on={audioOn} onClick={toggleAudio} label={audioOn ? 'mic on' : 'mic off'}>
+      <CtrlBtn on={audioOn} onClick={toggleAudio} label={audioOn ? 'Mic on' : 'Mic off'}>
         <DeviceMenu kind="audio" daily={daily} theme="light" connected />
       </CtrlBtn>
-      <CtrlBtn on={videoOn} onClick={toggleVideo} label={videoOn ? 'cam on' : 'cam off'}>
+      <CtrlBtn on={videoOn} onClick={toggleVideo} label={videoOn ? 'Cam on' : 'Cam off'}>
         <DeviceMenu kind="video" daily={daily} theme="light" connected />
       </CtrlBtn>
     </div>
@@ -1411,7 +1411,7 @@ function RoundHistoryPanel({ pairingsHistory, currentRound }) {
 
   return (
     <div className="border-t border-neutral-200 pt-5">
-      <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">round history</div>
+      <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">Round history</div>
       <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
         {rounds.map((rn) => {
           const isCurrent = rn === currentRound;
@@ -1419,7 +1419,7 @@ function RoundHistoryPanel({ pairingsHistory, currentRound }) {
             <div key={rn} className={`rounded p-2 border ${isCurrent ? 'border-cyan-400' : 'bg-white border-neutral-200'}`} style={isCurrent ? { background: 'rgba(1,236,243,0.1)' } : {}}>
               <div className="flex items-center justify-between mb-1">
                 <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: isCurrent ? '#00838f' : '#888' }}>
-                  round {rn}{isCurrent ? ' · live' : ''}
+                  Round {rn}{isCurrent ? ' · live' : ''}
                 </div>
                 <div className="text-[10px] text-neutral-500">
                   {byRound[rn].filter((p) => p.participant_b_name).length} pair{byRound[rn].filter((p) => p.participant_b_name).length === 1 ? '' : 's'}
@@ -1431,7 +1431,7 @@ function RoundHistoryPanel({ pairingsHistory, currentRound }) {
                     <span className="truncate">
                       <span className="font-medium">{p.participant_a_name}</span>
                       <span className="text-neutral-400"> × </span>
-                      <span className="font-medium">{p.participant_b_name || <span className="italic text-neutral-500">with you</span>}</span>
+                      <span className="font-medium">{p.participant_b_name || <span className="italic text-neutral-500">With you</span>}</span>
                     </span>
                     {p.room_label && <span className="text-[9px] text-neutral-500 whitespace-nowrap">* {p.room_label}</span>}
                   </li>
@@ -1470,11 +1470,11 @@ function GoLiveEmailCard({ sessionId }) {
         credentials: 'same-origin',
         body: JSON.stringify({ test: true }),
       });
-      if (!res.ok) { showToast((await res.text()) || "couldn't send the test", 'error'); return; }
+      if (!res.ok) { showToast((await res.text()) || "Couldn't send the test", 'error'); return; }
       const d = await res.json();
-      showToast(`test sent to ${d.sentTo} · check your inbox`, 'success');
+      showToast(`Test sent to ${d.sentTo} · check your inbox`, 'success');
     } catch {
-      showToast('connection issue · try again', 'error');
+      showToast('Connection issue · try again', 'error');
     } finally {
       setBusy(false);
     }
@@ -1501,15 +1501,15 @@ function GoLiveEmailCard({ sessionId }) {
       if (res.status === 409) {
         const d = await res.json().catch(() => null);
         if (d?.mismatch) {
-          showToast('the list just changed · check the new count and press send again', 'error');
+          showToast('The list just changed · check the new count and press send again', 'error');
           await refresh();
           return;
         }
-        showToast((d && d.message) || 'go live first, then send', 'error');
+        showToast((d && d.message) || 'Go live first, then send', 'error');
         return;
       }
       if (!res.ok) {
-        showToast((await res.text()) || "couldn't send", 'error');
+        showToast((await res.text()) || "Couldn't send", 'error');
         return;
       }
       const d = await res.json();
@@ -1521,7 +1521,7 @@ function GoLiveEmailCard({ sessionId }) {
       );
       await refresh();
     } catch {
-      showToast('connection issue · nothing was emailed twice, safe to try again', 'error');
+      showToast('Connection issue · nothing was emailed twice, safe to try again', 'error');
     } finally {
       setBusy(false);
     }
@@ -1530,9 +1530,9 @@ function GoLiveEmailCard({ sessionId }) {
   if (!info) return null;
   return (
     <div className="rounded-md border border-neutral-200 bg-white p-3">
-      <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 mb-1.5">email new signups</div>
+      <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 mb-1.5">Email new signups</div>
       {info.setupNeeded ? (
-        <p className="text-xs text-neutral-600">one-time setup needed: the email log table hasn't been created yet. ask claude for the sql.</p>
+        <p className="text-xs text-neutral-600">One-time setup needed: the email log table hasn't been created yet. Ask claude for the sql.</p>
       ) : (
         <>
           <p className="text-xs text-neutral-600 mb-2">
@@ -1541,7 +1541,7 @@ function GoLiveEmailCard({ sessionId }) {
                   {info.eligibleRsvps > 0 && <>{info.eligibleRsvps} saved their spot for this session</>}
                   {info.eligibleRsvps > 0 && info.eligibleHomepage > 0 && ', '}
                   {info.eligibleHomepage > 0 && <>{info.eligibleHomepage} from the homepage list who haven't joined before</>}.</>
-              : 'no new signups to email right now.'}
+              : 'No new signups to email right now.'}
             {info.alreadySent > 0 && <> {info.alreadySent} already emailed for this session.</>}
             {info.failed > 0 && <> {info.failed} failed earlier and will be retried.</>}
           </p>
@@ -1551,9 +1551,9 @@ function GoLiveEmailCard({ sessionId }) {
             disabled={busy || !info.eligible || !info.configured}
             className="w-full py-2 rounded-md text-xs font-bold disabled:opacity-50"
             style={{ background: '#01ecf3', color: '#000' }}
-            title={info.configured ? 'emails them a link to join right now' : 'email is not configured on the server'}
+            title={info.configured ? 'Emails them a link to join right now' : 'Email is not configured on the server'}
           >
-            {busy ? 'sending…' : `send "we're live" to ${info.eligible || 0} →`}
+            {busy ? 'Sending…' : `Send "we're live" to ${info.eligible || 0} →`}
           </button>
           <button
             type="button"
@@ -1561,7 +1561,7 @@ function GoLiveEmailCard({ sessionId }) {
             disabled={busy || !info.configured}
             className="mt-1.5 w-full text-[11px] underline text-neutral-500 hover:text-black disabled:opacity-50"
           >
-            send me a test first
+            Send me a test first
           </button>
         </>
       )}
@@ -1573,11 +1573,11 @@ function GoLiveEmailCard({ sessionId }) {
 // micStatusFor() in LiveControlInner. compact mode (the dense roster) hides the
 // happy path so only problems draw the eye; the pairings view shows everything.
 const MIC_PILL = {
-  blocked: { label: 'mic blocked', bg: '#fee2e2', fg: '#991b1b', tip: "the browser is blocking their microphone · they can't unmute until they fix the permission · message them" },
-  muted: { label: 'muted', bg: '#fee2e2', fg: '#991b1b', tip: 'their mic is off · ask them to unmute' },
-  interrupted: { label: 'no sound from mic', bg: '#fef3c7', fg: '#92400e', tip: "their mic is on but their device isn't sending sound · another app may have it, or it is muted at the headset/laptop" },
-  silent: { label: 'mic silent', bg: '#fef3c7', fg: '#92400e', tip: "we haven't picked up any sound from their mic for a while · could be a dead mic, or they could just be listening" },
-  on: { label: 'mic on', bg: '#dcfce7', fg: '#166534', tip: 'their mic is on' },
+  blocked: { label: 'Mic blocked', bg: '#fee2e2', fg: '#991b1b', tip: "the browser is blocking their microphone · they can't unmute until they fix the permission · message them" },
+  muted: { label: 'Muted', bg: '#fee2e2', fg: '#991b1b', tip: 'their mic is off · ask them to unmute' },
+  interrupted: { label: 'No sound from mic', bg: '#fef3c7', fg: '#92400e', tip: "their mic is on but their device isn't sending sound · another app may have it, or it is muted at the headset/laptop" },
+  silent: { label: 'Mic silent', bg: '#fef3c7', fg: '#92400e', tip: "we haven't picked up any sound from their mic for a while · could be a dead mic, or they could just be listening" },
+  on: { label: 'Mic on', bg: '#dcfce7', fg: '#166534', tip: 'their mic is on' },
 };
 function MicPill({ status, name, compact = false }) {
   if (!status) {
@@ -1586,9 +1586,9 @@ function MicPill({ status, name, compact = false }) {
       <span
         className="text-[9px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
         style={{ background: '#f3f4f6', color: '#6b7280' }}
-        title={`no mic report from ${name || 'them'} yet`}
+        title={`No mic report from ${name || 'them'} yet`}
       >
-        mic ?
+        Mic ?
       </span>
     );
   }
@@ -1634,7 +1634,7 @@ function PairingPerson({ id, name, participant, micStatus, onOpenMessage, onKick
           type="button"
           onClick={() => onOpenMessage?.({ id, name })}
           className={`${btn} border-neutral-300 bg-white hover:bg-neutral-100 text-neutral-800`}
-          title={`send ${name} a private message`}
+          title={`Send ${name} a private message`}
         >
           ✉ message
         </button>
@@ -1643,7 +1643,7 @@ function PairingPerson({ id, name, participant, micStatus, onOpenMessage, onKick
             type="button"
             onClick={() => onRequestUnmute?.(id, name)}
             className={`${btn} border-red-300 bg-red-50 hover:bg-red-100 text-red-700`}
-            title={`ask ${name} to unmute · they get a one-tap button`}
+            title={`Ask ${name} to unmute · they get a one-tap button`}
           >
             🎤 ask to unmute
           </button>
@@ -1652,7 +1652,7 @@ function PairingPerson({ id, name, participant, micStatus, onOpenMessage, onKick
           type="button"
           onClick={() => onKick?.(id, name)}
           className={`${btn} border-red-200 bg-white hover:bg-red-600 hover:text-white text-red-600`}
-          title={`remove ${name} from the session`}
+          title={`Remove ${name} from the session`}
         >
           × remove
         </button>
@@ -1727,24 +1727,24 @@ function ConnectionLogPanel({ events }) {
   return (
     <div className="border-t border-neutral-200 pt-5">
       <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-        <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">connection log</div>
+        <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">Connection log</div>
         <div className="flex items-center gap-2">
           <label className="text-[11px] text-neutral-600 flex items-center gap-1 cursor-pointer">
             <input type="checkbox" checked={problemsOnly} onChange={(e) => setProblemsOnly(e.target.checked)} />
-            problems only
+            Problems only
           </label>
           <select
             value={who}
             onChange={(e) => setWho(e.target.value)}
             className="text-[11px] border border-neutral-300 rounded px-1.5 py-0.5 bg-white"
           >
-            <option value="everyone">everyone</option>
+            <option value="everyone">Everyone</option>
             {names.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </div>
       </div>
       <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-        {shown.length === 0 && <div className="text-xs text-neutral-500 italic">[nothing matches]</div>}
+        {shown.length === 0 && <div className="text-xs text-neutral-500 italic">[Nothing matches]</div>}
         {shown.map((e) => (
           <div key={e.id} className="text-xs text-neutral-600 flex items-center justify-between gap-2">
             <span className="min-w-0 break-words" style={isProblem(e) ? { color: '#b91c1c' } : {}}>
@@ -1773,13 +1773,13 @@ function HostRecapPanel({ sessionId }) {
   }, [sessionId]);
 
   if (loading) {
-    return <div className="text-sm text-neutral-500">[pulling recap...]</div>;
+    return <div className="text-sm text-neutral-500">[Pulling recap...]</div>;
   }
   if (!recap || recap.role !== 'host') {
     return (
       <div>
-        <div className="display text-2xl mb-1">that's a wrap.</div>
-        <a href="/host" className="inline-block mt-3 text-sm underline">back to dashboard →</a>
+        <div className="display text-2xl mb-1">That's a wrap.</div>
+        <a href="/host" className="inline-block mt-3 text-sm underline">Back to dashboard →</a>
       </div>
     );
   }
@@ -1790,27 +1790,27 @@ function HostRecapPanel({ sessionId }) {
 
   return (
     <div>
-      <div className="display text-2xl mb-3">that's a wrap.</div>
+      <div className="display text-2xl mb-3">That's a wrap.</div>
 
       <div className="grid grid-cols-3 gap-3 mb-5 max-w-md">
         <div className="bg-white border border-neutral-200 rounded-md p-3">
           <div className="display text-2xl">{recap.stats.total_participants}</div>
-          <div className="text-[10px] uppercase tracking-widest font-bold mt-1 text-neutral-500">people</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold mt-1 text-neutral-500">People</div>
         </div>
         <div className="bg-white border border-neutral-200 rounded-md p-3">
           <div className="display text-2xl">{recap.stats.total_rounds}</div>
-          <div className="text-[10px] uppercase tracking-widest font-bold mt-1 text-neutral-500">rounds</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold mt-1 text-neutral-500">Rounds</div>
         </div>
         <div className="rounded-md p-3" style={{ background: '#01ecf3' }}>
           <div className="display text-2xl">{recap.stats.total_captures}</div>
-          <div className="text-[10px] uppercase tracking-widest font-bold mt-1 opacity-60">captures</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold mt-1 opacity-60">Captures</div>
         </div>
       </div>
 
       {/* captures list */}
       {recap.captures.length > 0 && (
         <div className="bg-white border border-neutral-200 rounded-md p-4 mb-5 max-w-2xl">
-          <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">connections captured</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">Connections captured</div>
           <ul className="divide-y divide-neutral-200">
             {recap.captures.map((c) => (
               <li key={c.id} className="py-3 flex items-center justify-between gap-3">
@@ -1832,7 +1832,7 @@ function HostRecapPanel({ sessionId }) {
 
       {/* participants list */}
       <div className="bg-white border border-neutral-200 rounded-md p-4 mb-5 max-w-2xl">
-        <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">all participants</div>
+        <div className="text-[10px] uppercase tracking-widest font-bold mb-3 text-neutral-500">All participants</div>
         <ul className="divide-y divide-neutral-200">
           {recap.participants.map((p) => (
             <li key={p.id} className="py-3 flex items-center justify-between gap-3">
@@ -1851,7 +1851,7 @@ function HostRecapPanel({ sessionId }) {
         </ul>
       </div>
 
-      <a href="/host" className="inline-block text-sm underline text-neutral-500 hover:text-black">back to dashboard →</a>
+      <a href="/host" className="inline-block text-sm underline text-neutral-500 hover:text-black">Back to dashboard →</a>
     </div>
   );
 }
@@ -1880,20 +1880,20 @@ function PlacePicker({ participant, pairings, onPlace }) {
         onClick={handleOpen}
         disabled={rooms.length === 0}
         className="w-6 h-6 rounded-full bg-cyan-100 hover:bg-cyan-400 text-cyan-800 hover:text-black text-[11px] font-bold flex items-center justify-center leading-none disabled:opacity-30"
-        title={rooms.length === 0 ? 'no live rooms yet' : `place ${participant.name} into a room`}
+        title={rooms.length === 0 ? 'No live rooms yet' : `Place ${participant.name} into a room`}
       >
         →
       </button>
       {open && (
         <>
-          <button type="button" onClick={() => setOpen(false)} className="fixed inset-0 z-[190] cursor-default" aria-label="close menu" />
+          <button type="button" onClick={() => setOpen(false)} className="fixed inset-0 z-[190] cursor-default" aria-label="Close menu" />
           <div
             className="fixed z-[200] bg-white border border-neutral-200 rounded shadow-xl p-1 min-w-[180px]"
             style={{ top: dropPos.top, right: dropPos.right }}
           >
-            <div className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 text-neutral-500">place into</div>
+            <div className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 text-neutral-500">Place into</div>
             {rooms.length === 0 && (
-              <div className="px-2 py-1 text-xs italic text-neutral-500">[no live rooms]</div>
+              <div className="px-2 py-1 text-xs italic text-neutral-500">[No live rooms]</div>
             )}
             {rooms.map((r) => (
               <button
@@ -1940,13 +1940,13 @@ function MessageComposerModal({ target, onClose, onSend }) {
     >
       <div className="bg-white rounded-md p-5 max-w-md w-full sticker" style={{ color: '#000' }}>
         <div className="flex items-center justify-between mb-1">
-          <div className="display text-xl">message {target.name}</div>
+          <div className="display text-xl">Message {target.name}</div>
           <button onClick={onClose} className="text-xl text-neutral-500 hover:text-black leading-none">×</button>
         </div>
-        <p className="text-xs text-neutral-500 mb-3">[only they see this · sending also clears their flag]</p>
+        <p className="text-xs text-neutral-500 mb-3">[Only they see this · sending also clears their flag]</p>
         {target.flagText && (
           <div className="mb-3 p-3 rounded border-l-4" style={{ background: '#fff7e6', borderColor: '#d97706' }}>
-            <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#d97706' }}>they said</div>
+            <div className="text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#d97706' }}>They said</div>
             <div className="text-sm italic text-neutral-700">"{target.flagText}"</div>
           </div>
         )}
@@ -1954,7 +1954,7 @@ function MessageComposerModal({ target, onClose, onSend }) {
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="quick note..."
+            placeholder="Quick note..."
             rows={3}
             maxLength={500}
             autoFocus
@@ -1967,14 +1967,14 @@ function MessageComposerModal({ target, onClose, onSend }) {
                 onClick={markHandled}
                 disabled={busy}
                 className="px-3 py-1.5 text-sm underline text-neutral-600 hover:text-black whitespace-nowrap"
-                title="clear their flag without sending a message"
+                title="Clear their flag without sending a message"
               >
-                mark as handled
+                Mark as handled
               </button>
             )}
             <div className="flex justify-end gap-2 ml-auto">
-              <button type="button" onClick={onClose} disabled={busy} className="px-3 py-1.5 text-sm underline text-neutral-600 hover:text-black">cancel</button>
-              <button type="submit" disabled={busy || !text.trim()} className="btn-cyan px-4 py-1.5 rounded-md text-sm font-bold disabled:opacity-50">{busy ? 'sending...' : 'send *'}</button>
+              <button type="button" onClick={onClose} disabled={busy} className="px-3 py-1.5 text-sm underline text-neutral-600 hover:text-black">Cancel</button>
+              <button type="submit" disabled={busy || !text.trim()} className="btn-cyan px-4 py-1.5 rounded-md text-sm font-bold disabled:opacity-50">{busy ? 'Sending...' : 'Send *'}</button>
             </div>
           </div>
         </form>
@@ -1999,7 +1999,7 @@ function HeaderCopyLink({ code }) {
   return (
     <button
       onClick={copy}
-      title="copy participant share link"
+      title="Copy participant share link"
       className="text-xs flex items-center gap-1.5 hover:text-black transition-colors"
       style={{ color: copied ? '#00838f' : '#737373' }}
     >
@@ -2025,11 +2025,11 @@ function CoHostCopyLink({ sessionId }) {
   return (
     <button
       onClick={copy}
-      title="copy co-host link · share with another approved host (jon, becky)"
+      title="Copy co-host link · share with another approved host (jon, becky)"
       className="text-xs flex items-center gap-1.5 hover:text-black transition-colors"
       style={{ color: copied ? '#00838f' : '#737373' }}
     >
-      <span>{copied ? '✓ co-host link copied' : 'co-host link'}</span>
+      <span>{copied ? '✓ co-host link copied' : 'Co-host link'}</span>
     </button>
   );
 }

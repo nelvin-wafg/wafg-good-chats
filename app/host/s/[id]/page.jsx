@@ -18,8 +18,8 @@ export default async function HostSessionPage({ params }) {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{ background: '#f4f4f1', color: '#000' }}>
         <div className="text-center">
-          <div className="display text-4xl">not signed in.</div>
-          <a href="/host/login" className="text-sm underline mt-4 inline-block text-neutral-500">sign in</a>
+          <div className="display text-4xl">Not signed in.</div>
+          <a href="/host/login" className="text-sm underline mt-4 inline-block text-neutral-500">Sign in</a>
         </div>
       </main>
     );
@@ -36,8 +36,8 @@ export default async function HostSessionPage({ params }) {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{ background: '#f4f4f1', color: '#000' }}>
         <div className="text-center">
-          <div className="display text-4xl">session not found.</div>
-          <a href="/host" className="text-sm underline mt-4 inline-block text-neutral-500">back to dashboard</a>
+          <div className="display text-4xl">Session not found.</div>
+          <a href="/host" className="text-sm underline mt-4 inline-block text-neutral-500">Back to dashboard</a>
         </div>
       </main>
     );

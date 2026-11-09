@@ -15,7 +15,7 @@ import { signProfileToken, PROFILE_COOKIE_NAME, PROFILE_COOKIE_OPTIONS } from '@
 // otherwise use up the one-time token before the person did.
 export async function POST(request) {
   if (!(await rateLimitByIp(request, 'signin-consume', { limit: 20, windowSeconds: 600 }))) {
-    return new NextResponse('too many attempts · try again in a few minutes', { status: 429 });
+    return new NextResponse('Too many attempts · try again in a few minutes', { status: 429 });
   }
 
   let token;
@@ -23,12 +23,12 @@ export async function POST(request) {
     const body = await request.json();
     token = String(body?.token || '');
   } catch {
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const admin = adminClient();
   const profileId = await consumeLoginToken(admin, token);
-  if (!profileId) return new NextResponse('this link has expired or was already used', { status: 400 });
+  if (!profileId) return new NextResponse('This link has expired or was already used', { status: 400 });
 
   await admin
     .from('profiles')

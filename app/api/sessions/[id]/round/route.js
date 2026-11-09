@@ -6,21 +6,21 @@ import { planRound } from '@/lib/pairing';
 
 // pretty room labels for that "mom's kitchen table" feel
 const ROOM_LABELS = [
-  "mom's kitchen table",
-  "the storyteller's corner",
-  "the front porch",
-  "campfire seat",
-  "long walk",
-  "back booth",
-  "rooftop",
-  "garden bench",
-  "two coffees in",
-  "the lighthouse",
-  "open window",
-  "good news desk",
-  "neighbor's stoop",
-  "shared umbrella",
-  "the slow lane",
+  "Mom's kitchen table",
+  "The storyteller's corner",
+  "The front porch",
+  "Campfire seat",
+  "Long walk",
+  "Back booth",
+  "Rooftop",
+  "Garden bench",
+  "Two coffees in",
+  "The lighthouse",
+  "Open window",
+  "Good news desk",
+  "Neighbor's stoop",
+  "Shared umbrella",
+  "The slow lane",
 ];
 
 // POST /api/sessions/:id/round  body: { action: 'start' | 'end', allowRepeats?: boolean }
@@ -28,7 +28,7 @@ const ROOM_LABELS = [
 // all unique pairings have been exhausted · pairs may repeat.
 export async function POST(request, { params }) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('not an approved host', { status: 403 });
+  if (!auth) return new NextResponse('Not an approved host', { status: 403 });
 
   const body = await request.json().catch(() => ({}));
   const action = body?.action;
@@ -40,11 +40,11 @@ export async function POST(request, { params }) {
     .select('*')
     .eq('id', params.id)
     .single();
-  if (!session) return new NextResponse('session not found', { status: 404 });
+  if (!session) return new NextResponse('Session not found', { status: 404 });
 
   if (action === 'start') return startRound(admin, session, { allowRepeats });
   if (action === 'end') return endRound(admin, session);
-  return new NextResponse('invalid action', { status: 400 });
+  return new NextResponse('Invalid action', { status: 400 });
 }
 
 async function startRound(admin, session, { allowRepeats = false, fromAdvance = false } = {}) {
@@ -57,12 +57,12 @@ async function startRound(admin, session, { allowRepeats = false, fromAdvance = 
       ? ['live', 'closing']
       : ['live'];
     if (!validStatuses.includes(session.status)) {
-      return new NextResponse(`cannot start round from status ${session.status}`, { status: 400 });
+      return new NextResponse(`Cannot start round from status ${session.status}`, { status: 400 });
     }
   }
   if (session.current_round >= session.rounds_total) {
     if (!allowRepeats) {
-      return new NextResponse('all rounds complete', { status: 400 });
+      return new NextResponse('All rounds complete', { status: 400 });
     }
     // extend rounds_total by 1 so the round counter stays sensible (round X of X+1)
     await admin
@@ -86,7 +86,7 @@ async function startRound(admin, session, { allowRepeats = false, fromAdvance = 
     .gte('last_seen', presenceCutoff);
 
   if (presentParticipants.length < 2) {
-    return new NextResponse('need at least 2 people present to pair', { status: 400 });
+    return new NextResponse('Need at least 2 people present to pair', { status: 400 });
   }
 
   // auto-cap rounds_total at the very first round based on actual attendance.
@@ -182,7 +182,7 @@ async function startRound(admin, session, { allowRepeats = false, fromAdvance = 
       participant_a_id: sitOut,
       participant_b_id: null,
       room_name: null,
-      room_label: 'with the host',
+      room_label: 'With the host',
     });
   }
 
@@ -242,7 +242,7 @@ async function startRound(admin, session, { allowRepeats = false, fromAdvance = 
 
 async function endRound(admin, session) {
   if (session.status !== 'running_round') {
-    return new NextResponse('no round running', { status: 400 });
+    return new NextResponse('No round running', { status: 400 });
   }
 
   // mark the current round ended · conditioned on ended_at still being null so

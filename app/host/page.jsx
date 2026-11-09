@@ -40,13 +40,13 @@ export default function HostDashboard() {
       try {
         const res = await fetch('/api/host/dashboard', { credentials: 'same-origin' });
         if (!res.ok) {
-          showToast("couldn't load dashboard", 'error');
+          showToast("Couldn't load dashboard", 'error');
           return;
         }
         const d = await res.json();
         if (!cancelled) setData(d);
       } catch (e) {
-        showToast(e.message || 'connection issue', 'error');
+        showToast(e.message || 'Connection issue', 'error');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -73,19 +73,19 @@ export default function HostDashboard() {
         credentials: 'same-origin',
       });
       if (!res.ok) {
-        showToast(await res.text() || "couldn't delete", 'error');
+        showToast(await res.text() || "Couldn't delete", 'error');
         return;
       }
-      showToast('session deleted', 'success');
+      showToast('Session deleted', 'success');
       const fresh = await fetch('/api/host/dashboard', { credentials: 'same-origin' });
       if (fresh.ok) setData(await fresh.json());
     } catch (e) {
-      showToast(e.message || 'delete failed', 'error');
+      showToast(e.message || 'Delete failed', 'error');
     }
   }
 
   function confirmDeletePerson(connector) {
-    const label = connector.name || connector.email || 'this person';
+    const label = connector.name || connector.email || 'This person';
     setPendingDelete({
       kind: 'person',
       label,
@@ -106,21 +106,21 @@ export default function HostDashboard() {
         }),
       });
       if (!res.ok) {
-        showToast(await res.text() || "couldn't delete", 'error');
+        showToast(await res.text() || "Couldn't delete", 'error');
         return;
       }
       showToast(`${label} removed`, 'success');
       const fresh = await fetch('/api/host/dashboard', { credentials: 'same-origin' });
       if (fresh.ok) setData(await fresh.json());
     } catch (e) {
-      showToast(e.message || 'delete failed', 'error');
+      showToast(e.message || 'Delete failed', 'error');
     }
   }
 
   if (loading) {
     return (
       <main className="min-h-screen p-8" style={{ background: '#f4f4f1' }}>
-        <p className="text-neutral-500">[loading dashboard...]</p>
+        <p className="text-neutral-500">[Loading dashboard...]</p>
       </main>
     );
   }
@@ -128,7 +128,7 @@ export default function HostDashboard() {
   if (!data) {
     return (
       <main className="min-h-screen p-8" style={{ background: '#f4f4f1' }}>
-        <p className="text-neutral-500">[couldn't load dashboard · refresh to try again]</p>
+        <p className="text-neutral-500">[Couldn't load dashboard · refresh to try again]</p>
       </main>
     );
   }
@@ -138,9 +138,9 @@ export default function HostDashboard() {
 
       <header className="flex items-start justify-between mb-8 gap-4">
         <div>
-          <div className="text-xs uppercase tracking-widest font-bold text-neutral-500">Good Chats · host</div>
+          <div className="text-xs uppercase tracking-widest font-bold text-neutral-500">good chats · host</div>
           <div className="display text-3xl md:text-4xl mt-1">
-            hey {data.host?.display_name || 'friend'} <span style={{ color: '#01ecf3' }}>*</span>
+            Hey {data.host?.display_name || 'friend'} <span style={{ color: '#01ecf3' }}>*</span>
           </div>
         </div>
         <div className="flex flex-col items-end gap-2 flex-shrink-0 text-sm">
@@ -149,19 +149,19 @@ export default function HostDashboard() {
               type="button"
               onClick={() => setShowStory(true)}
               className="underline text-neutral-600 hover:text-black"
-              title="how this project has evolved"
+              title="How this project has evolved"
             >
-              the story →
+              The story →
             </button>
             <span className="text-neutral-400">·</span>
-            <Link href="/host/analytics" className="underline text-neutral-600 hover:text-black">analytics →</Link>
+            <Link href="/host/analytics" className="underline text-neutral-600 hover:text-black">Analytics →</Link>
             <span className="text-neutral-400">·</span>
             <a
               href="/api/host/export"
               className="underline text-neutral-600 hover:text-black"
               download
             >
-              export all (csv)
+              Export all (CSV)
             </a>
             <span className="text-neutral-400">·</span>
             <a
@@ -169,7 +169,7 @@ export default function HostDashboard() {
               className="underline text-neutral-600 hover:text-black"
               download
             >
-              people (csv)
+              People (CSV)
             </a>
           </div>
           <form action="/api/auth/signout" method="POST">
@@ -177,7 +177,7 @@ export default function HostDashboard() {
               type="submit"
               className="text-xs font-semibold px-3 py-1.5 rounded-full border border-neutral-300 text-neutral-600 hover:border-neutral-400 hover:text-black"
             >
-              sign out
+              Sign out
             </button>
           </form>
         </div>
@@ -195,13 +195,13 @@ export default function HostDashboard() {
                     live right now
                   </div>
                   <div className="display text-2xl truncate">{s.name}</div>
-                  <p className="text-sm opacity-70 mt-1">round {s.current_round} of {s.rounds_total} · {s.status.replace(/_/g, ' ')}</p>
+                  <p className="text-sm opacity-70 mt-1">Round {s.current_round} of {s.rounds_total} · {s.status.replace(/_/g, ' ')}</p>
                 </div>
                 <Link href={`/host/s/${s.id}`} className="display text-2xl no-underline whitespace-nowrap" style={{ color: '#000' }}>
-                  open →
+                  Open →
                 </Link>
               </div>
-              <CopyLink code={s.code} variant="oncyan" label="share this link with participants" />
+              <CopyLink code={s.code} variant="oncyan" label="Share this link with participants" />
             </div>
           ))}
         </div>
@@ -209,18 +209,18 @@ export default function HostDashboard() {
 
       {/* totals + sparklines */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-        <StatCard label="sessions hosted" value={data.totals.sessionsHosted} onClick={() => setActiveStat('sessions')} />
+        <StatCard label="Sessions hosted" value={data.totals.sessionsHosted} onClick={() => setActiveStat('sessions')} />
         <StatCard
-          label="connections made"
+          label="Connections made"
           value={data.totals.totalConnections}
           highlight
           spark={data.trends?.captures}
           onClick={() => setActiveStat('captures')}
         />
-        <StatCard label="unique people" value={data.totals.totalParticipants} spark={data.trends?.attendance} onClick={() => setActiveStat('people')} />
-        <StatCard label="newsletter opt-ins" value={data.totals.totalNewsletterOptIns} onClick={() => setActiveStat('newsletter')} />
+        <StatCard label="Unique people" value={data.totals.totalParticipants} spark={data.trends?.attendance} onClick={() => setActiveStat('people')} />
+        <StatCard label="Newsletter opt-ins" value={data.totals.totalNewsletterOptIns} onClick={() => setActiveStat('newsletter')} />
         <StatCard
-          label="minutes hosted"
+          label="Minutes hosted"
           value={data.totals.totalSessionMinutes}
           spark={data.trends?.minutes}
           onClick={() => setActiveStat('minutes')}
@@ -232,11 +232,11 @@ export default function HostDashboard() {
         <button
           type="button"
           onClick={() => setActiveStat('connectors')}
-          title="view all top connectors"
+          title="View all top connectors"
           className="w-full text-left sticker-sm bg-white rounded-md p-4 mb-3 flex items-center justify-between gap-4 hover:opacity-90 transition-opacity cursor-pointer"
         >
           <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">top connectors</div>
+            <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">Top connectors</div>
             <div className="text-sm mt-1 truncate">
               {data.topConnectors.slice(0, 3).map((c, i) => (
                 <span key={i}>
@@ -247,7 +247,7 @@ export default function HostDashboard() {
               ))}
             </div>
           </div>
-          <span className="text-sm underline whitespace-nowrap flex-shrink-0">view all →</span>
+          <span className="text-sm underline whitespace-nowrap flex-shrink-0">View all →</span>
         </button>
       )}
 
@@ -258,7 +258,7 @@ export default function HostDashboard() {
       {data.notify && (
         <div className="sticker-sm bg-white rounded-md p-4 mb-3 flex items-center justify-between gap-4 flex-wrap">
           <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">notify list (homepage signups)</div>
+            <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">Notify list (homepage signups)</div>
             <div className="text-sm mt-1">
               <strong style={{ color: '#01ecf3' }}>{data.notify.total}</strong> {data.notify.total === 1 ? 'person' : 'people'}
               <span className="text-neutral-500">
@@ -268,8 +268,8 @@ export default function HostDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3 text-sm flex-shrink-0">
-            <button type="button" onClick={() => setActiveStat('notify')} className="underline whitespace-nowrap">view list →</button>
-            <a href="/api/host/export/notify" download className="underline whitespace-nowrap text-neutral-600 hover:text-black">csv</a>
+            <button type="button" onClick={() => setActiveStat('notify')} className="underline whitespace-nowrap">View list →</button>
+            <a href="/api/host/export/notify" download className="underline whitespace-nowrap text-neutral-600 hover:text-black">CSV</a>
           </div>
         </div>
       )}
@@ -277,7 +277,7 @@ export default function HostDashboard() {
       {/* drafts */}
       {data.drafts.length > 0 && (
         <section className="mb-10">
-          <h2 className="display text-xl mb-3">drafts</h2>
+          <h2 className="display text-xl mb-3">Drafts</h2>
           <div className="grid gap-3">
             {data.drafts.map((s) => (
               <div key={s.id} className="sticker-sm bg-white rounded-md p-4">
@@ -285,24 +285,24 @@ export default function HostDashboard() {
                   <div className="min-w-0">
                     <div className="font-semibold truncate">{s.name}</div>
                     <div className="text-xs text-neutral-500">
-                      draft · publish before sharing{!s.mine && s.createdBy ? ` · by ${s.createdBy}` : ''}
+                      Draft · publish before sharing{!s.mine && s.createdBy ? ` · by ${s.createdBy}` : ''}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 text-sm flex-shrink-0">
-                    <Link href={`/host/new?id=${s.id}`} className="underline whitespace-nowrap">edit →</Link>
+                    <Link href={`/host/new?id=${s.id}`} className="underline whitespace-nowrap">Edit →</Link>
                     {/* the creator or an admin can delete a session (the server enforces this too) */}
                     {s.canDelete && (
                       <button
                         onClick={() => confirmDeleteSession(s.id, s.name)}
                         className="text-red-500 hover:text-red-700 underline"
-                        title="delete draft"
+                        title="Delete draft"
                       >
-                        delete
+                        Delete
                       </button>
                     )}
                   </div>
                 </div>
-                <CopyLink code={s.code} variant="light" label="participant link (works once you go live)" />
+                <CopyLink code={s.code} variant="light" label="Participant link (works once you go live)" />
               </div>
             ))}
           </div>
@@ -312,13 +312,13 @@ export default function HostDashboard() {
       {/* past sessions */}
       <section>
         <div className="flex items-center justify-between mb-3 gap-4">
-          <h2 className="display text-xl">past sessions</h2>
+          <h2 className="display text-xl">Past sessions</h2>
           <Link href="/host/new" className="btn-cyan px-5 py-3 rounded-md no-underline whitespace-nowrap">
-            new session *
+            New session *
           </Link>
         </div>
         {data.past.length === 0 ? (
-          <p className="text-neutral-500 italic">[no past sessions yet · run your first one and they'll show up here]</p>
+          <p className="text-neutral-500 italic">[No past sessions yet · run your first one and they'll show up here]</p>
         ) : (
           <div className="grid gap-3">
             {data.past.map((s) => (
@@ -331,21 +331,21 @@ export default function HostDashboard() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 text-sm flex-shrink-0">
-                    <Link href={`/host/s/${s.id}`} className="underline whitespace-nowrap">recap →</Link>
+                    <Link href={`/host/s/${s.id}`} className="underline whitespace-nowrap">Recap →</Link>
                     <a
                       href={`/api/sessions/${s.id}/export`}
                       download
                       className="underline whitespace-nowrap text-neutral-600 hover:text-black"
                     >
-                      csv
+                      CSV
                     </a>
                     {s.canDelete && (
                       <button
                         onClick={() => confirmDeleteSession(s.id, s.name)}
                         className="text-red-500 hover:text-red-700 underline pl-3 ml-1 border-l border-neutral-200"
-                        title="delete session"
+                        title="Delete session"
                       >
-                        delete
+                        Delete
                       </button>
                     )}
                   </div>
@@ -353,11 +353,11 @@ export default function HostDashboard() {
 
                 {/* inline stats */}
                 <div className="flex items-center gap-2 text-xs flex-wrap mt-3 pt-3 border-t border-neutral-100">
-                  <Stat label="attendance" value={s.attendance} />
-                  <Stat label="captures" value={s.captures} highlight />
-                  <Stat label="engagement" value={`${s.engagement_pct}%`} />
+                  <Stat label="Attendance" value={s.attendance} />
+                  <Stat label="Captures" value={s.captures} highlight />
+                  <Stat label="Engagement" value={`${s.engagement_pct}%`} />
                   {(s.returning > 0 || s.newCount > 0) && (
-                    <Stat label="people" value={`${s.returning} returning · ${s.newCount} new`} />
+                    <Stat label="People" value={`${s.returning} returning · ${s.newCount} new`} />
                   )}
                 </div>
               </div>
@@ -381,7 +381,7 @@ export default function HostDashboard() {
 
       {pendingDelete && (
         <TypedConfirmModal
-          title={pendingDelete.kind === 'person' ? 'delete this person, everywhere' : 'delete this session'}
+          title={pendingDelete.kind === 'person' ? 'Delete this person, everywhere' : 'Delete this session'}
           label={pendingDelete.label}
           detail={pendingDelete.detail}
           onConfirm={() => { const run = pendingDelete.run; setPendingDelete(null); run(); }}
@@ -413,7 +413,7 @@ function TypedConfirmModal({ title, label, detail, onConfirm, onClose }) {
               the name itself · without it, the label VISUALLY reads "TYPE DRAFTAUDIO"
               while the match below is case-sensitive against the real "draftaudio",
               so typing exactly what's on screen would never satisfy the check. */}
-          type <span className="text-black normal-case">{label}</span> to confirm
+          Type <span className="text-black normal-case">{label}</span> to confirm
         </label>
         <input
           type="text"
@@ -423,14 +423,14 @@ function TypedConfirmModal({ title, label, detail, onConfirm, onClose }) {
           className="w-full border-2 border-neutral-300 rounded-md px-3 py-2 mb-4 focus:border-red-500 focus:outline-none"
         />
         <div className="flex items-center justify-end gap-3">
-          <button type="button" onClick={onClose} className="text-sm underline text-neutral-500 hover:text-black">cancel</button>
+          <button type="button" onClick={onClose} className="text-sm underline text-neutral-500 hover:text-black">Cancel</button>
           <button
             type="button"
             disabled={!matches}
             onClick={onConfirm}
             className="px-4 py-2 rounded-md border-2 border-red-500 text-red-600 hover:bg-red-500 hover:text-white font-semibold text-sm disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-red-600"
           >
-            delete permanently
+            Delete permanently
           </button>
         </div>
       </div>
@@ -448,7 +448,7 @@ function StatCard({ label, value, highlight, spark, onClick }) {
       onClick={clickable ? onClick : undefined}
       className={`rounded-md p-4 flex flex-col justify-between gap-2 text-left ${highlight ? 'sticker' : 'bg-white border border-neutral-200'} ${clickable ? 'hover:opacity-90 hover:translate-y-[-1px] transition-all cursor-pointer' : ''}`}
       style={highlight ? { background: '#01ecf3' } : {}}
-      title={clickable ? `view ${label} details` : undefined}
+      title={clickable ? `View ${label} details` : undefined}
     >
       <div className="text-[10px] uppercase tracking-widest font-bold opacity-60 flex items-center justify-between gap-1">
         <span>{label}</span>
@@ -499,38 +499,38 @@ function StatDetailsModal({ kind, details, loading, onClose, onDeletePerson, isA
       <div className="bg-white rounded-md w-full max-w-3xl my-8 sticker" style={{ color: '#000' }}>
         <div className="flex items-center justify-between p-5 border-b border-neutral-200">
           <div>
-            <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">details</div>
+            <div className="text-[10px] uppercase tracking-widest font-bold text-neutral-500">Details</div>
             <div className="display text-2xl">{title}</div>
           </div>
-          <button onClick={onClose} className="text-2xl text-neutral-500 hover:text-black leading-none" title="close">×</button>
+          <button onClick={onClose} className="text-2xl text-neutral-500 hover:text-black leading-none" title="Close">×</button>
         </div>
         <div className="p-5">
-          {loading && <p className="text-sm text-neutral-500 italic">[loading...]</p>}
+          {loading && <p className="text-sm text-neutral-500 italic">[Loading...]</p>}
           {kind === 'notify' && !loading && details?.summary && (
             <div className="mb-5">
               <div className="flex flex-wrap gap-2 text-xs mb-3">
-                <Stat label="on the list" value={details.summary.total} highlight />
-                <Stat label="waiting for the next announcement" value={details.summary.waiting} />
-                <Stat label="already emailed" value={details.summary.emailed} />
-                <Stat label="unsubscribed" value={details.summary.unsubscribed} />
-                <Stat label="also in Kit (The Weekly)" value={details.summary.inKitWeekly} />
+                <Stat label="On the list" value={details.summary.total} highlight />
+                <Stat label="Waiting for the next announcement" value={details.summary.waiting} />
+                <Stat label="Already emailed" value={details.summary.emailed} />
+                <Stat label="Unsubscribed" value={details.summary.unsubscribed} />
+                <Stat label="Also in Kit (The Weekly)" value={details.summary.inKitWeekly} />
               </div>
               <p className="text-xs text-neutral-500">
-                one row per person, even if they signed up more than once. "waiting" people get the announcement the next time you create a session with "announce to the notify list" ticked.
-                this list is stored in Supabase; only people who ticked "add me to The Weekly" are also in Kit.{' '}
-                <a href="/api/host/export/notify" download className="underline">download csv</a>
+                One row per person, even if they signed up more than once. "waiting" people get the announcement the next time you create a session with "announce to the notify list" ticked.
+                This list is stored in Supabase; only people who ticked "add me to The Weekly" are also in Kit.{' '}
+                <a href="/api/host/export/notify" download className="underline">Download CSV</a>
               </p>
             </div>
           )}
           {!loading && details && details.rows && details.rows.length === 0 && (
-            <p className="text-sm text-neutral-500 italic">[nothing to show yet]</p>
+            <p className="text-sm text-neutral-500 italic">[Nothing to show yet]</p>
           )}
           {!loading && details && details.rows && details.rows.length > 0 && (
             <div className="overflow-x-auto">
               {kind === 'sessions' && (
                 <table className="w-full text-sm">
                   <thead className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 text-left">
-                    <tr><th className="py-2 pr-3">session</th><th className="py-2 pr-3">date</th><th className="py-2 pr-3">status</th><th className="py-2 pr-3">rounds</th><th className="py-2 pr-3">attendance</th><th className="py-2">captures</th></tr>
+                    <tr><th className="py-2 pr-3">Session</th><th className="py-2 pr-3">Date</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Rounds</th><th className="py-2 pr-3">Attendance</th><th className="py-2">Captures</th></tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-200">
                     {details.rows.map((r) => (
@@ -550,7 +550,7 @@ function StatDetailsModal({ kind, details, loading, onClose, onDeletePerson, isA
               {kind === 'captures' && (
                 <table className="w-full text-sm">
                   <thead className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 text-left">
-                    <tr><th className="py-2 pr-3">who captured</th><th className="py-2 pr-3">who they captured</th><th className="py-2 pr-3">session</th><th className="py-2">when</th></tr>
+                    <tr><th className="py-2 pr-3">Who captured</th><th className="py-2 pr-3">Who they captured</th><th className="py-2 pr-3">Session</th><th className="py-2">When</th></tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-200">
                     {details.rows.map((r) => (
@@ -571,7 +571,7 @@ function StatDetailsModal({ kind, details, loading, onClose, onDeletePerson, isA
               {(kind === 'people' || kind === 'newsletter') && (
                 <table className="w-full text-sm">
                   <thead className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 text-left">
-                    <tr><th className="py-2 pr-3">name</th><th className="py-2 pr-3">email</th><th className="py-2 pr-3">events</th><th className="py-2 pr-3">opt-in</th><th className="py-2">last seen</th></tr>
+                    <tr><th className="py-2 pr-3">Name</th><th className="py-2 pr-3">Email</th><th className="py-2 pr-3">Events</th><th className="py-2 pr-3">Opt-in</th><th className="py-2">Last seen</th></tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-200">
                     {details.rows.map((r) => (
@@ -579,7 +579,7 @@ function StatDetailsModal({ kind, details, loading, onClose, onDeletePerson, isA
                         <td className="py-2 pr-3 font-semibold">{r.name}</td>
                         <td className="py-2 pr-3 text-neutral-500">{r.email}</td>
                         <td className="py-2 pr-3">{r.events_attended}</td>
-                        <td className="py-2 pr-3">{r.newsletter_opt_in ? 'yes' : 'no'}</td>
+                        <td className="py-2 pr-3">{r.newsletter_opt_in ? 'Yes' : 'No'}</td>
                         <td className="py-2 text-neutral-500">{fmtDate(r.last_seen)}</td>
                       </tr>
                     ))}
@@ -590,7 +590,7 @@ function StatDetailsModal({ kind, details, loading, onClose, onDeletePerson, isA
               {kind === 'connectors' && (
                 <table className="w-full text-sm">
                   <thead className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 text-left">
-                    <tr><th className="py-2 pr-3">#</th><th className="py-2 pr-3">name</th><th className="py-2 pr-3">email</th><th className="py-2 pr-3">sessions</th><th className="py-2 pr-3">connections</th><th className="py-2"></th></tr>
+                    <tr><th className="py-2 pr-3">#</th><th className="py-2 pr-3">Name</th><th className="py-2 pr-3">Email</th><th className="py-2 pr-3">Sessions</th><th className="py-2 pr-3">Connections</th><th className="py-2"></th></tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-200">
                     {details.rows.map((r, i) => (
@@ -608,9 +608,9 @@ function StatDetailsModal({ kind, details, loading, onClose, onDeletePerson, isA
                               type="button"
                               onClick={() => onDeletePerson?.(r)}
                               className="text-xs text-red-500 hover:text-red-700 underline"
-                              title={`permanently delete ${r.name}`}
+                              title={`Permanently delete ${r.name}`}
                             >
-                              delete
+                              Delete
                             </button>
                           )}
                         </td>
@@ -623,15 +623,15 @@ function StatDetailsModal({ kind, details, loading, onClose, onDeletePerson, isA
               {kind === 'notify' && (
                 <table className="w-full text-sm">
                   <thead className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 text-left">
-                    <tr><th className="py-2 pr-3">name</th><th className="py-2 pr-3">email</th><th className="py-2 pr-3">signed up</th><th className="py-2 pr-3">status</th><th className="py-2 pr-3">kit</th><th className="py-2">how they heard</th></tr>
+                    <tr><th className="py-2 pr-3">Name</th><th className="py-2 pr-3">Email</th><th className="py-2 pr-3">Signed up</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Kit</th><th className="py-2">How they heard</th></tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-200">
                     {details.rows.map((r) => (
                       <tr key={r.email}>
                         <td className="py-2 pr-3 font-semibold">
                           {r.linkedin ? (
-                            <a href={r.linkedin} target="_blank" rel="noopener noreferrer" className="underline">{r.name || '(no name)'}</a>
-                          ) : (r.name || '(no name)')}
+                            <a href={r.linkedin} target="_blank" rel="noopener noreferrer" className="underline">{r.name || '(No name)'}</a>
+                          ) : (r.name || '(No name)')}
                         </td>
                         <td className="py-2 pr-3 text-neutral-500">
                           {r.email}
@@ -646,12 +646,12 @@ function StatDetailsModal({ kind, details, loading, onClose, onDeletePerson, isA
                                 : r.status === 'unsubscribed' ? { background: '#fee2e2', color: '#991b1b' }
                                   : { background: '#f3f4f6', color: '#6b7280' }
                             }
-                            title={r.lastEmailedAt ? `last emailed ${fmtDate(r.lastEmailedAt)}` : undefined}
+                            title={r.lastEmailedAt ? `Last emailed ${fmtDate(r.lastEmailedAt)}` : undefined}
                           >
                             {r.status}
                           </span>
                         </td>
-                        <td className="py-2 pr-3">{r.inKitWeekly ? 'yes' : 'no'}</td>
+                        <td className="py-2 pr-3">{r.inKitWeekly ? 'Yes' : 'No'}</td>
                         <td className="py-2 text-neutral-500 text-xs"><div className="truncate" style={{ maxWidth: '16rem' }} title={r.source || ''}>{r.source || ''}</div></td>
                       </tr>
                     ))}
@@ -662,7 +662,7 @@ function StatDetailsModal({ kind, details, loading, onClose, onDeletePerson, isA
               {kind === 'minutes' && (
                 <table className="w-full text-sm">
                   <thead className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 text-left">
-                    <tr><th className="py-2 pr-3">session</th><th className="py-2 pr-3">date</th><th className="py-2 pr-3">rounds</th><th className="py-2">minutes</th></tr>
+                    <tr><th className="py-2 pr-3">Session</th><th className="py-2 pr-3">Date</th><th className="py-2 pr-3">Rounds</th><th className="py-2">Minutes</th></tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-200">
                     {details.rows.map((r) => (

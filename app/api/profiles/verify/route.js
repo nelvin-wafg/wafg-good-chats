@@ -13,7 +13,7 @@ export async function GET(request) {
 
   const page = (title, message) => new NextResponse(
     `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>${title} · Good Chats</title></head>
+    <title>${title} · good chats</title></head>
     <body style="margin:0;padding:0;background:#f4f4f1;font-family:Inter,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;">
       <div style="max-width:420px;padding:32px;text-align:center;">
         <div style="font-family:Arial Black,sans-serif;font-size:32px;font-weight:900;letter-spacing:-1px;color:#000;margin-bottom:16px;">good<span>*</span>chats</div>
@@ -24,7 +24,7 @@ export async function GET(request) {
   );
 
   if (!verified) {
-    return page('link expired', "[this verification link is invalid or has expired. no worries — it doesn't affect your spot in any session you've already joined.]");
+    return page('Link expired', "[This verification link is invalid or has expired. No worries — it doesn't affect your spot in any session you've already joined.]");
   }
 
   const admin = adminClient();
@@ -35,7 +35,7 @@ export async function GET(request) {
     .maybeSingle();
 
   if (!profile || profile.email !== verified.email) {
-    return page('link expired', "[this verification link is invalid or has expired. no worries — it doesn't affect your spot in any session you've already joined.]");
+    return page('Link expired', "[This verification link is invalid or has expired. No worries — it doesn't affect your spot in any session you've already joined.]");
   }
 
   if (!profile.email_verified_at) {
@@ -62,5 +62,5 @@ export async function GET(request) {
       .catch(() => {});
   }
 
-  return page('you\'re verified', "you're all set. we'll send your session recap here, and if you opted in, the WAFG newsletter too.");
+  return page('You\'re verified', "You're all set. We'll send your session recap here, and if you opted in, the WAFG newsletter too.");
 }

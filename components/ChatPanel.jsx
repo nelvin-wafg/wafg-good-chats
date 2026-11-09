@@ -167,14 +167,14 @@ export default function ChatPanel({
                   type="button"
                   onClick={() => setPickerFor((cur) => (cur === m.id ? null : m.id))}
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] leading-none ${iconBtnClass}`}
-                  title="react"
-                  aria-label="react to this message"
+                  title="React"
+                  aria-label="React to this message"
                 >
                   🙂
                 </button>
                 {pickerFor === m.id && (
                   <>
-                    <button type="button" onClick={() => setPickerFor(null)} className="fixed inset-0 z-40 cursor-default" aria-label="close reaction picker" />
+                    <button type="button" onClick={() => setPickerFor(null)} className="fixed inset-0 z-40 cursor-default" aria-label="Close reaction picker" />
                     <div className={`absolute z-50 bottom-full mb-1 ${m.isLocal ? 'right-0' : 'left-0'} rounded-md border p-1 flex gap-0.5 ${pickerClass}`}>
                       {QUICK_EMOJI.map((emoji) => (
                         <button
@@ -194,8 +194,8 @@ export default function ChatPanel({
                 type="button"
                 onClick={() => setReplyTo({ id: m.id, text: m.text, from: m.from })}
                 className={`w-5 h-5 rounded-full flex items-center justify-center text-xs leading-none ${iconBtnClass}`}
-                title="reply"
-                aria-label="reply to this message"
+                title="Reply"
+                aria-label="Reply to this message"
               >
                 ↩
               </button>
@@ -224,7 +224,7 @@ export default function ChatPanel({
           className="px-3 py-2 rounded text-xs font-bold disabled:opacity-50"
           style={{ background: '#01ecf3', color: '#000' }}
         >
-          send
+          Send
         </button>
       </form>
     </div>

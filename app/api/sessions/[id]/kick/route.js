@@ -28,7 +28,7 @@ import { logAuditEvent } from '@/lib/audit';
 // genuine reconnect silently restore is_present on its own, no rejoin needed.
 export async function POST(request, { params }) {
   const auth = await getApprovedHost();
-  if (!auth) return new NextResponse('forbidden', { status: 403 });
+  if (!auth) return new NextResponse('Forbidden', { status: 403 });
 
   let sessionId, participantId, auto;
   try {
@@ -38,7 +38,7 @@ export async function POST(request, { params }) {
     auto = Boolean(body?.auto);
   } catch (err) {
     if (err instanceof ValidationError) return new NextResponse(err.message, { status: 400 });
-    return new NextResponse('bad request', { status: 400 });
+    return new NextResponse('Bad request', { status: 400 });
   }
 
   const admin = adminClient();
@@ -57,7 +57,7 @@ export async function POST(request, { params }) {
 
   if (error) {
     console.error('[kick] update failed', error);
-    return new NextResponse('could not kick', { status: 500 });
+    return new NextResponse('Could not kick', { status: 500 });
   }
 
   logAuditEvent({

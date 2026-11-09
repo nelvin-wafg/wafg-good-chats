@@ -51,7 +51,7 @@ function niceStep(max, targetLines = 4) {
 // reads in context instead of floating on its own.
 export function SparkBars({ data = [], labels = [], width = 600, height = 200, color = '#01ecf3' }) {
   if (!data || data.length === 0) {
-    return <div className="text-sm text-neutral-500 italic">[no data yet]</div>;
+    return <div className="text-sm text-neutral-500 italic">[No data yet]</div>;
   }
   const rawMax = Math.max(1, ...data);
   const step = niceStep(rawMax);

@@ -21,7 +21,7 @@ export async function GET(request) {
 // weren't sent a link for.
 export async function POST(request) {
   const allowed = await rateLimitByIp(request, 'unsubscribe', { limit: 20, windowSeconds: 60 });
-  if (!allowed) return new NextResponse('too many tries · give it a minute', { status: 429 });
+  if (!allowed) return new NextResponse('Too many tries · give it a minute', { status: 429 });
 
   const raw = await request.text().catch(() => '');
   let token = new URL(request.url).searchParams.get('t') || '';
@@ -31,7 +31,7 @@ export async function POST(request) {
   const source = raw.includes('List-Unsubscribe=One-Click') ? 'one-click' : 'link';
 
   const email = verifyUnsubscribeToken(token);
-  if (!email) return new NextResponse("this unsubscribe link isn't valid", { status: 400 });
+  if (!email) return new NextResponse("This unsubscribe link isn't valid", { status: 400 });
 
   const admin = adminClient();
 
@@ -48,10 +48,10 @@ export async function POST(request) {
     .upsert([{ email, source }], { onConflict: 'email', ignoreDuplicates: true });
   if (error) {
     if (error.code === '42P01' || error.code === 'PGRST205') {
-      return new NextResponse("unsubscribe isn't fully switched on yet · please try again later", { status: 503 });
+      return new NextResponse("Unsubscribe isn't fully switched on yet · please try again later", { status: 503 });
     }
     console.error('[unsubscribe] failed', error.message);
-    return new NextResponse("couldn't unsubscribe you · try again", { status: 500 });
+    return new NextResponse("Couldn't unsubscribe you · try again", { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }
