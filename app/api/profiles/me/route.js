@@ -66,7 +66,7 @@ export async function GET() {
         .select('id, round_number')
         .in('session_id', sessionIds),
       admin.from('participants')
-        .select('id, name, kicked_at, profile_id')
+        .select('id, name, kicked_at, profile_id, profiles(linkedin_url)')
         .in('session_id', sessionIds),
       admin.from('connection_events')
         .select('payload')

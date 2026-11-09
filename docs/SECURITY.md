@@ -265,6 +265,8 @@ For legal review, the following points are relevant. **Note: the data collected 
 | 2026-11-09 | Signing-key rotation: all six token types (participant, profile and signed-in cookies, email-verification, unsubscribe and tracked links) now sign with `SESSION_SECRET` and also verify against optional `SESSION_SECRET_PREVIOUS` via `lib/secrets.js`, so the key can be replaced without logging anyone out or breaking old emails. | Nelvin Johnson |
 | 2026-11-09 | Resubscribe confirmation: a sign-up for an unsubscribed address no longer silently re-adds it; that address gets a one-click confirmation email (`/resubscribe`, signed, 7 days, at most one per hour) and only the click re-adds it. Closes the known gap noted on 2026-11-08. | Nelvin Johnson |
 | 2026-11-09 | Host ready check: `GET /api/sessions/[id]/ready-check` (approved hosts only) summarises the last 30 minutes of participant-reported connection events (mic check results, mic state, media reconnects) and presence into a short list of who may have trouble. It reads data already collected; nothing new is stored. | Nelvin Johnson |
+| 2026-11-09 | Profile sign-in prompt: a browser the app does not recognise now gets a one-time email-link form on `/profile` (same `/api/auth/request-link`, same "check your inbox" answer whether or not a profile exists, so it does not reveal who has one). No new endpoint. | Nelvin Johnson |
+| 2026-11-09 | Profile history shows a partner's LinkedIn link for everyone who shared one, not only starred partners. Consistent with what partners already see of each other live in the call; http(s) links only; no email address is ever shown. Recap and follow-up emails keep the stricter starred-only rule. Still requires the signed-in cookie. | Nelvin Johnson |
 
 ---
 
