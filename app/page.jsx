@@ -305,6 +305,7 @@ function NotifyForm() {
       <div className="sticker bg-white rounded-md p-6 md:p-8 text-center">
         <div className="display text-3xl md:text-4xl mb-3">You're on the list <span style={{ color: '#01ecf3' }}>*</span></div>
         <p className="text-neutral-700">We'll be in touch the moment the next session is on the calendar.</p>
+        <p className="text-xs text-neutral-500 mt-3">[If you've unsubscribed before, we'll email you one link to confirm.]</p>
       </div>
     );
   }

@@ -7,6 +7,7 @@ import { createHash } from 'crypto';
 import { adminClient } from '@/lib/supabase-server';
 import { escHtml, sendInviteWelcomeEmail } from '@/lib/resend';
 import { REF_COOKIE, attributeInterest, findInviter } from '@/lib/referral';
+import { requestResubscribeConfirmation } from '@/lib/resubscribe-request';
 
 // POST /api/notify
 // body: { email, firstName, linkedinUrl?, source? }
@@ -61,11 +62,13 @@ export async function POST(request) {
     wasUnsubscribed = Boolean(u && u.length);
   } catch {}
 
-  // signing up here again is a deliberate fresh yes: clear an earlier unsubscribe so they
-  // actually get the announcements they just asked for. best-effort.
-  try {
-    await adminClient().from('email_unsubscribes').delete().eq('email', email);
-  } catch {}
+  // anyone can type any email into this form, so a sign-up alone is NOT enough to undo an
+  // unsubscribe: that would let a stranger re-add someone who opted out. instead we email that address
+  // a confirmation link; only clicking it (see /api/resubscribe) puts them back. the answer to the
+  // form is the same either way, so it can't be used to find out who has unsubscribed.
+  if (wasUnsubscribed) {
+    await requestResubscribeConfirmation({ email, firstName });
+  }
 
   // signed up after arriving through someone's invite link: credit the inviter (best-effort)
   try {

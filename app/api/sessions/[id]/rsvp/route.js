@@ -5,6 +5,7 @@ import { rateLimitByIp } from '@/lib/rate-limit';
 import { joinWindow } from '@/lib/join-window';
 import { sendRsvpConfirmationEmail } from '@/lib/resend';
 import { REF_COOKIE, attributeInterest } from '@/lib/referral';
+import { requestResubscribeConfirmation } from '@/lib/resubscribe-request';
 import { validateUuid, validateEmail, validateParticipantName, validateLinkedinUrl, ValidationError } from '@/lib/validate';
 
 export const dynamic = 'force-dynamic';
@@ -110,9 +111,10 @@ export async function POST(request, { params }) {
 }
 
 // adds the person to the homepage notify list (what /api/notify does), unless that address is
-// already on it. ticking the box is a deliberate fresh yes, so it also clears an earlier
-// unsubscribe (same rule as the homepage form). their row is left un-emailed on purpose: the
-// notify list's one announcement is for the NEXT session, which is what they asked to hear about.
+// already on it. their row is left un-emailed on purpose: the notify list's one announcement is for
+// the NEXT session, which is what they asked to hear about. if the address had UNSUBSCRIBED, ticking
+// the box is not enough (anyone can type any email): they are emailed a confirmation link instead,
+// and only clicking it puts them back (see /api/resubscribe).
 async function joinHomepageList(admin, { email, firstName, linkedinUrl, sessionName }) {
   try {
     const { data: existing, error: lookupErr } = await admin
@@ -131,7 +133,8 @@ async function joinHomepageList(admin, { email, firstName, linkedinUrl, sessionN
       });
       if (error) throw error;
     }
-    await admin.from('email_unsubscribes').delete().eq('email', email);
+    const { data: unsub } = await admin.from('email_unsubscribes').select('email').eq('email', email).limit(1);
+    if (unsub && unsub.length) await requestResubscribeConfirmation({ email, firstName });
   } catch (e) {
     console.warn('[rsvp] could not add to the notify list', e?.message || e);
   }

@@ -87,7 +87,7 @@ export default function InviteLanding({ code, first, next, prompt }) {
             <>
               <div className="display text-2xl">{next ? "You're in." : "You're on the list."} <span style={{ color: '#01ecf3' }}>*</span></div>
               <p className="text-sm text-neutral-700 mt-1">
-                {next ? "Check your email for a confirmation. The room opens 5 minutes before we start." : `We just sent you a note from ${first}'s invite. You'll get one more email, when the next call is on the calendar.`}
+                {next ? "Check your email for a confirmation. The room opens 5 minutes before we start." : `We just sent you a note from ${first}'s invite. You'll get one more email, when the next call is on the calendar. If you'd unsubscribed before, that note is a link to confirm.`}
               </p>
               {next && hasTime && (
                 <div className="flex flex-wrap gap-2 mt-3">
