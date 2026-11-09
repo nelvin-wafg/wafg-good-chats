@@ -172,12 +172,23 @@ Environment variables holding sensitive configuration:
 - `SUPABASE_SERVICE_ROLE_KEY` (server-only, bypasses RLS)
 - `DAILY_API_KEY` (server-only, used to mint Daily.co tokens)
 - `DAILY_DOMAIN` (semi-public)
-- `SESSION_SECRET` (server-only, signs participant identity + profile cookies via HMAC-SHA256)
+- `SESSION_SECRET` (server-only, signs every cookie and link we issue via HMAC-SHA256: participant, profile and signed-in cookies, email-verification, unsubscribe and tracked-link tokens)
+- `SESSION_SECRET_PREVIOUS` (optional, server-only, one or more old signing keys separated by commas; things signed with them still verify, nothing new is signed with them; see "Rotating the signing key")
 - `KIT_API_KEY` (server-only, newsletter sync — optional; absence disables sync)
 - `KIT_FORM_ID` (server-only, Kit form to subscribe joiners to)
 - `CRON_SECRET` (server-only — protects both scheduled endpoints, `/api/cron/cleanup` and `/api/cron/reminders` (the day-of reminder email to people who saved a spot); Vercel cron sends it as a bearer token, and with it unset both refuse every request)
 
 All secrets are stored in Vercel's encrypted environment variable store. None are committed to the repository. The `.env.example` file documents the required keys with placeholder values only. The `.gitignore` excludes `.env`, `.env.local`, and similar files.
+
+### Rotating the signing key
+
+All signing goes through `lib/secrets.js`: it signs with `SESSION_SECRET` and verifies against `SESSION_SECRET` plus any `SESSION_SECRET_PREVIOUS`. To rotate with nobody logged out and no old link broken:
+
+1. Generate a new random value (at least 32 characters).
+2. In Vercel set `SESSION_SECRET_PREVIOUS` to the **old** `SESSION_SECRET`, and `SESSION_SECRET` to the **new** value. Redeploy.
+3. Keep the previous key until everything it signed has expired or stopped mattering, then delete `SESSION_SECRET_PREVIOUS`.
+
+How long to keep it: participant cookies 8 hours, email-verification links 48 hours, signed-in cookie 90 days, profile cookie 6 months. **Unsubscribe links and tracked email links never expire**, so removing the old key kills the unsubscribe link in every email sent before the rotation; keep the previous key as long as old emails should still work (a year is reasonable). If the old key was **leaked**, rotate and then remove the previous key straight away, accepting that older unsubscribe links and cookies stop working.
 
 The `SUPABASE_SERVICE_ROLE_KEY` is scoped to server-side usage only (`lib/supabase-server.js`); it is never imported or referenced in client components.
 
@@ -207,7 +218,7 @@ The following items are known to be incomplete. They reflect the "small, private
 | **No CAPTCHA or bot detection on `/join`** | Sufficient for current trusted-link distribution; would not survive a brigading attempt against a public link. | Add a lightweight challenge (e.g., Turnstile) if usage broadens. |
 | **No content moderation on participant names** | A participant can join with an offensive display name. Mitigated by host's ability to end the session early. | Add a profanity filter, optional host approval queue for joiners. |
 | **No backup/recovery plan for participant cookies** | Participants whose cookie is cleared mid-session must rejoin. A persistent profile cookie (6-month, HMAC-signed) now recognizes returning users on the same device. | Optional: support a recover-by-link flow if requested. |
-| **Single shared `SESSION_SECRET`** | Rotating the secret invalidates all in-flight participant cookies. | For future, support multiple active signing keys with kid-based rotation. |
+| **One signing key for everything** | If the key leaked, an attacker could forge any cookie or link until it was replaced. Rotation is now painless (see section 10), but it is still a single key shared by every token type; the `signin:`, `unsubscribe:` and `track:` prefixes keep tokens from being valid as each other. | Separate keys per token type if the threat model ever calls for it. Rotate on a schedule (e.g. yearly) and immediately on any suspected leak. |
 | **Hobby plan gates collaboration on private repos** | Commits authored by accounts other than the project owner are blocked from deploying. Operationally confusing rather than insecure. | Upgrade to Pro plan, or make the repo public, or use only nelvin-wafg as the commit author. |
 | **Referral credit can be gamed with throwaway emails** | Credit is given when a brand-new profile joins its first call through an invite link. Someone could create fake emails to inflate their own "people you brought" count. Harmless while the count is only shown to the member, but it would matter if recognition or rewards were ever tied to it. | Before attaching any reward: require the invitee to attend a full session (e.g. 3+ completed rounds) and have a verified email, and cap credit per day. |
 | **Notify sign-up can re-subscribe an unsubscribed address** | `/api/notify` clears an earlier unsubscribe for whatever address is typed ("a deliberate fresh yes"), with no proof the typer owns the inbox. A stranger could re-add someone who opted out to the one-time announcement email. | Make a sign-up for a previously unsubscribed address require a confirmation click (double opt-in) before it is re-added. |
@@ -251,6 +262,7 @@ For legal review, the following points are relevant. **Note: the data collected 
 | 2026-11-07 | Profile is the one-stop page: next-call card (save a spot / join / calendar / notify toggle), personal invite links with a referral tracker (`referral_events`, `profiles.invite_code`, `profiles.referred_by`), invite landing page + preview image. Calls-based levels removed. Documented the remaining referral-gaming risk in section 12. | Nelvin Johnson |
 | 2026-11-07 | Day-after follow-up email ("who do you want to talk to again?", a ready-to-send note per person, runs inside the daily reminders job), signed click tracking for LinkedIn links (`/go/<token>`, `link_clicks`), personal invite line in the recap, and an "after the call" card on the host dashboard. | Nelvin Johnson |
 | 2026-11-08 | Invite page sign-up: LinkedIn optional (invite page only), one "you're on the list" welcome email naming the inviter, limited to invite sign-ups, one per address per hour, never to an address that had unsubscribed (checked before the sign-up clears the unsubscribe). Noted: the existing sign-up clears an earlier unsubscribe for any typed address, which lets a stranger re-add someone to the announcement list; fix is to require email confirmation (section 12). | Nelvin Johnson |
+| 2026-11-09 | Signing-key rotation: all six token types (participant, profile and signed-in cookies, email-verification, unsubscribe and tracked links) now sign with `SESSION_SECRET` and also verify against optional `SESSION_SECRET_PREVIOUS` via `lib/secrets.js`, so the key can be replaced without logging anyone out or breaking old emails. | Nelvin Johnson |
 
 ---
 
