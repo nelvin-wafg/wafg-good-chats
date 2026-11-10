@@ -16,6 +16,18 @@ export default function Landing() {
   // time, measured once when /api/landing answers. `now` then ticks once a second.
   const [clockOffset, setClockOffset] = useState(0);
   const [now, setNow] = useState(null);
+  // 'none' | 'known' | 'signedIn', or null until the answer is in (the button waits for it so a
+  // signed-in person never sees "Sign in" flash to "My profile")
+  const [who, setWho] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/profiles/status', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled) setWho(d?.state || 'none'); })
+      .catch(() => { if (!cancelled) setWho('none'); });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,7 +63,7 @@ export default function Landing() {
           <div className="text-xs uppercase tracking-widest font-bold text-neutral-500 mb-4">
             We Are For Good
           </div>
-          <h1 className="display text-7xl md:text-9xl leading-none mb-6">
+          <h1 className="display text-[3.25rem] sm:text-7xl md:text-9xl leading-none mb-6">
             good<span style={{ color: '#01ecf3' }}>*</span>chats
           </h1>
           <p className="text-xl md:text-2xl text-neutral-700">
@@ -75,10 +87,28 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* next session pill · fixed top-right · subtle indicator, not a hero */}
-      {loadedNext && nextSession && (
-        <NextSessionPill session={nextSession} now={now} />
-      )}
+      {/* top bar · fixed top-right · the next-session pill (when there is one) and the
+          sign-in button. on a phone they stack, pill underneath */}
+      <div
+        style={{
+          position: 'fixed',
+          top: '1.25rem',
+          right: '1.25rem',
+          zIndex: 50,
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'wrap-reverse',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          gap: '0.5rem',
+          maxWidth: 'calc(100vw - 2.5rem)',
+        }}
+      >
+        {loadedNext && nextSession && (
+          <NextSessionPill session={nextSession} now={now} />
+        )}
+        {who && <AccountButton who={who} />}
+      </div>
 
       {/* why · same min-h-screen pattern as the hero · content centered, scroll
           cue pinned to the bottom of the viewport pointing into "how it works" */}
@@ -180,7 +210,7 @@ export default function Landing() {
 }
 
 // ============================================================================
-// Next session pill · fixed top-right corner · subtle indicator
+// Next session pill · sits in the top-right bar · subtle indicator
 // ============================================================================
 function NextSessionPill({ session, now }) {
   const win = joinWindow(session.startsAt, now ?? Date.now());
@@ -209,10 +239,6 @@ function NextSessionPill({ session, now }) {
       href={`/r/${session.code}`}
       className="no-underline"
       style={{
-        position: 'fixed',
-        top: '1.25rem',
-        right: '1.25rem',
-        zIndex: 50,
         display: 'inline-flex',
         alignItems: 'center',
         gap: '0.4rem',
@@ -238,6 +264,36 @@ function NextSessionPill({ session, now }) {
         }}
       />
       <span>{label} →</span>
+    </Link>
+  );
+}
+
+// ============================================================================
+// Sign in / My profile button · top-right bar
+// ============================================================================
+// optional. nothing requires an account: guests still join with no sign-in. "Sign in" goes to
+// the one-time-link page; a browser that already has a profile goes straight to it.
+function AccountButton({ who }) {
+  const known = who === 'known' || who === 'signedIn';
+  return (
+    <Link
+      href={known ? '/profile' : '/signin'}
+      className="no-underline"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        background: '#000',
+        border: '1.5px solid #000',
+        borderRadius: '9999px',
+        padding: '0.35rem 0.95rem',
+        fontSize: '0.75rem',
+        fontWeight: 700,
+        color: '#fff',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {known ? 'My profile' : 'Sign in'}
     </Link>
   );
 }

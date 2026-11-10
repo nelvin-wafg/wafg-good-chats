@@ -37,6 +37,9 @@ export default function EmailLinkForm({ buttonLabel = 'Email me a link →' }) {
         <p className="text-neutral-700 text-sm">
           If there's a good chats profile for that email, a sign-in link is on its way. It works once and expires in 15 minutes.
         </p>
+        <p className="text-neutral-500 text-xs mt-3">
+          Nothing after a few minutes? Check spam, or you may not have a profile yet. Join a call or save a spot and one is created for you.
+        </p>
       </div>
     );
   }
