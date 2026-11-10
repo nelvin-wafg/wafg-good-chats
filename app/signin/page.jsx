@@ -54,7 +54,7 @@ export default function SignInPage() {
         <div className="display text-3xl mb-1">good<span style={{ color: '#01ecf3' }}>*</span>chats</div>
 
         {!ready ? (
-          <p className="text-neutral-500 text-sm mt-6">[One sec...]</p>
+          <p className="text-neutral-500 text-sm mt-6">One sec...</p>
         ) : token ? (
           <>
             <p className="text-neutral-700 mt-4 mb-6">You're almost in. Tap continue to see your good chats history.</p>

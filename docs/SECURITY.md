@@ -267,6 +267,7 @@ For legal review, the following points are relevant. **Note: the data collected 
 | 2026-11-09 | Host ready check: `GET /api/sessions/[id]/ready-check` (approved hosts only) summarises the last 30 minutes of participant-reported connection events (mic check results, mic state, media reconnects) and presence into a short list of who may have trouble. It reads data already collected; nothing new is stored. | Nelvin Johnson |
 | 2026-11-09 | Profile sign-in prompt: a browser the app does not recognise now gets a one-time email-link form on `/profile` (same `/api/auth/request-link`, same "check your inbox" answer whether or not a profile exists, so it does not reveal who has one). No new endpoint. | Nelvin Johnson |
 | 2026-11-09 | Profile history shows a partner's LinkedIn link for everyone who shared one, not only starred partners. Consistent with what partners already see of each other live in the call; http(s) links only; no email address is ever shown. Recap and follow-up emails keep the stricter starred-only rule. Still requires the signed-in cookie. | Nelvin Johnson |
+| 2026-11-10 | Homepage Sign in / My profile button. New `GET /api/profiles/status` returns one word (`none`, `known` or `signedIn`) about the caller's OWN cookies by checking their signatures only: no database lookup, no profile data, `Cache-Control: no-store`. It cannot be used to learn whether any email or person has a profile. The sign-in confirmation now says a missing email may mean no profile exists yet (shown to everyone, so it reveals nothing). | Nelvin Johnson |
 
 ---
 
